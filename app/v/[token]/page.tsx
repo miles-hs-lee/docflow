@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
 import { getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
-import { createViewerSessionId, hashIp } from '@/lib/security';
+import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -15,10 +15,11 @@ type ViewerPageProps = {
 export default async function ViewerPage({ params, searchParams }: ViewerPageProps) {
   const { token } = await params;
   const query = await searchParams;
+  const selectedFileId = typeof query.fileId === 'string' ? query.fileId : null;
 
   const link = await getViewerLinkByToken(token);
 
-  if (!link || !link.file) {
+  if (!link) {
     return (
       <main className="viewer-layout">
         <section className="viewer-card">
@@ -32,6 +33,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   const cookieStore = await cookies();
   const rawGrant = cookieStore.get(getGrantCookieName(link.id))?.value;
   const grant = decodeGrantCookie(rawGrant, link.id);
+  const eventFileId = link.file?.id ?? link.collection_files[0]?.id ?? null;
 
   const baseDenied = evaluateBasePolicy({ link, grant });
   const grantDenied = !baseDenied ? evaluateGrantPolicy({ link, grant }) : null;
@@ -61,9 +63,9 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
   if (baseDenied) {
     const headersList = await headers();
-    let sessionId = cookieStore.get(VIEWER_SESSION_COOKIE)?.value;
-    if (!sessionId) {
-      sessionId = createViewerSessionId();
+    const rawSessionId = cookieStore.get(VIEWER_SESSION_COOKIE)?.value;
+    const sessionId = normalizeViewerSessionId(rawSessionId);
+    if (!rawSessionId || rawSessionId !== sessionId) {
       cookieStore.set(VIEWER_SESSION_COOKIE, sessionId, {
         path: '/',
         httpOnly: true,
@@ -76,17 +78,23 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
     const userAgent = headersList.get('user-agent');
 
-    await recordLinkEvent({
-      linkId: link.id,
-      fileId: link.file.id,
-      ownerId: link.owner_id,
-      eventType: 'denied',
-      reason: baseDenied,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash: hashIp(ip),
-      userAgent
-    });
+    if (eventFileId) {
+      try {
+        await recordLinkEvent({
+          linkId: link.id,
+          fileId: eventFileId,
+          ownerId: link.owner_id,
+          eventType: 'denied',
+          reason: baseDenied,
+          sessionId,
+          viewerEmail: grant?.email,
+          ipHash: hashIp(ip),
+          userAgent
+        });
+      } catch {
+        // Do not fail page render when analytics ingest is unavailable.
+      }
+    }
 
     return (
       <main className="viewer-layout">
@@ -131,29 +139,63 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     );
   }
 
+  const availableFiles = link.file ? [link.file] : link.collection_files;
+  const activeFile =
+    (selectedFileId ? availableFiles.find((item) => item.id === selectedFileId) : null) ?? availableFiles[0] ?? null;
+
+  if (!activeFile) {
+    return (
+      <main className="viewer-layout">
+        <section className="viewer-card">
+          <h1>문서에 접근할 수 없습니다.</h1>
+          <p>이 링크에 연결된 문서를 찾을 수 없습니다.</p>
+        </section>
+      </main>
+    );
+  }
+
+  const docSrc = link.collection_id
+    ? `/api/v/${token}/document?fileId=${encodeURIComponent(activeFile.id)}`
+    : `/api/v/${token}/document`;
+  const downloadSrc = link.collection_id
+    ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
+    : `/api/v/${token}/download`;
+
   return (
-    <main className="viewer-layout">
-      <section className="viewer-card viewer-card-wide">
-        <div className="between">
-          <div>
-            <h1>{link.label}</h1>
-            <p className="muted">보안 링크를 통해 문서가 로드됩니다.</p>
-          </div>
+    <main className="viewer-app">
+      <header className="viewer-topbar">
+        <div className="viewer-brand">
+          <strong>DocFlow</strong>
+          <span className="viewer-title">
+            {link.label}
+            {link.collection_id ? ` · ${activeFile.original_name}` : ''}
+          </span>
+        </div>
+        <div className="viewer-actions">
           {link.allow_download ? (
-            <a className="button button-primary" href={`/api/v/${token}/download`}>
+            <a className="button button-primary" href={downloadSrc}>
               다운로드
             </a>
           ) : (
             <span className="badge badge-inactive">다운로드 차단</span>
           )}
         </div>
-
-        <iframe
-          className="pdf-frame"
-          title="shared-pdf"
-          src={`/api/v/${token}/document`}
-          sandbox="allow-scripts allow-same-origin"
-        />
+      </header>
+      <section className={`viewer-main${link.collection_id ? ' with-list' : ''}`}>
+        {link.collection_id ? (
+          <aside className="viewer-file-list">
+            {availableFiles.map((file) => {
+              const href = `/v/${token}?fileId=${encodeURIComponent(file.id)}`;
+              const isActive = file.id === activeFile.id;
+              return (
+                <a key={file.id} href={href} className={`viewer-file-link${isActive ? ' active' : ''}`}>
+                  {file.original_name}
+                </a>
+              );
+            })}
+          </aside>
+        ) : null}
+        <iframe className="pdf-frame" title="shared-pdf" src={docSrc} />
       </section>
     </main>
   );

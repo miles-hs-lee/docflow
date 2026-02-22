@@ -5,17 +5,17 @@ import { notFound } from 'next/navigation';
 import { CopyButton } from '@/components/copy-button';
 import { Flash } from '@/components/flash';
 import {
-  createShareLinkAction,
+  createCollectionShareLinkAction,
   softDeleteLinkAction,
   updateShareLinkAction
 } from '@/lib/actions/owner';
-import { publicEnv } from '@/lib/env-public';
 import { requireOwner } from '@/lib/auth';
-import { getFile, getMetricsForFile, listLinksForFile } from '@/lib/data';
+import { getCollection, listFilesForCollection, listLinksForCollection } from '@/lib/data';
+import { publicEnv } from '@/lib/env-public';
 import { formatDateOnly, formatDateTime } from '@/lib/format';
 
-type FileLinksPageProps = {
-  params: Promise<{ fileId: string }>;
+type CollectionLinksPageProps = {
+  params: Promise<{ collectionId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -37,27 +37,29 @@ function linkStatus(link: {
   return 'active';
 }
 
-export default async function FileLinksPage({ params, searchParams }: FileLinksPageProps) {
-  const { fileId } = await params;
+export default async function CollectionLinksPage({ params, searchParams }: CollectionLinksPageProps) {
+  const { collectionId } = await params;
   const query = await searchParams;
   const headerStore = await headers();
 
   const { supabase } = await requireOwner();
-  const [file, links, metricsMap] = await Promise.all([
-    getFile(supabase, fileId),
-    listLinksForFile(supabase, fileId),
-    getMetricsForFile(supabase, fileId)
+  const [collection, files, links] = await Promise.all([
+    getCollection(supabase, collectionId),
+    listFilesForCollection(supabase, collectionId),
+    listLinksForCollection(supabase, collectionId)
   ]);
 
-  if (!file) {
+  if (!collection) {
     notFound();
   }
 
   const success = typeof query.success === 'string' ? decodeURIComponent(query.success) : undefined;
   const error = typeof query.error === 'string' ? decodeURIComponent(query.error) : undefined;
+
   const host = headerStore.get('x-forwarded-host') ?? headerStore.get('host');
   const protocol = headerStore.get('x-forwarded-proto') ?? 'https';
   const appOrigin = host ? `${protocol}://${host}` : publicEnv.appUrl;
+  const redirectPath = `/dashboard/collections/${collection.id}`;
 
   return (
     <section className="stack-lg">
@@ -66,22 +68,39 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
       <article className="panel">
         <div className="between">
           <div>
-            <h2>{file.original_name}</h2>
-            <p className="muted">업로드일: {formatDateTime(file.created_at)}</p>
+            <h2>{collection.name}</h2>
+            <p className="muted">
+              포함 문서 {files.length}개 {collection.description ? `| ${collection.description}` : ''}
+            </p>
           </div>
           <Link href="/dashboard" className="button button-ghost">
-            파일 목록으로
+            대시보드로
           </Link>
         </div>
       </article>
 
       <article className="panel">
-        <h2>공유 링크 생성</h2>
-        <form action={createShareLinkAction} className="form-grid link-create-grid">
-          <input type="hidden" name="fileId" value={file.id} />
+        <h2>포함 문서</h2>
+        {files.length === 0 ? (
+          <p className="muted">묶음에 포함된 문서가 없습니다.</p>
+        ) : (
+          <div className="collection-file-list">
+            {files.map((file) => (
+              <span key={file.id} className="collection-file-chip">
+                {file.original_name}
+              </span>
+            ))}
+          </div>
+        )}
+      </article>
+
+      <article className="panel">
+        <h2>문서 묶음 링크 생성</h2>
+        <form action={createCollectionShareLinkAction} className="form-grid link-create-grid">
+          <input type="hidden" name="collectionId" value={collection.id} />
           <label>
             링크 이름
-            <input name="label" required placeholder="거래처 A용" />
+            <input name="label" required placeholder="영업 제안 패키지" />
           </label>
           <label>
             만료일
@@ -126,7 +145,6 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
         ) : (
           <div className="stack-sm">
             {links.map((link) => {
-              const metrics = metricsMap.get(link.id);
               const status = linkStatus(link);
               const url = `${appOrigin}/v/${link.token}`;
 
@@ -145,7 +163,7 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
                       </Link>
                       <form action={softDeleteLinkAction}>
                         <input type="hidden" name="linkId" value={link.id} />
-                        <input type="hidden" name="fileId" value={file.id} />
+                        <input type="hidden" name="redirectTo" value={redirectPath} />
                         <button type="submit" className="button button-danger">
                           삭제
                         </button>
@@ -156,32 +174,27 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
                   <div className="metric-grid compact">
                     <div>
                       <p className="metric-label">조회수</p>
-                      <p className="metric-value">{metrics?.views ?? link.view_count}</p>
-                    </div>
-                    <div>
-                      <p className="metric-label">유니크</p>
-                      <p className="metric-value">{metrics?.unique_viewers ?? 0}</p>
+                      <p className="metric-value">{link.view_count}</p>
                     </div>
                     <div>
                       <p className="metric-label">다운로드</p>
-                      <p className="metric-value">{metrics?.downloads ?? link.download_count}</p>
+                      <p className="metric-value">{link.download_count}</p>
                     </div>
                     <div>
                       <p className="metric-label">거부</p>
-                      <p className="metric-value">{metrics?.denied ?? link.denied_count}</p>
+                      <p className="metric-value">{link.denied_count}</p>
+                    </div>
+                    <div>
+                      <p className="metric-label">생성일</p>
+                      <p className="metric-value">{formatDateOnly(link.created_at)}</p>
                     </div>
                   </div>
-
-                  <p className="muted small">
-                    생성일 {formatDateOnly(link.created_at)} | 만료일 {formatDateTime(link.expires_at)} | 다운로드{' '}
-                    {link.allow_download ? '허용' : '차단'}
-                  </p>
 
                   <details className="link-edit-toggle">
                     <summary>정책 수정</summary>
                     <form action={updateShareLinkAction} className="form-grid compact">
                       <input type="hidden" name="linkId" value={link.id} />
-                      <input type="hidden" name="fileId" value={file.id} />
+                      <input type="hidden" name="redirectTo" value={redirectPath} />
                       <label>
                         이름
                         <input name="label" defaultValue={link.label} required />
@@ -224,6 +237,10 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
                       </button>
                     </form>
                   </details>
+
+                  <p className="muted small">
+                    만료일 {formatDateTime(link.expires_at)} | 다운로드 {link.allow_download ? '허용' : '차단'}
+                  </p>
                 </article>
               );
             })}

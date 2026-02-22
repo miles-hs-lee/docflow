@@ -27,9 +27,13 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
     notFound();
   }
 
-  const [fileResult, metricsMap, deniedBreakdown, eventsResult] = await Promise.all([
-    supabase.from('files').select('id, original_name').eq('id', link.file_id).maybeSingle(),
-    getMetricsForFile(supabase, link.file_id),
+  const [fileResult, collectionResult, deniedBreakdown, eventsResult] = await Promise.all([
+    link.file_id
+      ? supabase.from('files').select('id, original_name').eq('id', link.file_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    link.collection_id
+      ? supabase.from('collections').select('id, name').eq('id', link.collection_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     getDeniedBreakdown(supabase, link.id),
     supabase
       .from('link_events')
@@ -39,9 +43,12 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
       .limit(100)
   ]);
 
-  const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || 'Unknown file';
+  const metricsMap = link.file_id ? await getMetricsForFile(supabase, link.file_id) : new Map();
+  const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || null;
+  const collectionName = ((collectionResult.data as { name?: string } | null)?.name) || null;
   const metrics = metricsMap.get(link.id);
   const events = (eventsResult.data ?? []) as LinkEventRow[];
+  const backPath = link.collection_id ? `/dashboard/collections/${link.collection_id}` : `/dashboard/files/${link.file_id}`;
 
   return (
     <section className="stack-lg">
@@ -49,9 +56,11 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
         <div className="between">
           <div>
             <h2>{link.label}</h2>
-            <p className="muted">파일: {fileName}</p>
+            <p className="muted">
+              대상: {collectionName ? `문서 묶음 - ${collectionName}` : fileName ?? 'Unknown'}
+            </p>
           </div>
-          <Link href={`/dashboard/files/${link.file_id}`} className="button button-ghost">
+          <Link href={backPath} className="button button-ghost">
             링크 목록으로
           </Link>
         </div>

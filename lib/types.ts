@@ -1,4 +1,14 @@
 export type LinkEventType = 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download';
+export type AutomationEventType = LinkEventType;
+
+export type McpScope =
+  | 'files:read'
+  | 'files:write'
+  | 'links:read'
+  | 'links:write'
+  | 'analytics:read'
+  | 'automations:read'
+  | 'automations:write';
 
 export type DeniedReason =
   | 'expired'
@@ -15,7 +25,8 @@ export type DeniedReason =
 
 export type ShareLinkRow = {
   id: string;
-  file_id: string;
+  file_id: string | null;
+  collection_id: string | null;
   owner_id: string;
   label: string;
   token: string;
@@ -40,6 +51,10 @@ export type ShareLinkTrashRow = ShareLinkRow & {
     id: string;
     original_name: string;
   } | null;
+  collection?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 export type FileRow = {
@@ -51,6 +66,76 @@ export type FileRow = {
   storage_path: string;
   created_at: string;
   updated_at: string;
+};
+
+export type CollectionRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CollectionSummaryRow = CollectionRow & {
+  file_count: number;
+};
+
+export type McpApiKeyRow = {
+  id: string;
+  owner_id: string;
+  label: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type AutomationSubscriptionRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  webhook_url: string;
+  signing_secret: string | null;
+  event_types: AutomationEventType[];
+  is_active: boolean;
+  last_delivery_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LinkEventRow = {
+  id: number;
+  link_id: string;
+  file_id: string;
+  owner_id: string;
+  event_type: LinkEventType;
+  reason: string | null;
+  session_id: string | null;
+  viewer_email: string | null;
+  ip_hash: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export type OutboxPayload = {
+  eventId: number;
+  eventType: LinkEventType;
+  ownerId: string;
+  linkId: string;
+  fileId: string;
+  reason: string | null;
+  sessionId: string | null;
+  viewerEmail: string | null;
+  createdAt: string;
+};
+
+export type ViewerLinkBundle = ShareLinkRow & {
+  file: FileRow | null;
+  collection: CollectionRow | null;
+  collection_files: FileRow[];
 };
 
 export type LinkMetrics = {

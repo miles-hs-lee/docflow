@@ -13,8 +13,5 @@ export function getServiceRoleKey() {
 export const serverEnv = {
   ...publicEnv,
   supabaseServiceRoleKey,
-  viewerCookieSecret: process.env.VIEWER_COOKIE_SECRET || 'replace-me-in-production',
-  previewTestLoginEnabled: (process.env.PREVIEW_TEST_LOGIN_ENABLED || '').trim().toLowerCase() === 'true',
-  previewTestEmail: (process.env.PREVIEW_TEST_EMAIL || '').trim(),
-  previewTestPassword: (process.env.PREVIEW_TEST_PASSWORD || '').trim()
+  viewerCookieSecret: process.env.VIEWER_COOKIE_SECRET || 'replace-me-in-production'
 };

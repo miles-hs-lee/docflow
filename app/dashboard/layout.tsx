@@ -12,11 +12,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard" className="brand-link">
             DocFlow
           </Link>
-          <p className="muted">{user.email}</p>
+          <p className="muted small">{user.email}</p>
         </div>
         <nav className="dashboard-nav">
           <Link href="/dashboard" className="nav-link">
             파일
+          </Link>
+          <Link href="/dashboard/automations" className="nav-link">
+            자동화
           </Link>
           <Link href="/dashboard/trash" className="nav-link">
             휴지통

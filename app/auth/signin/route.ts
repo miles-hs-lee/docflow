@@ -1,22 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
-
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const redirectTo = `${url.origin}/auth/callback`;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'azure',
-    options: {
-      redirectTo
-    }
-  });
-
-  if (error || !data.url) {
-    return NextResponse.redirect(`${url.origin}/login?error=${encodeURIComponent('로그인 요청에 실패했습니다.')}`);
-  }
-
-  return NextResponse.redirect(data.url);
+  const url = new URL('/login', request.url);
+  url.searchParams.set('error', 'M365 로그인은 제거되었습니다. 이메일 로그인을 사용해주세요.');
+  return NextResponse.redirect(url);
 }

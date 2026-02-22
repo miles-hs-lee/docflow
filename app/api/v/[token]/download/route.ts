@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
-import { createViewerSessionId, hashIp } from '@/lib/security';
+import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { getViewerLinkByToken, downloadPdfObject, recordLinkEvent } from '@/lib/data';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
@@ -42,16 +42,43 @@ async function logDenied(args: {
   });
 }
 
+async function safeLogDenied(args: {
+  reason: DeniedReason;
+  linkId: string;
+  fileId: string;
+  ownerId: string;
+  sessionId: string;
+  viewerEmail?: string;
+  ipHash?: string | null;
+  userAgent?: string | null;
+}) {
+  try {
+    await logDenied(args);
+  } catch {
+    // Analytics write failures must not block response.
+  }
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
+  const requestedFileId = request.nextUrl.searchParams.get('fileId');
 
   const bundle = await getViewerLinkByToken(token);
-  if (!bundle || !bundle.file) {
+  if (!bundle) {
+    return buildDeniedResponse('file_missing', 404);
+  }
+  const targetFile =
+    bundle.file ??
+    (requestedFileId ? bundle.collection_files.find((item) => item.id === requestedFileId) : null) ??
+    bundle.collection_files[0] ??
+    null;
+  if (!targetFile) {
     return buildDeniedResponse('file_missing', 404);
   }
 
   const existingSession = request.cookies.get(VIEWER_SESSION_COOKIE)?.value;
-  const sessionId = existingSession || createViewerSessionId();
+  const sessionId = normalizeViewerSessionId(existingSession);
+  const shouldRefreshViewerCookie = !existingSession || existingSession !== sessionId;
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
   const ipHash = hashIp(ip);
@@ -62,10 +89,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const baseDenied = evaluateBasePolicy({ link: bundle, grant });
   if (baseDenied) {
-    await logDenied({
+    await safeLogDenied({
       reason: baseDenied,
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: targetFile.id,
       ownerId: bundle.owner_id,
       sessionId,
       viewerEmail: grant?.email,
@@ -78,10 +105,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
   if (grantDenied) {
-    await logDenied({
+    await safeLogDenied({
       reason: grantDenied,
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: targetFile.id,
       ownerId: bundle.owner_id,
       sessionId,
       viewerEmail: grant?.email,
@@ -93,10 +120,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   if (!bundle.allow_download) {
-    await logDenied({
+    await safeLogDenied({
       reason: 'access_not_granted',
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: targetFile.id,
       ownerId: bundle.owner_id,
       sessionId,
       viewerEmail: grant?.email,
@@ -109,12 +136,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   let pdfBlob: Blob;
   try {
-    pdfBlob = await downloadPdfObject(bundle.file.storage_path);
+    pdfBlob = await downloadPdfObject(targetFile.storage_path);
   } catch {
-    await logDenied({
+    await safeLogDenied({
       reason: 'file_missing',
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: targetFile.id,
       ownerId: bundle.owner_id,
       sessionId,
       viewerEmail: grant?.email,
@@ -125,18 +152,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return buildDeniedResponse('file_missing', 404);
   }
 
-  await recordLinkEvent({
-    linkId: bundle.id,
-    fileId: bundle.file.id,
-    ownerId: bundle.owner_id,
-    eventType: 'download',
-    sessionId,
-    viewerEmail: grant?.email,
-    ipHash,
-    userAgent
-  });
+  try {
+    await recordLinkEvent({
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      ownerId: bundle.owner_id,
+      eventType: 'download',
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+  } catch {
+    // Keep download working even if analytics logging fails.
+  }
 
-  const safeName = bundle.file.original_name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';
   const buffer = await pdfBlob.arrayBuffer();
   const response = new NextResponse(buffer, {
     status: 200,
@@ -147,7 +178,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
   });
 
-  if (!existingSession) {
+  if (shouldRefreshViewerCookie) {
     response.cookies.set(VIEWER_SESSION_COOKIE, sessionId, {
       path: '/',
       httpOnly: true,

@@ -9,6 +9,219 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      collections: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      collection_files: {
+        Row: {
+          collection_id: string;
+          file_id: string;
+          owner_id: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          collection_id: string;
+          file_id: string;
+          owner_id: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          collection_id?: string;
+          file_id?: string;
+          owner_id?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      mcp_api_keys: {
+        Row: {
+          id: string;
+          owner_id: string;
+          label: string;
+          key_hash: string;
+          key_prefix: string;
+          scopes: string[];
+          last_used_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          label: string;
+          key_hash: string;
+          key_prefix: string;
+          scopes?: string[];
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          label?: string;
+          key_hash?: string;
+          key_prefix?: string;
+          scopes?: string[];
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_subscriptions: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          webhook_url: string;
+          signing_secret: string | null;
+          event_types: string[];
+          is_active: boolean;
+          last_delivery_at: string | null;
+          last_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          webhook_url: string;
+          signing_secret?: string | null;
+          event_types: string[];
+          is_active?: boolean;
+          last_delivery_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          name?: string;
+          webhook_url?: string;
+          signing_secret?: string | null;
+          event_types?: string[];
+          is_active?: boolean;
+          last_delivery_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_event_outbox: {
+        Row: {
+          id: number;
+          link_event_id: number;
+          owner_id: string;
+          event_type: string;
+          payload: Json;
+          status: 'pending' | 'processing' | 'delivered' | 'failed' | 'dead';
+          attempts: number;
+          next_attempt_at: string;
+          locked_at: string | null;
+          delivered_at: string | null;
+          last_error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          link_event_id: number;
+          owner_id: string;
+          event_type: string;
+          payload: Json;
+          status?: 'pending' | 'processing' | 'delivered' | 'failed' | 'dead';
+          attempts?: number;
+          next_attempt_at?: string;
+          locked_at?: string | null;
+          delivered_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          link_event_id?: number;
+          owner_id?: string;
+          event_type?: string;
+          payload?: Json;
+          status?: 'pending' | 'processing' | 'delivered' | 'failed' | 'dead';
+          attempts?: number;
+          next_attempt_at?: string;
+          locked_at?: string | null;
+          delivered_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_deliveries: {
+        Row: {
+          id: number;
+          outbox_id: number;
+          subscription_id: string;
+          status: 'delivered' | 'failed';
+          attempt_no: number;
+          http_status: number | null;
+          error: string | null;
+          response_body: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          outbox_id: number;
+          subscription_id: string;
+          status: 'delivered' | 'failed';
+          attempt_no?: number;
+          http_status?: number | null;
+          error?: string | null;
+          response_body?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          outbox_id?: number;
+          subscription_id?: string;
+          status?: 'delivered' | 'failed';
+          attempt_no?: number;
+          http_status?: number | null;
+          error?: string | null;
+          response_body?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       files: {
         Row: {
           id: string;
@@ -45,7 +258,8 @@ export type Database = {
       share_links: {
         Row: {
           id: string;
-          file_id: string;
+          file_id: string | null;
+          collection_id: string | null;
           owner_id: string;
           label: string;
           token: string;
@@ -66,7 +280,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          file_id: string;
+          file_id?: string | null;
+          collection_id?: string | null;
           owner_id: string;
           label: string;
           token: string;
@@ -87,7 +302,8 @@ export type Database = {
         };
         Update: {
           id?: string;
-          file_id?: string;
+          file_id?: string | null;
+          collection_id?: string | null;
           owner_id?: string;
           label?: string;
           token?: string;
@@ -169,6 +385,48 @@ export type Database = {
       };
       get_denied_reason_breakdown: {
         Args: {
+          p_link_id: string;
+        };
+        Returns: {
+          reason: string;
+          total: number;
+        }[];
+      };
+      claim_event_outbox_jobs: {
+        Args: {
+          p_limit?: number;
+        };
+        Returns: {
+          id: number;
+          link_event_id: number;
+          owner_id: string;
+          event_type: string;
+          payload: Json;
+          status: 'pending' | 'processing' | 'delivered' | 'failed' | 'dead';
+          attempts: number;
+          next_attempt_at: string;
+          locked_at: string | null;
+          delivered_at: string | null;
+          last_error: string | null;
+          created_at: string;
+        }[];
+      };
+      get_link_summary_for_owner: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+        };
+        Returns: {
+          link_id: string;
+          views: number;
+          unique_viewers: number;
+          downloads: number;
+          denied: number;
+        }[];
+      };
+      get_link_denied_breakdown_for_owner: {
+        Args: {
+          p_owner_id: string;
           p_link_id: string;
         };
         Returns: {

@@ -41,7 +41,8 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                     <strong>{link.label}</strong>
                   </p>
                   <p className="muted">
-                    파일: {link.file?.original_name ?? link.file_id} | 삭제일: {formatDateTime(link.deleted_at)}
+                    대상: {link.collection ? `문서 묶음 - ${link.collection.name}` : link.file?.original_name ?? link.file_id} | 삭제일:{' '}
+                    {formatDateTime(link.deleted_at)}
                   </p>
                 </div>
 

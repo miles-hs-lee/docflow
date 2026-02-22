@@ -1,3 +1,5 @@
+import { FlashQueryCleaner } from '@/components/flash-query-cleaner';
+
 type FlashProps = {
   error?: string;
   success?: string;
@@ -10,6 +12,7 @@ export function Flash({ error, success }: FlashProps) {
 
   return (
     <div className="flash-stack" role="status" aria-live="polite">
+      <FlashQueryCleaner />
       {success ? <div className="flash flash-success">{success}</div> : null}
       {error ? <div className="flash flash-error">{error}</div> : null}
     </div>

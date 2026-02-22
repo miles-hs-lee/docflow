@@ -5,7 +5,13 @@ import { redirect } from 'next/navigation';
 
 import { getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import { evaluateBasePolicy } from '@/lib/policy';
-import { createViewerSessionId, getEmailDomain, hashIp, normalizeEmail, verifyPassword } from '@/lib/security';
+import {
+  getEmailDomain,
+  hashIp,
+  normalizeEmail,
+  normalizeViewerSessionId,
+  verifyPassword
+} from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
 import { encodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -13,9 +19,9 @@ async function getRequestContext() {
   const cookieStore = await cookies();
   const headersList = await headers();
 
-  let sessionId = cookieStore.get(VIEWER_SESSION_COOKIE)?.value;
-  if (!sessionId) {
-    sessionId = createViewerSessionId();
+  const rawSessionId = cookieStore.get(VIEWER_SESSION_COOKIE)?.value;
+  const sessionId = normalizeViewerSessionId(rawSessionId);
+  if (!rawSessionId || rawSessionId !== sessionId) {
     cookieStore.set(VIEWER_SESSION_COOKIE, sessionId, {
       path: '/',
       httpOnly: true,
@@ -61,7 +67,11 @@ async function recordDeniedEvent(input: {
 export async function submitViewerAccessAction(token: string, formData: FormData) {
   const bundle = await getViewerLinkByToken(token);
 
-  if (!bundle || !bundle.file) {
+  if (!bundle) {
+    redirect(`/v/${token}?denied=file_missing`);
+  }
+  const eventFileId = bundle.file?.id ?? bundle.collection_files[0]?.id;
+  if (!eventFileId) {
     redirect(`/v/${token}?denied=file_missing`);
   }
 
@@ -71,7 +81,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     await recordDeniedEvent({
       reason: baseDenied,
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: eventFileId,
       ownerId: bundle.owner_id,
       sessionId: ctx.sessionId,
       ipHash: ctx.ipHash,
@@ -92,7 +102,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       await recordDeniedEvent({
         reason: 'email_required',
         linkId: bundle.id,
-        fileId: bundle.file.id,
+        fileId: eventFileId,
         ownerId: bundle.owner_id,
         sessionId: ctx.sessionId,
         ipHash: ctx.ipHash,
@@ -105,7 +115,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     normalizedEmail = normalizeEmail(rawEmail);
     await recordLinkEvent({
       linkId: bundle.id,
-      fileId: bundle.file.id,
+      fileId: eventFileId,
       ownerId: bundle.owner_id,
       eventType: 'email_submitted',
       sessionId: ctx.sessionId,
@@ -121,7 +131,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         await recordDeniedEvent({
           reason: 'domain_not_allowed',
           linkId: bundle.id,
-          fileId: bundle.file.id,
+          fileId: eventFileId,
           ownerId: bundle.owner_id,
           sessionId: ctx.sessionId,
           viewerEmail: normalizedEmail,
@@ -139,7 +149,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       await recordDeniedEvent({
         reason: 'password_required',
         linkId: bundle.id,
-        fileId: bundle.file.id,
+        fileId: eventFileId,
         ownerId: bundle.owner_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,
@@ -154,7 +164,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     if (!passwordValid) {
       await recordLinkEvent({
         linkId: bundle.id,
-        fileId: bundle.file.id,
+        fileId: eventFileId,
         ownerId: bundle.owner_id,
         eventType: 'password_failed',
         reason: 'wrong_password',
@@ -167,7 +177,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       await recordDeniedEvent({
         reason: 'wrong_password',
         linkId: bundle.id,
-        fileId: bundle.file.id,
+        fileId: eventFileId,
         ownerId: bundle.owner_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,

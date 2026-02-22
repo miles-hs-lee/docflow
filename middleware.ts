@@ -9,11 +9,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers
-    }
-  });
+  const response = NextResponse.next();
   type CookieToSet = {
     name: string;
     value: string;

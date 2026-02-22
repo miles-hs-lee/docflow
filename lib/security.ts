@@ -8,6 +8,18 @@ export function generateShareToken() {
   return crypto.randomBytes(32).toString('base64url');
 }
 
+export function generateMcpApiKey() {
+  return `df_mcp_${crypto.randomBytes(32).toString('base64url')}`;
+}
+
+export function hashMcpApiKey(value: string) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+export function getMcpKeyPrefix(value: string) {
+  return value.slice(0, 18);
+}
+
 export async function hashPassword(plain: string) {
   return bcrypt.hash(plain, 12);
 }
@@ -39,8 +51,29 @@ export function hashIp(ip: string | null | undefined) {
   return crypto.createHash('sha256').update(ip).digest('hex');
 }
 
+export function timingSafeEqualString(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+export function signWebhookPayload(body: string, secret: string, timestamp: string) {
+  return crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
+}
+
 export function createViewerSessionId() {
   return crypto.randomUUID();
+}
+
+export function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function normalizeViewerSessionId(value: string | null | undefined) {
+  if (!value || !isUuid(value)) {
+    return createViewerSessionId();
+  }
+
+  return value;
 }
 
 export function signViewerGrant(payload: ViewerGrantPayload, secret: string) {
