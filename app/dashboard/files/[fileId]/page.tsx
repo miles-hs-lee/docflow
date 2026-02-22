@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { CopyButton } from '@/components/copy-button';
@@ -39,6 +40,7 @@ function linkStatus(link: {
 export default async function FileLinksPage({ params, searchParams }: FileLinksPageProps) {
   const { fileId } = await params;
   const query = await searchParams;
+  const headerStore = await headers();
 
   const { supabase } = await requireOwner();
   const [file, links, metricsMap] = await Promise.all([
@@ -53,6 +55,9 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
 
   const success = typeof query.success === 'string' ? decodeURIComponent(query.success) : undefined;
   const error = typeof query.error === 'string' ? decodeURIComponent(query.error) : undefined;
+  const host = headerStore.get('x-forwarded-host') ?? headerStore.get('host');
+  const protocol = headerStore.get('x-forwarded-proto') ?? 'https';
+  const appOrigin = host ? `${protocol}://${host}` : publicEnv.appUrl;
 
   return (
     <section className="stack-lg">
@@ -123,7 +128,7 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
             {links.map((link) => {
               const metrics = metricsMap.get(link.id);
               const status = linkStatus(link);
-              const url = `${publicEnv.appUrl}/v/${link.token}`;
+              const url = `${appOrigin}/v/${link.token}`;
 
               return (
                 <details className="link-card" key={link.id}>

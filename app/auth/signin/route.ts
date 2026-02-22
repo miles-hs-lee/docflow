@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { publicEnv } from '@/lib/env-public';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const redirectTo = `${publicEnv.appUrl}/auth/callback`;
+  const redirectTo = `${url.origin}/auth/callback`;
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({

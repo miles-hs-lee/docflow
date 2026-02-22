@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 import { Flash } from '@/components/flash';
-import { previewTestLoginAction } from '@/lib/actions/auth';
 import { getOwner } from '@/lib/auth';
 import { canUsePreviewTestLogin } from '@/lib/preview-login';
 
@@ -50,7 +49,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <p className="muted small">
               이 폼은 Vercel Preview 환경에서만 노출됩니다. 등록된 테스트 계정 정보로 로그인할 수 있습니다.
             </p>
-            <form action={previewTestLoginAction} className="form-grid">
+            <form action="/auth/preview-login" method="post" className="form-grid">
               <label>
                 테스트 이메일
                 <input type="email" name="email" required />

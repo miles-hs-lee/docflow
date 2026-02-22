@@ -5,6 +5,10 @@ import { publicEnv } from '@/lib/env-public';
 import type { Database } from '@/lib/supabase/database.types';
 
 export async function middleware(request: NextRequest) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers
@@ -30,7 +34,11 @@ export async function middleware(request: NextRequest) {
     }
   });
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Keep public routes reachable even if auth backends are temporarily unavailable.
+  }
 
   return response;
 }
