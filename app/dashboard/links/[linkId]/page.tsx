@@ -9,6 +9,15 @@ type LinkDetailPageProps = {
   params: Promise<{ linkId: string }>;
 };
 
+type LinkEventRow = {
+  id: number;
+  event_type: string;
+  reason: string | null;
+  viewer_email: string | null;
+  created_at: string;
+  session_id: string | null;
+};
+
 export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
   const { linkId } = await params;
   const { supabase } = await requireOwner();
@@ -30,9 +39,9 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
       .limit(100)
   ]);
 
-  const fileName = fileResult.data?.original_name || 'Unknown file';
+  const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || 'Unknown file';
   const metrics = metricsMap.get(link.id);
-  const events = eventsResult.data ?? [];
+  const events = (eventsResult.data ?? []) as LinkEventRow[];
 
   return (
     <section className="stack-lg">

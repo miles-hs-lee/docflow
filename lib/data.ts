@@ -1,6 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { createClient as createOwnerClient } from '@/lib/supabase/server';
 import type {
   DeniedReason,
   DeniedReasonCount,
@@ -11,7 +10,7 @@ import type {
   ShareLinkTrashRow
 } from '@/lib/types';
 
-type OwnerClient = SupabaseClient;
+type OwnerClient = Awaited<ReturnType<typeof createOwnerClient>>;
 
 export async function listFiles(ownerClient: OwnerClient): Promise<FileRow[]> {
   const { data, error } = await ownerClient
@@ -44,12 +43,31 @@ export async function listLinksForFile(ownerClient: OwnerClient, fileId: string)
 export async function listTrashLinks(ownerClient: OwnerClient): Promise<ShareLinkTrashRow[]> {
   const { data, error } = await ownerClient
     .from('share_links')
-    .select('*, file:files(id, original_name)')
+    .select('*')
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as ShareLinkTrashRow[];
+  const links = (data ?? []) as ShareLinkRow[];
+
+  if (links.length === 0) {
+    return [];
+  }
+
+  const fileIds = Array.from(new Set(links.map((link) => link.file_id)));
+  const { data: files, error: filesError } = await ownerClient.from('files').select('id, original_name').in('id', fileIds);
+  if (filesError) throw filesError;
+
+  const fileMap = new Map<string, { id: string; original_name: string }>();
+  const basicFiles = (files ?? []) as Array<{ id: string; original_name: string }>;
+  basicFiles.forEach((file) => {
+    fileMap.set(file.id, { id: file.id, original_name: file.original_name });
+  });
+
+  return links.map((link) => ({
+    ...link,
+    file: fileMap.get(link.file_id) ?? null
+  }));
 }
 
 export async function getLink(ownerClient: OwnerClient, linkId: string): Promise<ShareLinkRow | null> {
@@ -59,7 +77,9 @@ export async function getLink(ownerClient: OwnerClient, linkId: string): Promise
 }
 
 export async function getMetricsForFile(ownerClient: OwnerClient, fileId: string) {
-  const { data, error } = await ownerClient.rpc('get_owner_link_metrics', { p_file_id: fileId });
+  const { data, error } = await ownerClient.rpc('get_owner_link_metrics' as never, {
+    p_file_id: fileId
+  } as never);
   if (error) throw error;
 
   const metrics = (data ?? []) as LinkMetrics[];
@@ -69,7 +89,9 @@ export async function getMetricsForFile(ownerClient: OwnerClient, fileId: string
 }
 
 export async function getDeniedBreakdown(ownerClient: OwnerClient, linkId: string): Promise<DeniedReasonCount[]> {
-  const { data, error } = await ownerClient.rpc('get_denied_reason_breakdown', { p_link_id: linkId });
+  const { data, error } = await ownerClient.rpc('get_denied_reason_breakdown' as never, {
+    p_link_id: linkId
+  } as never);
   if (error) throw error;
   return (data ?? []) as DeniedReasonCount[];
 }
@@ -77,19 +99,20 @@ export async function getDeniedBreakdown(ownerClient: OwnerClient, linkId: strin
 export async function getViewerLinkByToken(token: string) {
   const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from('share_links')
-    .select('*, file:files(*)')
-    .eq('token', token)
-    .maybeSingle();
-
+  const { data: link, error } = await admin.from('share_links').select('*').eq('token', token).maybeSingle();
   if (error) throw error;
 
-  return (data as
-    | (ShareLinkRow & {
-        file: FileRow | null;
-      })
-    | null) ?? null;
+  if (!link) {
+    return null;
+  }
+
+  const { data: file, error: fileError } = await admin.from('files').select('*').eq('id', link.file_id).maybeSingle();
+  if (fileError) throw fileError;
+
+  return {
+    ...(link as ShareLinkRow),
+    file: (file as FileRow | null) ?? null
+  };
 }
 
 export async function recordLinkEvent(input: {

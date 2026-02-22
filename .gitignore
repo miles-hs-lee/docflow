@@ -4,6 +4,7 @@
 # Node/Next
 node_modules
 .next
+*.tsbuildinfo
 
 # Env files
 .env

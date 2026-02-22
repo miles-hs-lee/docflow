@@ -6,8 +6,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { requireOwner } from '@/lib/auth';
-import { getLink, removePdfObject, uploadPdfObject } from '@/lib/data';
+import { removePdfObject, uploadPdfObject } from '@/lib/data';
 import { generateShareToken, hashPassword, parseAllowedDomains } from '@/lib/security';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 function parseBoolean(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -35,9 +36,10 @@ function sanitizeFileName(name: string) {
 }
 
 export async function uploadPdfAction(formData: FormData) {
-  const { user, supabase } = await requireOwner();
-  const uploaded = formData.get('pdf');
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
 
+  const uploaded = formData.get('pdf');
   if (!(uploaded instanceof File) || uploaded.size === 0) {
     redirect('/dashboard?error=PDF%20파일을%20선택해주세요.');
   }
@@ -54,7 +56,7 @@ export async function uploadPdfAction(formData: FormData) {
   const safeName = sanitizeFileName(file.name || `${fileId}.pdf`);
   const storagePath = `${user.id}/${fileId}/${safeName}`;
 
-  const { error: insertError } = await supabase.from('files').insert({
+  const { error: insertError } = await admin.from('files').insert({
     id: fileId,
     owner_id: user.id,
     original_name: file.name,
@@ -70,7 +72,7 @@ export async function uploadPdfAction(formData: FormData) {
   try {
     await uploadPdfObject({ path: storagePath, file });
   } catch {
-    await supabase.from('files').delete().eq('id', fileId);
+    await admin.from('files').delete().eq('id', fileId).eq('owner_id', user.id);
     redirect('/dashboard?error=스토리지%20업로드에%20실패했습니다.');
   }
 
@@ -79,11 +81,23 @@ export async function uploadPdfAction(formData: FormData) {
 }
 
 export async function createShareLinkAction(formData: FormData) {
-  const { user, supabase } = await requireOwner();
-  const fileId = (formData.get('fileId') as string | null)?.trim();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
 
+  const fileId = (formData.get('fileId') as string | null)?.trim();
   if (!fileId) {
     redirect('/dashboard?error=파일%20정보가%20누락되었습니다.');
+  }
+
+  const { data: ownedFile } = await admin
+    .from('files')
+    .select('id')
+    .eq('id', fileId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+
+  if (!ownedFile) {
+    redirect('/dashboard?error=파일%20권한이%20없습니다.');
   }
 
   const label = ((formData.get('label') as string | null) || '').trim();
@@ -96,7 +110,7 @@ export async function createShareLinkAction(formData: FormData) {
   const rawPassword = ((formData.get('password') as string | null) || '').trim();
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
 
-  const payload = {
+  const { error } = await admin.from('share_links').insert({
     file_id: fileId,
     owner_id: user.id,
     label,
@@ -109,9 +123,7 @@ export async function createShareLinkAction(formData: FormData) {
     password_hash: passwordHash,
     allow_download: parseBoolean(formData, 'allowDownload'),
     one_time: parseBoolean(formData, 'oneTime')
-  };
-
-  const { error } = await supabase.from('share_links').insert(payload);
+  });
 
   if (error) {
     redirect(`/dashboard/files/${fileId}?error=링크%20생성에%20실패했습니다.`);
@@ -122,7 +134,9 @@ export async function createShareLinkAction(formData: FormData) {
 }
 
 export async function updateShareLinkAction(formData: FormData) {
-  const { supabase } = await requireOwner();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
   const fileId = ((formData.get('fileId') as string | null) || '').trim();
 
@@ -130,8 +144,14 @@ export async function updateShareLinkAction(formData: FormData) {
     redirect('/dashboard?error=링크%20수정에%20필요한%20정보가%20누락되었습니다.');
   }
 
-  const existingLink = await getLink(supabase, linkId);
-  if (!existingLink) {
+  const { data: existingLink, error: fetchError } = await admin
+    .from('share_links')
+    .select('id, password_hash')
+    .eq('id', linkId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+
+  if (fetchError || !existingLink) {
     redirect(`/dashboard/files/${fileId}?error=링크를%20찾을%20수%20없습니다.`);
   }
 
@@ -153,7 +173,7 @@ export async function updateShareLinkAction(formData: FormData) {
     passwordHash = await hashPassword(newPassword);
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('share_links')
     .update({
       label,
@@ -166,7 +186,8 @@ export async function updateShareLinkAction(formData: FormData) {
       allow_download: parseBoolean(formData, 'allowDownload'),
       one_time: parseBoolean(formData, 'oneTime')
     })
-    .eq('id', linkId);
+    .eq('id', linkId)
+    .eq('owner_id', user.id);
 
   if (error) {
     redirect(`/dashboard/files/${fileId}?error=링크%20수정에%20실패했습니다.`);
@@ -178,7 +199,9 @@ export async function updateShareLinkAction(formData: FormData) {
 }
 
 export async function softDeleteLinkAction(formData: FormData) {
-  const { supabase } = await requireOwner();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
   const fileId = ((formData.get('fileId') as string | null) || '').trim();
 
@@ -186,13 +209,14 @@ export async function softDeleteLinkAction(formData: FormData) {
     redirect('/dashboard?error=삭제할%20링크를%20확인할%20수%20없습니다.');
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('share_links')
     .update({
       deleted_at: new Date().toISOString(),
       is_active: false
     })
     .eq('id', linkId)
+    .eq('owner_id', user.id)
     .is('deleted_at', null);
 
   if (error) {
@@ -205,17 +229,20 @@ export async function softDeleteLinkAction(formData: FormData) {
 }
 
 export async function restoreLinkAction(formData: FormData) {
-  const { supabase } = await requireOwner();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
 
   if (!linkId) {
     redirect('/dashboard/trash?error=복구할%20링크를%20확인할%20수%20없습니다.');
   }
 
-  const { data: link, error: fetchError } = await supabase
+  const { data: link, error: fetchError } = await admin
     .from('share_links')
     .select('id, file_id')
     .eq('id', linkId)
+    .eq('owner_id', user.id)
     .not('deleted_at', 'is', null)
     .maybeSingle();
 
@@ -223,13 +250,14 @@ export async function restoreLinkAction(formData: FormData) {
     redirect('/dashboard/trash?error=복구할%20링크를%20찾을%20수%20없습니다.');
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('share_links')
     .update({
       deleted_at: null,
       is_active: true
     })
-    .eq('id', linkId);
+    .eq('id', linkId)
+    .eq('owner_id', user.id);
 
   if (error) {
     redirect('/dashboard/trash?error=링크%20복구에%20실패했습니다.');
@@ -241,7 +269,9 @@ export async function restoreLinkAction(formData: FormData) {
 }
 
 export async function hardDeleteLinkAction(formData: FormData) {
-  const { supabase } = await requireOwner();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
   const confirmation = ((formData.get('confirmation') as string | null) || '').trim().toUpperCase();
 
@@ -253,10 +283,11 @@ export async function hardDeleteLinkAction(formData: FormData) {
     redirect('/dashboard/trash?error=영구%20삭제하려면%20DELETE를%20입력하세요.');
   }
 
-  const { data: link, error: fetchError } = await supabase
+  const { data: link, error: fetchError } = await admin
     .from('share_links')
     .select('id, file_id')
     .eq('id', linkId)
+    .eq('owner_id', user.id)
     .not('deleted_at', 'is', null)
     .maybeSingle();
 
@@ -264,7 +295,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
     redirect('/dashboard/trash?error=영구%20삭제할%20링크를%20찾을%20수%20없습니다.');
   }
 
-  const { error } = await supabase.from('share_links').delete().eq('id', linkId);
+  const { error } = await admin.from('share_links').delete().eq('id', linkId).eq('owner_id', user.id);
 
   if (error) {
     redirect('/dashboard/trash?error=영구%20삭제에%20실패했습니다.');
@@ -276,24 +307,27 @@ export async function hardDeleteLinkAction(formData: FormData) {
 }
 
 export async function deleteFileAction(formData: FormData) {
-  const { supabase } = await requireOwner();
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
   const fileId = ((formData.get('fileId') as string | null) || '').trim();
 
   if (!fileId) {
     redirect('/dashboard?error=파일%20정보가%20누락되었습니다.');
   }
 
-  const { data: file, error: fileError } = await supabase
+  const { data: file, error: fileError } = await admin
     .from('files')
     .select('id, storage_path')
     .eq('id', fileId)
+    .eq('owner_id', user.id)
     .maybeSingle();
 
   if (fileError || !file) {
     redirect('/dashboard?error=파일을%20찾을%20수%20없습니다.');
   }
 
-  await supabase.from('files').delete().eq('id', fileId);
+  await admin.from('files').delete().eq('id', fileId).eq('owner_id', user.id);
   await removePdfObject(file.storage_path);
 
   revalidatePath('/dashboard');
