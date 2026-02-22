@@ -88,6 +88,20 @@ npm run dev
 - 배포 후 `NEXT_PUBLIC_APP_URL`을 배포 도메인으로 맞추고 재배포
 - Supabase Auth Azure Redirect URL에 배포 도메인 callback 추가
 
+### Preview 테스트 로그인(선택)
+
+M365 연동 전 임시 우회를 위해 Vercel Preview 환경에서만 테스트 계정 로그인 활성화 가능:
+
+- `PREVIEW_TEST_LOGIN_ENABLED=true`
+- `PREVIEW_TEST_EMAIL=<테스트 이메일>`
+- `PREVIEW_TEST_PASSWORD=<테스트 비밀번호>`
+
+동작 조건:
+
+- `VERCEL_ENV=preview`에서만 `/login`에 테스트 로그인 폼 노출
+- 입력값이 위 환경변수와 일치할 때만 로그인 허용
+- 성공 시 Supabase Email/Password 세션으로 로그인 (M365 미사용)
+
 ## 보안/프라이버시 구현 포인트
 
 - 공유 토큰: 32-byte 랜덤(base64url)
@@ -101,4 +115,3 @@ npm run dev
 
 - 다운로드 차단은 UI/API 레벨 차단이며, 브라우저/OS 수준 캡처까지 완전 방지는 아님
 - Rate limiting / WAF / bot 방어는 별도 인프라 계층에서 추가 권장
-

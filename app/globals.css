@@ -64,6 +64,14 @@ p {
   gap: 16px;
 }
 
+.preview-login-box {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
 .eyebrow {
   font-size: 0.8rem;
   letter-spacing: 0.08em;
