@@ -10,7 +10,8 @@ export default [
       'components/hidden-input.tsx',
       'components/file-input.tsx',
       'components/datetime-input.tsx',
-      'components/user-menu.tsx'
+      'components/user-menu.tsx',
+      'components/file-browser.tsx'
     ],
     rules: {
       '@polaris/prefer-polaris-component': 'off'
