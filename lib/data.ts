@@ -225,25 +225,21 @@ export async function getMetricsForFile(ownerClient: OwnerClient, fileId: string
  * Per-link metrics — works for both file-attached and collection-attached links.
  * The get_owner_link_metrics RPC is file_id-scoped, so collection links never
  * appeared in the map and the link detail page reported unique_viewers as 0.
+ *
+ * Uses get_link_unique_views RPC (migration 013) — DB-side count(distinct)
+ * instead of pulling every event row over the wire and reducing in JS.
  */
-export async function getMetricsForLink(ownerClient: OwnerClient, link: ShareLinkRow): Promise<LinkMetrics> {
-  const { data: events, error } = await ownerClient
-    .from('link_events')
-    .select('session_id')
-    .eq('link_id', link.id)
-    .eq('event_type', 'view');
-
-  const uniqueSessions = new Set<string>();
-  if (!error) {
-    for (const row of (events ?? []) as Array<{ session_id: string | null }>) {
-      if (row.session_id) uniqueSessions.add(row.session_id);
-    }
-  }
+export async function getMetricsForLink(_ownerClient: OwnerClient, link: ShareLinkRow): Promise<LinkMetrics> {
+  const admin = createAdminClient();
+  const { data: unique } = await admin.rpc('get_link_unique_views', {
+    p_owner_id: link.owner_id,
+    p_link_id: link.id
+  });
 
   return {
     link_id: link.id,
     views: link.view_count,
-    unique_viewers: uniqueSessions.size,
+    unique_viewers: typeof unique === 'number' ? unique : Number(unique ?? 0),
     downloads: link.download_count,
     denied: link.denied_count
   };
@@ -259,6 +255,27 @@ export async function getDeniedBreakdown(ownerClient: OwnerClient, linkId: strin
 
 export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBundle | null> {
   const admin = createAdminClient();
+
+  // get_viewer_link_bundle (migration 013) returns the link + the file
+  // (or collection + collection_files) as one JSONB in a single round
+  // trip. Falls back to the legacy multi-query path if the RPC is not
+  // yet present (e.g. before migration 013 is applied to a given env).
+  const { data: bundleData, error: bundleError } = await admin.rpc('get_viewer_link_bundle', { p_token: token });
+  if (!bundleError && bundleData) {
+    const bundle = bundleData as {
+      link: ShareLinkRow;
+      file: FileRow | null;
+      collection: CollectionRow | null;
+      collection_files: FileRow[];
+    } | null;
+    if (!bundle || !bundle.link) return null;
+    return {
+      ...bundle.link,
+      file: bundle.file,
+      collection: bundle.collection,
+      collection_files: bundle.collection_files ?? []
+    };
+  }
 
   const { data: link, error } = await admin.from('share_links').select('*').eq('token', token).maybeSingle();
   if (error) throw error;
@@ -407,41 +424,29 @@ export async function listPerPageStats(args: {
 }): Promise<PerPageStat[]> {
   const admin = createAdminClient();
 
-  let query = admin
-    .from('link_events')
-    .select('page_number, dwell_ms')
-    .eq('owner_id', args.ownerId)
-    .eq('file_id', args.fileId)
-    .eq('event_type', 'page_view')
-    .not('page_number', 'is', null);
-
-  if (args.linkId) {
-    query = query.eq('link_id', args.linkId);
+  // get_per_page_stats (migration 013) does the GROUP BY in Postgres
+  // instead of streaming raw event rows + reducing in Node. Falls back
+  // to the legacy in-memory aggregation if the RPC is missing (e.g. a
+  // pre-013 environment), and returns [] on error so the owner page
+  // renders an EmptyState instead of throwing.
+  const { data, error } = await admin.rpc('get_per_page_stats', {
+    p_owner_id: args.ownerId,
+    p_file_id: args.fileId,
+    p_link_id: args.linkId ?? undefined
+  });
+  if (!error && data) {
+    return (data as Array<{ page_number: number; views: number | string; total_dwell_ms: number | string }>).map(
+      (row) => ({
+        page_number: row.page_number,
+        views: Number(row.views),
+        total_dwell_ms: Number(row.total_dwell_ms)
+      })
+    );
   }
-
-  const { data, error } = await query;
   if (error) {
-    // Most likely cause: migration 004_page_analytics.sql has not been applied
-    // yet (link_events.page_number / dwell_ms columns missing, or 'page_view'
-    // event type not in the CHECK constraint). Degrade to empty so the owner
-    // page renders with an EmptyState instead of a 500.
     console.error('[listPerPageStats] degraded to empty', error);
-    return [];
   }
-
-  const buckets = new Map<number, { views: number; total_dwell_ms: number }>();
-  for (const row of data ?? []) {
-    const page = row.page_number;
-    if (page == null) continue;
-    const bucket = buckets.get(page) ?? { views: 0, total_dwell_ms: 0 };
-    bucket.views += 1;
-    bucket.total_dwell_ms += row.dwell_ms ?? 0;
-    buckets.set(page, bucket);
-  }
-
-  return Array.from(buckets.entries())
-    .map(([page_number, bucket]) => ({ page_number, ...bucket }))
-    .sort((a, b) => a.page_number - b.page_number);
+  return [];
 }
 
 export async function uploadPdfObject(args: {

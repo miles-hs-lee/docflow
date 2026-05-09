@@ -509,6 +509,60 @@ export type Database = {
           total: number;
         }[];
       };
+      get_link_for_event: {
+        Args: {
+          p_token: string;
+        };
+        Returns: {
+          id: string;
+          owner_id: string;
+          file_id: string | null;
+          collection_id: string | null;
+          is_active: boolean;
+          deleted_at: string | null;
+          expires_at: string | null;
+          max_views: number | null;
+          one_time: boolean;
+          view_count: number;
+          require_email: boolean;
+          allowed_domains: string[];
+          password_hash: string | null;
+          policy_version: number;
+        }[];
+      };
+      collection_contains_file: {
+        Args: {
+          p_collection_id: string;
+          p_file_id: string;
+          p_owner_id: string;
+        };
+        Returns: boolean;
+      };
+      get_per_page_stats: {
+        Args: {
+          p_owner_id: string;
+          p_file_id: string;
+          p_link_id?: string | null;
+        };
+        Returns: {
+          page_number: number;
+          views: number;
+          total_dwell_ms: number;
+        }[];
+      };
+      get_link_unique_views: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+        };
+        Returns: number;
+      };
+      get_viewer_link_bundle: {
+        Args: {
+          p_token: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       [_ in never]: never;

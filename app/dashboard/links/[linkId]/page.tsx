@@ -28,7 +28,9 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
     notFound();
   }
 
-  const [fileResult, collectionResult, deniedBreakdown, eventsResult] = await Promise.all([
+  // Run metrics call in the same Promise.all batch — previously it ran
+  // serially after the parent batch and added one round trip to TTFB.
+  const [fileResult, collectionResult, deniedBreakdown, eventsResult, metrics] = await Promise.all([
     link.file_id
       ? supabase.from('files').select('id, original_name').eq('id', link.file_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -41,12 +43,10 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
       .select('id, event_type, reason, viewer_email, created_at, session_id')
       .eq('link_id', link.id)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(100),
+    getMetricsForLink(supabase, link)
   ]);
 
-  // Per-link metrics work for both file-attached and collection-attached links;
-  // the previous file-scoped lookup left collection links with unique_viewers = 0.
-  const metrics = await getMetricsForLink(supabase, link);
   const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || null;
   const collectionName = ((collectionResult.data as { name?: string } | null)?.name) || null;
   const events = (eventsResult.data ?? []) as LinkEventRow[];
