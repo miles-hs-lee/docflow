@@ -1,5 +1,7 @@
 import { Alert, AlertDescription, Badge, Button, Card, Input } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
+
+import { PdfViewer } from '@/components/pdf-viewer';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
@@ -156,6 +158,8 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   const downloadSrc = link.collection_id
     ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
     : `/api/v/${token}/download`;
+  const eventEndpoint = `/api/v/${token}/event`;
+  const watermarkLabel = grant?.email || 'DocFlow Viewer';
 
   return (
     <main className="viewer-app">
@@ -193,7 +197,12 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
             })}
           </aside>
         ) : null}
-        <iframe className="pdf-frame" title="shared-pdf" src={docSrc} />
+        <PdfViewer
+          documentSrc={docSrc}
+          eventEndpoint={eventEndpoint}
+          fileId={link.collection_id ? activeFile.id : undefined}
+          watermarkLabel={watermarkLabel}
+        />
       </section>
     </main>
   );

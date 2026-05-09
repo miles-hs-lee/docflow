@@ -1,4 +1,10 @@
-export type LinkEventType = 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download';
+export type LinkEventType =
+  | 'view'
+  | 'denied'
+  | 'email_submitted'
+  | 'password_failed'
+  | 'download'
+  | 'page_view';
 export type AutomationEventType = LinkEventType;
 
 export type McpScope =
@@ -117,7 +123,15 @@ export type LinkEventRow = {
   viewer_email: string | null;
   ip_hash: string | null;
   user_agent: string | null;
+  page_number: number | null;
+  dwell_ms: number | null;
   created_at: string;
+};
+
+export type PerPageStat = {
+  page_number: number;
+  views: number;
+  total_dwell_ms: number;
 };
 
 export type OutboxPayload = {

@@ -330,12 +330,14 @@ export type Database = {
           link_id: string;
           file_id: string;
           owner_id: string;
-          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download';
+          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason: string | null;
           session_id: string | null;
           viewer_email: string | null;
           ip_hash: string | null;
           user_agent: string | null;
+          page_number: number | null;
+          dwell_ms: number | null;
           created_at: string;
         };
         Insert: {
@@ -343,12 +345,14 @@ export type Database = {
           link_id: string;
           file_id: string;
           owner_id: string;
-          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download';
+          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason?: string | null;
           session_id?: string | null;
           viewer_email?: string | null;
           ip_hash?: string | null;
           user_agent?: string | null;
+          page_number?: number | null;
+          dwell_ms?: number | null;
           created_at?: string;
         };
         Update: {
@@ -356,12 +360,14 @@ export type Database = {
           link_id?: string;
           file_id?: string;
           owner_id?: string;
-          event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download';
+          event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason?: string | null;
           session_id?: string | null;
           viewer_email?: string | null;
           ip_hash?: string | null;
           user_agent?: string | null;
+          page_number?: number | null;
+          dwell_ms?: number | null;
           created_at?: string;
         };
         Relationships: [];

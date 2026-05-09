@@ -11,6 +11,7 @@ import type {
   LinkEventType,
   LinkMetrics,
   McpApiKeyRow,
+  PerPageStat,
   ShareLinkRow,
   ShareLinkTrashRow,
   ViewerLinkBundle
@@ -295,6 +296,8 @@ export async function recordLinkEvent(input: {
   viewerEmail?: string;
   ipHash?: string | null;
   userAgent?: string | null;
+  pageNumber?: number | null;
+  dwellMs?: number | null;
 }) {
   const admin = createAdminClient();
 
@@ -307,12 +310,51 @@ export async function recordLinkEvent(input: {
     session_id: input.sessionId,
     viewer_email: input.viewerEmail,
     ip_hash: input.ipHash,
-    user_agent: input.userAgent
+    user_agent: input.userAgent,
+    page_number: input.pageNumber ?? null,
+    dwell_ms: input.dwellMs ?? null
   });
 
   if (error) {
     throw error;
   }
+}
+
+export async function listPerPageStats(args: {
+  ownerId: string;
+  fileId: string;
+  linkId?: string;
+}): Promise<PerPageStat[]> {
+  const admin = createAdminClient();
+
+  let query = admin
+    .from('link_events')
+    .select('page_number, dwell_ms')
+    .eq('owner_id', args.ownerId)
+    .eq('file_id', args.fileId)
+    .eq('event_type', 'page_view')
+    .not('page_number', 'is', null);
+
+  if (args.linkId) {
+    query = query.eq('link_id', args.linkId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const buckets = new Map<number, { views: number; total_dwell_ms: number }>();
+  for (const row of data ?? []) {
+    const page = row.page_number;
+    if (page == null) continue;
+    const bucket = buckets.get(page) ?? { views: 0, total_dwell_ms: 0 };
+    bucket.views += 1;
+    bucket.total_dwell_ms += row.dwell_ms ?? 0;
+    buckets.set(page, bucket);
+  }
+
+  return Array.from(buckets.entries())
+    .map(([page_number, bucket]) => ({ page_number, ...bucket }))
+    .sort((a, b) => a.page_number - b.page_number);
 }
 
 export async function uploadPdfObject(args: {
