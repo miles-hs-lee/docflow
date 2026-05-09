@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, Badge, Button, Card, FileIcon } from '@polaris/ui';
+import { FilterIcon, HistoryIcon } from '@polaris/ui/icons';
 import { NovaLogo, PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
@@ -57,6 +58,29 @@ export default async function HomePage() {
               제안서 · IR 자료 · 계약 문서를 링크 한 줄로 통제하고, 상대가 어디서 멈췄는지 실시간으로 확인합니다.
               다음 미팅 · 자동화 · 후속 조치를 추측이 아닌 신호 기반으로 결정합니다.
             </p>
+            <ul className="landing-hero-pills" aria-label="DocFlow 핵심 기능">
+              <li className="landing-hero-pill">
+                <FilterIcon size={16} aria-hidden />
+                <div>
+                  <strong>정책</strong>
+                  <span>만료 · 비밀번호 · 도메인</span>
+                </div>
+              </li>
+              <li className="landing-hero-pill">
+                <HistoryIcon size={16} aria-hidden />
+                <div>
+                  <strong>신호</strong>
+                  <span>페이지별 체류 · 다운로드</span>
+                </div>
+              </li>
+              <li className="landing-hero-pill landing-hero-pill-nova">
+                <NovaLogo size={16} aria-hidden />
+                <div>
+                  <strong>자동화</strong>
+                  <span>MCP · Slack · CRM</span>
+                </div>
+              </li>
+            </ul>
             <div className="landing-cta-row">
               <Button asChild size="xl">
                 <Link href={primaryHref}>{primaryLabel}</Link>
