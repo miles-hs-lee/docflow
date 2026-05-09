@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-import { PASSWORD_RECOVERY_COOKIE, PASSWORD_RECOVERY_TTL_SECONDS } from '@/lib/password-recovery-cookie';
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  PASSWORD_RECOVERY_TTL_SECONDS,
+  signRecoveryToken
+} from '@/lib/password-recovery-cookie';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -53,19 +57,23 @@ export async function GET(request: Request) {
 
   const response = NextResponse.redirect(new URL(next, request.url));
 
-  // Recovery-only marker. Without this, an already-logged-in user could
-  // navigate to /reset-password directly and change the password without
-  // re-entering the current one — only sessions that came in through this
-  // callback should get to skip current-password verification. The cookie
-  // is consumed (cleared) on successful POST /auth/reset-password.
+  // Recovery-only marker pinned to the user this code resolved to.
+  // /reset-password (page + POST) compares the cookie's HMAC signature
+  // against the CURRENT supabase user, so a cookie left over from
+  // another user / stale session cannot grant reset access.
   if (next === '/reset-password') {
-    response.cookies.set(PASSWORD_RECOVERY_COOKIE, '1', {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: PASSWORD_RECOVERY_TTL_SECONDS
-    });
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+    if (user) {
+      response.cookies.set(PASSWORD_RECOVERY_COOKIE, signRecoveryToken(user.id), {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: PASSWORD_RECOVERY_TTL_SECONDS
+      });
+    }
   }
 
   return response;

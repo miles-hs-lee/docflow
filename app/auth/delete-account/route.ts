@@ -99,8 +99,29 @@ export async function POST(request: Request) {
   }
 
   // 3) Best-effort storage cleanup AFTER the user is gone. Anything
-  // that fails goes into pending_storage_deletions for the sweep job.
+  // that fails — whether storage.remove returns a normal error or
+  // throws — goes into pending_storage_deletions for the sweep job.
+  // Both branches must queue, otherwise an unexpected throw would
+  // leave untracked PDF orphans in the bucket after the account is
+  // already gone.
   if (paths.length > 0) {
+    const queueOrphans = async (reason: string) => {
+      try {
+        await admin.from('pending_storage_deletions').insert(
+          paths.map((p) => ({
+            storage_path: p,
+            reason: `account_delete: ${reason}`
+          }))
+        );
+      } catch (queueErr) {
+        console.error('[deleteAccount] failed to queue storage cleanup', {
+          ownerId: user.id,
+          count: paths.length,
+          queueErr: queueErr instanceof Error ? queueErr.message : 'unknown_error'
+        });
+      }
+    };
+
     try {
       const { error: storageError } = await admin.storage.from('pdf-files').remove(paths);
       if (storageError) {
@@ -109,27 +130,16 @@ export async function POST(request: Request) {
           count: paths.length,
           reason: storageError.message
         });
-        try {
-          await admin.from('pending_storage_deletions').insert(
-            paths.map((p) => ({
-              storage_path: p,
-              reason: `account_delete: ${storageError.message}`
-            }))
-          );
-        } catch (queueErr) {
-          console.error('[deleteAccount] failed to queue storage cleanup', {
-            ownerId: user.id,
-            count: paths.length,
-            queueErr: queueErr instanceof Error ? queueErr.message : 'unknown_error'
-          });
-        }
+        await queueOrphans(storageError.message);
       }
     } catch (err) {
+      const reason = err instanceof Error ? err.message : 'unknown_throw';
       console.error('[deleteAccount] storage cleanup threw', {
         ownerId: user.id,
         count: paths.length,
-        err: err instanceof Error ? err.message : 'unknown_error'
+        reason
       });
+      await queueOrphans(reason);
     }
   }
 

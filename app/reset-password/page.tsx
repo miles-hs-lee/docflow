@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Flash } from '@/components/flash';
-import { PASSWORD_RECOVERY_COOKIE } from '@/lib/password-recovery-cookie';
+import { getOwner } from '@/lib/auth';
+import { PASSWORD_RECOVERY_COOKIE, verifyRecoveryToken } from '@/lib/password-recovery-cookie';
 
 type ResetPasswordPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -16,14 +17,15 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
   const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
   const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
 
-  // Recovery-only access: an active user session by itself is NOT enough
-  // (a normal logged-in user must change their password through the
-  // settings flow with current-password verification). The /auth/callback
-  // route sets a short-TTL HttpOnly recovery cookie when the next param
-  // is /reset-password — only sessions that came in through that path
-  // get to skip current-password verification.
+  // Recovery-only access: an active user session by itself is NOT enough.
+  // The cookie set by /auth/callback is HMAC-signed with the user.id this
+  // recovery flow was issued for. We compare against the CURRENT supabase
+  // user here — a stale cookie left over from another user / another
+  // session does not let them through.
   const cookieStore = await cookies();
-  if (!cookieStore.get(PASSWORD_RECOVERY_COOKIE)) {
+  const cookieValue = cookieStore.get(PASSWORD_RECOVERY_COOKIE)?.value ?? null;
+  const { user } = await getOwner();
+  if (!user || !verifyRecoveryToken(cookieValue, user.id)) {
     redirect(
       '/forgot-password?error=' +
         encodeURIComponent('재설정 링크가 만료되었거나 유효하지 않습니다. 다시 요청해주세요.')

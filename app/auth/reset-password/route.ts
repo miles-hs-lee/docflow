@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { PASSWORD_RECOVERY_COOKIE } from '@/lib/password-recovery-cookie';
+import { PASSWORD_RECOVERY_COOKIE, verifyRecoveryToken } from '@/lib/password-recovery-cookie';
 import { createClient } from '@/lib/supabase/server';
 
 function redirectToReset(requestUrl: string, key: 'error' | 'success', message: string) {
@@ -10,15 +10,30 @@ function redirectToReset(requestUrl: string, key: 'error' | 'success', message: 
   return NextResponse.redirect(url, { status: 303 });
 }
 
+function clearRecoveryCookie(response: NextResponse) {
+  response.cookies.set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
+}
+
 export async function POST(request: Request) {
-  // Gate on the recovery cookie set by /auth/callback (see route.ts).
-  // This prevents an already-logged-in normal session from POSTing here
-  // and changing its password without re-entering the current one.
+  // Gate on the recovery cookie set by /auth/callback. The cookie is
+  // HMAC-signed with the user.id it was issued for, so a stale cookie
+  // from another session / another user cannot bypass current-password
+  // verification — verifyRecoveryToken below compares it against the
+  // CURRENT supabase user.
   const cookieStore = await cookies();
-  if (!cookieStore.get(PASSWORD_RECOVERY_COOKIE)) {
+  const cookieValue = cookieStore.get(PASSWORD_RECOVERY_COOKIE)?.value ?? null;
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user || !verifyRecoveryToken(cookieValue, user.id)) {
     const url = new URL('/forgot-password', request.url);
-    url.searchParams.set('error', '재설정 세션이 만료되었습니다. 다시 요청해주세요.');
-    return NextResponse.redirect(url, { status: 303 });
+    url.searchParams.set('error', '재설정 세션이 만료되었거나 유효하지 않습니다. 다시 요청해주세요.');
+    const response = NextResponse.redirect(url, { status: 303 });
+    clearRecoveryCookie(response);
+    return response;
   }
 
   const formData = await request.formData();
@@ -30,19 +45,6 @@ export async function POST(request: Request) {
   }
   if (password !== confirm) {
     return redirectToReset(request.url, 'error', '두 비밀번호가 일치하지 않습니다.');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    // Recovery session expired or never existed — punt back to the
-    // request flow so the user can re-issue a reset email.
-    const url = new URL('/forgot-password', request.url);
-    url.searchParams.set('error', '재설정 링크가 만료되었습니다. 다시 요청해주세요.');
-    return NextResponse.redirect(url, { status: 303 });
   }
 
   const { error } = await supabase.auth.updateUser({ password });
@@ -59,6 +61,6 @@ export async function POST(request: Request) {
   const url = new URL('/dashboard', request.url);
   url.searchParams.set('success', '비밀번호가 변경되었습니다.');
   const response = NextResponse.redirect(url, { status: 303 });
-  response.cookies.set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
+  clearRecoveryCookie(response);
   return response;
 }
