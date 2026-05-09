@@ -54,6 +54,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <Button asChild variant="secondary" size="sm">
             <Link href="/signup">회원가입</Link>
           </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/forgot-password">비밀번호 찾기</Link>
+          </Button>
         </div>
       </Card>
     </main>

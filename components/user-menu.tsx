@@ -7,10 +7,12 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuFormItem,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@polaris/ui';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const THEME_STORAGE_KEY = 'docflow-theme';
@@ -58,6 +60,9 @@ export function UserMenu({ email }: { email: string }) {
           {email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/settings">계정 설정</Link>
+        </DropdownMenuItem>
         <DropdownMenuCheckboxItem checked={isDark} onCheckedChange={handleThemeChange}>
           다크 모드
         </DropdownMenuCheckboxItem>
