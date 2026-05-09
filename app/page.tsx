@@ -39,8 +39,8 @@ export default async function HomePage() {
 
         <section className="landing-hero">
           <div className="landing-hero-copy">
-            <Badge variant="primary" tone="subtle">B2A Document Operations</Badge>
-            <h1>외부 문서 공유, 운영 가능한 흐름으로</h1>
+            <Badge variant="primary" tone="subtle">기업 문서 공유 운영</Badge>
+            <h1>외부 문서, 운영하듯 다룹니다</h1>
             <p className="landing-lede">
               제안서 · IR 자료 · 계약 문서를 링크 한 줄로 통제하고, 상대가 어디서 멈췄는지 실시간으로 확인합니다.
               다음 미팅 · 자동화 · 후속 조치를 추측이 아닌 신호 기반으로 결정합니다.

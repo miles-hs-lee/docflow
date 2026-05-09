@@ -389,6 +389,37 @@ svg {
   padding: var(--polaris-spacing-lg);
 }
 
+.datetime-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--polaris-spacing-3xs);
+}
+
+.datetime-field-label {
+  padding-left: var(--polaris-spacing-sm);
+  color: var(--polaris-label-assistive);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.datetime-field input {
+  width: 100%;
+  height: 3.25rem;
+  padding: 0 var(--polaris-spacing-md);
+  border: 1px solid var(--border);
+  border-radius: var(--polaris-radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.datetime-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
 .upload-form {
   display: flex;
   align-items: stretch;
@@ -503,10 +534,10 @@ svg {
 }
 
 .landing-hero-copy h1 {
-  max-width: 18ch;
-  font-size: clamp(1.85rem, 3.6vw, 3.05rem);
-  line-height: 1.08;
-  letter-spacing: -0.035em;
+  max-width: 22ch;
+  font-size: clamp(1.65rem, 3vw, 2.65rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
 }
 
 .landing-hero-visual {
@@ -807,8 +838,16 @@ svg {
 
 .viewer-brand strong {
   flex: none;
-  font-weight: 900;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  color: var(--polaris-label-inverse);
+}
+
+.viewer-divider {
+  width: 1px;
+  height: 0.95rem;
+  background: color-mix(in srgb, var(--polaris-label-inverse) 32%, transparent);
 }
 
 .viewer-title {

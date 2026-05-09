@@ -4,8 +4,9 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { CopyButton } from '@/components/copy-button';
-import { HiddenInput } from '@/components/hidden-input';
+import { DateTimeInput } from '@/components/datetime-input';
 import { Flash } from '@/components/flash';
+import { HiddenInput } from '@/components/hidden-input';
 import {
   createCollectionShareLinkAction,
   softDeleteLinkAction,
@@ -112,7 +113,7 @@ export default async function CollectionLinksPage({ params, searchParams }: Coll
         <form action={createCollectionShareLinkAction} className="form-grid link-create-grid">
           <HiddenInput name="collectionId" value={collection.id} />
           <Input name="label" required label="링크 이름" placeholder="영업 제안 패키지" />
-          <Input type="datetime-local" name="expiresAt" label="만료일" />
+          <DateTimeInput name="expiresAt" label="만료일" />
           <Input type="number" name="maxViews" min={1} label="최대 조회수" placeholder="미설정" />
           <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
           <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
@@ -186,7 +187,7 @@ export default async function CollectionLinksPage({ params, searchParams }: Coll
                       <HiddenInput name="linkId" value={link.id} />
                       <HiddenInput name="redirectTo" value={redirectPath} />
                       <Input name="label" defaultValue={link.label} required label="이름" />
-                      <Input type="datetime-local" name="expiresAt" defaultValue={toDateTimeLocal(link.expires_at)} label="만료일" />
+                      <DateTimeInput name="expiresAt" defaultValue={toDateTimeLocal(link.expires_at)} label="만료일" />
                       <Input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} label="최대 조회수" />
                       <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
                       <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />

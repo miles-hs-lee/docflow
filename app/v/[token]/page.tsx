@@ -1,4 +1,5 @@
 import { Alert, AlertDescription, Badge, Button, Card, Input } from '@polaris/ui';
+import { PolarisLogo } from '@polaris/ui/logos';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
@@ -160,6 +161,8 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     <main className="viewer-app">
       <header className="viewer-topbar">
         <div className="viewer-brand">
+          <PolarisLogo variant="horizontal" tone="negative" size={20} aria-hidden />
+          <span className="viewer-divider" aria-hidden />
           <strong>DocFlow</strong>
           <span className="viewer-title">
             {link.label}
