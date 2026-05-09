@@ -271,8 +271,22 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
   let collection: CollectionRow | null = null;
   let collectionFiles: FileRow[] = [];
 
+  // Defense-in-depth: this loader runs with the service-role client so it
+  // bypasses RLS. Even though migration 012 hardens RLS so a share_links
+  // row cannot be created against another owner's file/collection, a
+  // legacy row inserted before that migration (or written by direct DB
+  // access) could still target a foreign parent. Filter every parent
+  // load by `owner_id = link.owner_id` so the viewer never serves a
+  // file/collection that doesn't belong to the link's owner.
+  const ownerScope = link.owner_id;
+
   if (link.file_id) {
-    const { data: fileData, error: fileError } = await admin.from('files').select('*').eq('id', link.file_id).maybeSingle();
+    const { data: fileData, error: fileError } = await admin
+      .from('files')
+      .select('*')
+      .eq('id', link.file_id)
+      .eq('owner_id', ownerScope)
+      .maybeSingle();
     if (fileError) throw fileError;
     file = (fileData as FileRow | null) ?? null;
   }
@@ -282,6 +296,7 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
       .from('collections')
       .select('*')
       .eq('id', link.collection_id)
+      .eq('owner_id', ownerScope)
       .maybeSingle();
     if (collectionError) throw collectionError;
     collection = (collectionData as CollectionRow | null) ?? null;
@@ -290,12 +305,17 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
       .from('collection_files')
       .select('file_id, sort_order')
       .eq('collection_id', link.collection_id)
+      .eq('owner_id', ownerScope)
       .order('sort_order', { ascending: true });
     if (mappingError) throw mappingError;
 
     const fileIds = (mapping ?? []).map((item) => (item as { file_id: string }).file_id);
     if (fileIds.length > 0) {
-      const { data: filesData, error: filesError } = await admin.from('files').select('*').in('id', fileIds);
+      const { data: filesData, error: filesError } = await admin
+        .from('files')
+        .select('*')
+        .in('id', fileIds)
+        .eq('owner_id', ownerScope);
       if (filesError) throw filesError;
 
       const fileMap = new Map<string, FileRow>();
