@@ -1,8 +1,8 @@
 import { Button, Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
+import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
 import { requireOwner } from '@/lib/auth';
-import { PolarisLogo } from '@polaris/ui/logos';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requireOwner();
@@ -10,16 +10,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="dashboard-shell">
       <Navbar className="dashboard-header">
-        <div>
-          <NavbarBrand asChild>
-            <Link href="/dashboard" className="landing-brand">
-              <PolarisLogo variant="horizontal" size={24} aria-hidden />
-              <span className="landing-brand-divider" aria-hidden />
-              <span className="landing-brand-product">DocFlow</span>
-            </Link>
-          </NavbarBrand>
-          <p className="muted small">{user.email}</p>
-        </div>
+        <NavbarBrand asChild>
+          <Link href="/dashboard" className="landing-brand">
+            <PolarisLogo variant="horizontal" size={24} aria-hidden />
+            <span className="landing-brand-divider" aria-hidden />
+            <span className="landing-brand-product">DocFlow</span>
+          </Link>
+        </NavbarBrand>
         <NavbarNav className="dashboard-nav">
           <Link href="/dashboard" className="nav-link">
             파일
@@ -31,7 +28,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
             휴지통
           </Link>
         </NavbarNav>
-        <NavbarActions>
+        <NavbarActions className="dashboard-actions">
+          <span className="dashboard-user-email" title={user.email}>
+            {user.email}
+          </span>
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="ghost" size="sm">
               로그아웃

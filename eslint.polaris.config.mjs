@@ -6,7 +6,7 @@ export default [
   },
   ...polaris.configs.recommended,
   {
-    files: ['components/hidden-input.tsx'],
+    files: ['components/hidden-input.tsx', 'components/file-input.tsx'],
     rules: {
       '@polaris/prefer-polaris-component': 'off'
     }

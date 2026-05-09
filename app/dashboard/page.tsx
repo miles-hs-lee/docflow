@@ -1,6 +1,7 @@
 import { Button, Card, Checkbox, EmptyState, FileIcon, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
 import Link from 'next/link';
 
+import { FileInput } from '@/components/file-input';
 import { Flash } from '@/components/flash';
 import { HiddenInput } from '@/components/hidden-input';
 import { createCollectionAction, deleteCollectionAction, deleteFileAction } from '@/lib/actions/owner';
@@ -32,8 +33,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
           <FileIcon type="pdf" size={42} />
         </div>
-        <form action="/dashboard/upload" method="post" className="inline-form" encType="multipart/form-data">
-          <Input type="file" name="pdf" accept="application/pdf,.pdf" required label="PDF 파일" />
+        <form action="/dashboard/upload" method="post" className="upload-form" encType="multipart/form-data">
+          <FileInput
+            name="pdf"
+            accept="application/pdf,.pdf"
+            required
+            className="upload-file"
+            aria-label="업로드할 PDF 파일"
+          />
           <Button type="submit">업로드</Button>
         </form>
       </Card>

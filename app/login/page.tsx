@@ -1,5 +1,5 @@
 import { Badge, Button, Card, Input } from '@polaris/ui';
-import Image from 'next/image';
+import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
 import { Flash } from '@/components/flash';
@@ -33,7 +33,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="center-layout">
       <Card className="hero-card login-card-single" variant="padded">
-        <Image src="/brand/docflow-logo.svg" alt="DocFlow" width={190} height={50} priority />
+        <Link href="/" className="landing-brand" aria-label="Polaris Office DocFlow">
+          <PolarisLogo variant="horizontal" size={24} aria-hidden />
+          <span className="landing-brand-divider" aria-hidden />
+          <span className="landing-brand-product">DocFlow</span>
+        </Link>
         <Badge variant="primary" tone="subtle">Polaris secure workspace</Badge>
         <h1>로그인</h1>
         <Flash error={error} success={success} />

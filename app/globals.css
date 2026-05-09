@@ -176,7 +176,6 @@ svg {
 
 .row-actions,
 .inline-form,
-.dashboard-nav,
 .landing-cta-row,
 .link-inline-actions,
 .summary-meta {
@@ -319,27 +318,45 @@ svg {
   position: sticky;
   top: 0;
   z-index: var(--polaris-z-sticky);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--polaris-spacing-sm);
-  border-bottom: 1px solid var(--border);
+  height: auto;
+  min-height: 3.5rem;
+  gap: var(--polaris-spacing-md);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(18px);
-  padding: var(--polaris-spacing-xs) var(--polaris-spacing-lg);
+  padding: 0 var(--polaris-spacing-lg);
+}
+
+.dashboard-nav {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-2xs);
+}
+
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-xs);
+}
+
+.dashboard-user-email {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--polaris-label-neutral);
+  font-size: 0.85rem;
 }
 
 .nav-link {
-  border: 1px solid transparent;
-  border-radius: var(--polaris-radius-pill);
+  border-radius: var(--polaris-radius-sm);
   color: var(--polaris-label-neutral);
   padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
-  font-weight: 750;
-  font-size: 0.88rem;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .nav-link:hover {
-  border-color: var(--border);
   background: var(--surface-soft);
   color: var(--text);
 }
@@ -348,6 +365,48 @@ svg {
   width: min(78rem, 100%);
   justify-self: center;
   padding: var(--polaris-spacing-lg);
+}
+
+.upload-form {
+  display: flex;
+  align-items: stretch;
+  gap: var(--polaris-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.upload-file {
+  flex: 1;
+  min-width: 18rem;
+  font: inherit;
+  border: 1px dashed color-mix(in srgb, var(--border-strong) 80%, var(--primary));
+  border-radius: var(--polaris-radius-sm);
+  background: var(--surface-soft);
+  color: var(--polaris-label-neutral);
+  padding: var(--polaris-spacing-2xs);
+  cursor: pointer;
+}
+
+.upload-file::file-selector-button {
+  margin-right: var(--polaris-spacing-xs);
+  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-sm);
+  border: 0;
+  border-radius: var(--polaris-radius-sm);
+  background: var(--primary);
+  color: var(--polaris-label-inverse);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.upload-file::file-selector-button:hover {
+  background: var(--primary-strong);
+}
+
+.upload-file:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .landing-home-layout {

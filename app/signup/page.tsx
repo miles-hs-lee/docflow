@@ -1,5 +1,5 @@
 import { Badge, Button, Card, Input } from '@polaris/ui';
-import Image from 'next/image';
+import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -23,7 +23,11 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   return (
     <main className="center-layout">
       <Card className="hero-card" variant="padded">
-        <Image src="/brand/docflow-logo.svg" alt="DocFlow" width={190} height={50} priority />
+        <Link href="/" className="landing-brand" aria-label="Polaris Office DocFlow">
+          <PolarisLogo variant="horizontal" size={24} aria-hidden />
+          <span className="landing-brand-divider" aria-hidden />
+          <span className="landing-brand-product">DocFlow</span>
+        </Link>
         <Badge variant="info" tone="subtle">최소 정보 가입</Badge>
         <h1>회원가입</h1>
         <Flash error={error} success={success} />
