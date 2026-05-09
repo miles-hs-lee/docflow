@@ -2,6 +2,7 @@ import { Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
+import { PolarisProvider } from '@/components/polaris-provider';
 import { UserMenu } from '@/components/user-menu';
 import { requireOwner } from '@/lib/auth';
 
@@ -9,6 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { user } = await requireOwner();
 
   return (
+    <PolarisProvider>
     <div className="dashboard-shell">
       <Navbar className="dashboard-header">
         <NavbarBrand asChild>
@@ -35,5 +37,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </Navbar>
       <main className="dashboard-content">{children}</main>
     </div>
+    </PolarisProvider>
   );
 }

@@ -2,7 +2,10 @@ import { Avatar, AvatarFallback, Badge, Button, Card, FileIcon } from '@polaris/
 import { NovaLogo, PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
-import { getOwner } from '@/lib/auth';
+// Landing must stay static — no per-request session lookup. Both CTAs are
+// public; /dashboard is gated by requireOwner(), so logged-out clicks
+// fall through to /login automatically.
+export const dynamic = 'force-static';
 
 const HERO_HEATMAP_FILE = '폴라리스 2026 제안서.pdf';
 const HERO_HEATMAP_PAGES: { page: number; dwellMs: number }[] = [
@@ -17,11 +20,7 @@ const HERO_HEATMAP_PAGES: { page: number; dwellMs: number }[] = [
 ];
 const HERO_HEATMAP_MAX_DWELL = Math.max(...HERO_HEATMAP_PAGES.map((p) => p.dwellMs));
 
-export default async function HomePage() {
-  const { user } = await getOwner();
-  const primaryHref = user ? '/dashboard' : '/signup';
-  const primaryLabel = user ? '대시보드' : '무료로 시작';
-
+export default function HomePage() {
   return (
     <main className="landing-home-layout">
       <section className="landing-shell">
@@ -32,20 +31,12 @@ export default async function HomePage() {
             <span className="landing-brand-product">DocFlow</span>
           </Link>
           <div className="landing-nav">
-            {user ? (
-              <Button asChild size="sm">
-                <Link href={primaryHref}>{primaryLabel}</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/login">로그인</Link>
-                </Button>
-                <Button asChild size="sm">
-                  <Link href={primaryHref}>{primaryLabel}</Link>
-                </Button>
-              </>
-            )}
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/login">로그인</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/signup">무료로 시작</Link>
+            </Button>
           </div>
         </header>
 
@@ -60,13 +51,11 @@ export default async function HomePage() {
             </p>
             <div className="landing-cta-row">
               <Button asChild size="xl">
-                <Link href={primaryHref}>{primaryLabel}</Link>
+                <Link href="/signup">무료로 시작</Link>
               </Button>
-              {user ? null : (
-                <Button asChild variant="secondary" size="xl">
-                  <Link href="/login">로그인</Link>
-                </Button>
-              )}
+              <Button asChild variant="secondary" size="xl">
+                <Link href="/login">로그인</Link>
+              </Button>
             </div>
             <p className="landing-trust">
               폴라리스오피스 구독만 하면 DocFlow가 무료
@@ -227,13 +216,11 @@ export default async function HomePage() {
           <p className="landing-lede">계정 생성에 1분, 첫 PDF 링크 발급까지 3분이면 충분합니다.</p>
           <div className="landing-cta-row">
             <Button asChild size="xl">
-              <Link href={primaryHref}>{primaryLabel}</Link>
+              <Link href="/signup">무료로 시작</Link>
             </Button>
-            {user ? null : (
-              <Button asChild variant="secondary" size="xl">
-                <Link href="/login">로그인</Link>
-              </Button>
-            )}
+            <Button asChild variant="secondary" size="xl">
+              <Link href="/login">로그인</Link>
+            </Button>
           </div>
           <p className="landing-cta-fineprint">
             모든 링크 이벤트는 감사 로그로 보존됩니다 · 폴라리스오피스 보안 기준 적용

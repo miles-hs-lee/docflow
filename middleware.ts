@@ -10,12 +10,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const pathname = request.nextUrl.pathname;
   const response = NextResponse.next();
 
-  // Ensure /v/* viewers always carry a stable viewer session id. Mutating
-  // cookies in a Server Component throws under Next 15 RSC; the middleware is
-  // the right place to guarantee the cookie before the page renders.
-  if (request.nextUrl.pathname.startsWith('/v/')) {
+  // Viewer routes only need a stable session cookie — they don't have a
+  // Supabase user session at all, so skip the auth refresh. Landing,
+  // static, and the rest of the app are excluded by the matcher below.
+  if (pathname.startsWith('/v/')) {
     const existing = request.cookies.get(VIEWER_SESSION_COOKIE)?.value;
     const normalized = normalizeViewerSessionId(existing);
     if (!existing || existing !== normalized) {
@@ -27,7 +28,9 @@ export async function middleware(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 30
       });
     }
+    return response;
   }
+
   type CookieToSet = {
     name: string;
     value: string;
@@ -51,12 +54,30 @@ export async function middleware(request: NextRequest) {
   try {
     await supabase.auth.getUser();
   } catch {
-    // Keep public routes reachable even if auth backends are temporarily unavailable.
+    // Keep these routes reachable even if auth backends are temporarily unavailable.
   }
 
   return response;
 }
 
+// Narrow scope: middleware only runs on routes that actually need it.
+// - /dashboard/*:      gated, needs Supabase session refresh.
+// - /auth/*:           callbacks / signout — may set or rotate session.
+// - /login, /signup,
+//   /forgot-password,
+//   /reset-password:   read user to redirect logged-in visitors and
+//                      need session-cookie rotation under Next 15 RSC.
+// - /v/*:              viewer routes need only the session cookie
+//                      (handled above; supabase.auth call is skipped).
+// Landing (/) is now static; api/* runs its own auth via createClient.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)']
+  matcher: [
+    '/dashboard/:path*',
+    '/auth/:path*',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/reset-password',
+    '/v/:path*'
+  ]
 };
