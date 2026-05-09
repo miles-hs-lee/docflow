@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
-import { getViewerLinkByToken, downloadPdfObject, recordLinkEvent } from '@/lib/data';
+import { getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -134,9 +134,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return buildDeniedResponse('access_not_granted');
   }
 
-  let pdfBlob: Blob;
+  // Stream from a short-lived signed URL — see /document/route.ts for the
+  // same memory rationale (download() materialized the whole PDF in Node).
+  const signedUrl = await signedPdfObjectUrl(targetFile.storage_path);
+  if (!signedUrl) {
+    await safeLogDenied({
+      reason: 'file_missing',
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      ownerId: bundle.owner_id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+    return buildDeniedResponse('file_missing', 404);
+  }
+
+  let upstream: Response;
   try {
-    pdfBlob = await downloadPdfObject(targetFile.storage_path);
+    upstream = await fetch(signedUrl);
   } catch {
     await safeLogDenied({
       reason: 'file_missing',
@@ -148,7 +165,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
       ipHash,
       userAgent
     });
-
+    return buildDeniedResponse('file_missing', 404);
+  }
+  if (!upstream.ok) {
+    upstream.body?.cancel().catch(() => {});
+    await safeLogDenied({
+      reason: 'file_missing',
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      ownerId: bundle.owner_id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
     return buildDeniedResponse('file_missing', 404);
   }
 
@@ -168,15 +198,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';
-  // Pass the Blob directly — see /document/route.ts for why
-  // pdfBlob.stream() is avoided (truncated body on Vercel serverless).
-  const response = new NextResponse(pdfBlob, {
+  const responseHeaders: Record<string, string> = {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${safeName}"`,
+    'Cache-Control': 'private, no-store'
+  };
+  const upstreamLen = upstream.headers.get('content-length');
+  if (upstreamLen) responseHeaders['Content-Length'] = upstreamLen;
+  const response = new NextResponse(upstream.body, {
     status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${safeName}"`,
-      'Cache-Control': 'private, no-store'
-    }
+    headers: responseHeaders
   });
 
   if (shouldRefreshViewerCookie) {

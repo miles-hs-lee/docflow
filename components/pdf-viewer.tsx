@@ -24,6 +24,14 @@ const RENDER_WINDOW = 2;
 // Default A4 portrait ratio (h / w ≈ 1.414). Once a page renders we cache
 // its real height so the placeholder shrinks/grows to match.
 const FALLBACK_PAGE_RATIO = 1.414;
+// Per-page dwell events are buffered locally and posted in batches so
+// long PDFs don't fan out to one serverless invocation per page. The
+// queue flushes when it hits BATCH_FLUSH_SIZE, after BATCH_FLUSH_MS
+// since the first queued event, or on pagehide / hidden-tab.
+const BATCH_FLUSH_SIZE = 8;
+const BATCH_FLUSH_MS = 8000;
+
+type PageDwellEvent = { pageNumber: number; dwellMs: number };
 
 type PdfViewerProps = {
   documentSrc: string;
@@ -65,11 +73,13 @@ export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }
     return () => observer.disconnect();
   }, []);
 
-  const reportPageDwell = useCallback(
-    (pageNumber: number, dwellMs: number) => {
-      if (dwellMs < MIN_DWELL_MS) return;
-      const clamped = Math.min(dwellMs, MAX_DWELL_MS);
-      const body = JSON.stringify({ pageNumber, dwellMs: clamped, fileId });
+  const eventQueue = useRef<PageDwellEvent[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
+
+  const sendBatch = useCallback(
+    (events: PageDwellEvent[]) => {
+      if (events.length === 0) return;
+      const body = JSON.stringify({ events, fileId });
       try {
         if (navigator.sendBeacon) {
           navigator.sendBeacon(eventEndpoint, new Blob([body], { type: 'application/json' }));
@@ -90,16 +100,49 @@ export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }
     [eventEndpoint, fileId]
   );
 
+  const flushQueue = useCallback(() => {
+    if (flushTimerRef.current != null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const events = eventQueue.current.splice(0);
+    if (events.length > 0) sendBatch(events);
+  }, [sendBatch]);
+
+  const reportPageDwell = useCallback(
+    (pageNumber: number, dwellMs: number) => {
+      if (dwellMs < MIN_DWELL_MS) return;
+      const clamped = Math.min(dwellMs, MAX_DWELL_MS);
+      eventQueue.current.push({ pageNumber, dwellMs: clamped });
+      if (eventQueue.current.length >= BATCH_FLUSH_SIZE) {
+        flushQueue();
+        return;
+      }
+      if (flushTimerRef.current == null) {
+        flushTimerRef.current = window.setTimeout(() => {
+          flushTimerRef.current = null;
+          const events = eventQueue.current.splice(0);
+          if (events.length > 0) sendBatch(events);
+        }, BATCH_FLUSH_MS);
+      }
+    },
+    [flushQueue, sendBatch]
+  );
+
   useEffect(() => {
     if (numPages === 0) return;
     const enterAt = pageEnterAt.current;
     const visibility = pageVisibility.current;
-    const flushAll = () => {
+    const drainOpenDwells = () => {
       const now = Date.now();
       for (const [pageNumber, t0] of enterAt.entries()) {
         reportPageDwell(pageNumber, now - t0);
       }
       enterAt.clear();
+    };
+    const flushAll = () => {
+      drainOpenDwells();
+      flushQueue();
     };
 
     const scheduleActiveRecalc = () => {
@@ -162,7 +205,7 @@ export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }
       window.removeEventListener('pagehide', flushAll);
       flushAll();
     };
-  }, [numPages, reportPageDwell]);
+  }, [numPages, reportPageDwell, flushQueue]);
 
   const fileProp = useMemo(() => ({ url: documentSrc }), [documentSrc]);
 

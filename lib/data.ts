@@ -478,10 +478,25 @@ export async function uploadPdfObject(args: {
 }
 
 export async function downloadPdfObject(path: string) {
+  // Kept for any non-streaming caller (admin UI exports, etc). The
+  // viewer / download routes now use signedPdfObjectUrl + fetch() for
+  // real streaming and Range support.
   const admin = createAdminClient();
   const { data, error } = await admin.storage.from('pdf-files').download(path);
   if (error) throw error;
   return data;
+}
+
+// Returns a short-lived signed URL pointing at the storage object, used
+// by viewer/download routes to stream bytes via fetch(url) instead of
+// download() (which materializes the whole Blob in Node memory). The
+// upstream URL honors HTTP Range requests, so the route can pass a
+// client's Range header straight through and return 206 partial bodies.
+export async function signedPdfObjectUrl(path: string, ttlSeconds = 60): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from('pdf-files').createSignedUrl(path, ttlSeconds);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }
 
 export async function removePdfObject(path: string) {

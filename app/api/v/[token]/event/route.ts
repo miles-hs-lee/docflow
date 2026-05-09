@@ -12,10 +12,23 @@ type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
-const PageEventSchema = z.object({
+const SinglePageEventSchema = z.object({
   fileId: z.string().uuid().optional(),
   pageNumber: z.number().int().min(1).max(10_000),
   dwellMs: z.number().int().min(0).max(60 * 60 * 1000)
+});
+
+const BatchPageEventsSchema = z.object({
+  fileId: z.string().uuid().optional(),
+  events: z
+    .array(
+      z.object({
+        pageNumber: z.number().int().min(1).max(10_000),
+        dwellMs: z.number().int().min(0).max(60 * 60 * 1000)
+      })
+    )
+    .min(1)
+    .max(64)
 });
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -28,9 +41,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
   }
 
-  const parsed = PageEventSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
+  // Accept both shapes so the viewer can roll out batching without a
+  // route version bump and so a single-event sender still works.
+  const batch = BatchPageEventsSchema.safeParse(body);
+  let requestFileId: string | undefined;
+  let events: { pageNumber: number; dwellMs: number }[];
+  if (batch.success) {
+    requestFileId = batch.data.fileId;
+    events = batch.data.events;
+  } else {
+    const single = SinglePageEventSchema.safeParse(body);
+    if (!single.success) {
+      return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
+    }
+    requestFileId = single.data.fileId;
+    events = [{ pageNumber: single.data.pageNumber, dwellMs: single.data.dwellMs }];
   }
 
   // page_view events are per-scroll high-volume. Skip the heavy
@@ -64,16 +89,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // Resolve target file: file-attached link uses link.file_id directly;
   // collection-attached link checks membership via RPC (one cheap query).
   let targetFileId: string | null = link.file_id;
-  if (!targetFileId && link.collection_id && parsed.data.fileId) {
+  if (!targetFileId && link.collection_id && requestFileId) {
     const { data: contained, error: containsError } = await admin.rpc('collection_contains_file', {
       p_collection_id: link.collection_id,
-      p_file_id: parsed.data.fileId,
+      p_file_id: requestFileId,
       p_owner_id: link.owner_id
     });
     if (containsError || !contained) {
       return NextResponse.json({ error: 'file_missing' }, { status: 404 });
     }
-    targetFileId = parsed.data.fileId;
+    targetFileId = requestFileId;
   }
   if (!targetFileId) {
     return NextResponse.json({ error: 'file_missing' }, { status: 404 });
@@ -88,23 +113,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const sessionId = normalizeViewerSessionId(request.cookies.get(VIEWER_SESSION_COOKIE)?.value);
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+  const ipHash = hashIp(ip);
+  const userAgent = request.headers.get('user-agent');
+  const viewerEmail = grant?.email;
 
-  try {
-    await recordLinkEvent({
-      linkId: link.id,
-      fileId: targetFileId,
-      ownerId: link.owner_id,
-      eventType: 'page_view',
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash: hashIp(ip),
-      userAgent: request.headers.get('user-agent'),
-      pageNumber: parsed.data.pageNumber,
-      dwellMs: parsed.data.dwellMs
-    });
-  } catch {
-    // Per-page analytics must never break the viewer; swallow ingest failures.
-  }
+  // Insert the batch in parallel — each row is a separate INSERT in
+  // recordLinkEvent. Per-page analytics must never break the viewer,
+  // so swallow individual failures inside the batch.
+  await Promise.all(
+    events.map((event) =>
+      recordLinkEvent({
+        linkId: link.id,
+        fileId: targetFileId,
+        ownerId: link.owner_id,
+        eventType: 'page_view',
+        sessionId,
+        viewerEmail,
+        ipHash,
+        userAgent,
+        pageNumber: event.pageNumber,
+        dwellMs: event.dwellMs
+      }).catch(() => {
+        // Swallow ingest failures per event.
+      })
+    )
+  );
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accepted: events.length });
 }
