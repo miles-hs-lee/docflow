@@ -16,3 +16,9 @@ out
 dist
 .vercel
 .env*.local
+
+# Local tooling caches
+.claude
+.playwright-cli
+.tmp
+fixtures
