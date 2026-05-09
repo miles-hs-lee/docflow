@@ -6,7 +6,12 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+let workerInitialized = false;
+function ensurePdfWorker() {
+  if (workerInitialized || typeof window === 'undefined') return;
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  workerInitialized = true;
+}
 
 const MIN_DWELL_MS = 800;
 const MAX_DWELL_MS = 60 * 60 * 1000;
@@ -29,6 +34,10 @@ export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<PageRecord[]>([]);
   const pageEnterAt = useRef<Map<number, number>>(new Map());
+
+  useEffect(() => {
+    ensurePdfWorker();
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
