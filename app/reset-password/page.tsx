@@ -1,10 +1,11 @@
 import { Badge, Button, Card, Input } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Flash } from '@/components/flash';
-import { getOwner } from '@/lib/auth';
+import { PASSWORD_RECOVERY_COOKIE } from '@/lib/password-recovery-cookie';
 
 type ResetPasswordPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -15,13 +16,18 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
   const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
   const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
 
-  // Recovery flow: /auth/callback exchanged the email-link code for a
-  // session before redirecting here. If we don't see one, the user landed
-  // on this page directly without going through the email link — bounce
-  // them back to the request flow with a clear message.
-  const { user } = await getOwner();
-  if (!user) {
-    redirect('/forgot-password?error=' + encodeURIComponent('재설정 링크가 만료되었거나 유효하지 않습니다. 다시 요청해주세요.'));
+  // Recovery-only access: an active user session by itself is NOT enough
+  // (a normal logged-in user must change their password through the
+  // settings flow with current-password verification). The /auth/callback
+  // route sets a short-TTL HttpOnly recovery cookie when the next param
+  // is /reset-password — only sessions that came in through that path
+  // get to skip current-password verification.
+  const cookieStore = await cookies();
+  if (!cookieStore.get(PASSWORD_RECOVERY_COOKIE)) {
+    redirect(
+      '/forgot-password?error=' +
+        encodeURIComponent('재설정 링크가 만료되었거나 유효하지 않습니다. 다시 요청해주세요.')
+    );
   }
 
   return (

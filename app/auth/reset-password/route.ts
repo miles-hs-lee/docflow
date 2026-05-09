@@ -1,5 +1,7 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { PASSWORD_RECOVERY_COOKIE } from '@/lib/password-recovery-cookie';
 import { createClient } from '@/lib/supabase/server';
 
 function redirectToReset(requestUrl: string, key: 'error' | 'success', message: string) {
@@ -9,6 +11,16 @@ function redirectToReset(requestUrl: string, key: 'error' | 'success', message: 
 }
 
 export async function POST(request: Request) {
+  // Gate on the recovery cookie set by /auth/callback (see route.ts).
+  // This prevents an already-logged-in normal session from POSTing here
+  // and changing its password without re-entering the current one.
+  const cookieStore = await cookies();
+  if (!cookieStore.get(PASSWORD_RECOVERY_COOKIE)) {
+    const url = new URL('/forgot-password', request.url);
+    url.searchParams.set('error', '재설정 세션이 만료되었습니다. 다시 요청해주세요.');
+    return NextResponse.redirect(url, { status: 303 });
+  }
+
   const formData = await request.formData();
   const password = ((formData.get('password') as string | null) || '').trim();
   const confirm = ((formData.get('passwordConfirm') as string | null) || '').trim();
@@ -42,9 +54,11 @@ export async function POST(request: Request) {
     return redirectToReset(request.url, 'error', '비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  // Success — recovery session is now a normal session, so the user is
-  // already logged in. Send them straight to the dashboard.
+  // Consume the recovery cookie so it cannot be reused. The recovery
+  // session is now a normal session, so the user is already logged in.
   const url = new URL('/dashboard', request.url);
   url.searchParams.set('success', '비밀번호가 변경되었습니다.');
-  return NextResponse.redirect(url, { status: 303 });
+  const response = NextResponse.redirect(url, { status: 303 });
+  response.cookies.set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
+  return response;
 }

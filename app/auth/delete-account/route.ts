@@ -12,19 +12,26 @@ function redirectToSettings(requestUrl: string, key: 'error' | 'success', messag
 /**
  * Hard-delete the current user's account and every owned record.
  *
- * Sequence:
- *   1. Re-verify the user is logged in and re-authenticate with the
- *      typed password (signInWithPassword with their own email). This
- *      blocks anyone who happens to have a stolen session cookie from
- *      one-clicking the destruction.
- *   2. Best-effort wipe of all PDF blobs the user uploaded. Failures
- *      are queued in pending_storage_deletions for the orphan sweep.
+ * Sequence (revised):
+ *   1. Re-auth: signInWithPassword on the session user's own email.
+ *      Stops a stolen-session one-click destruction.
+ *   2. Snapshot storage paths (read-only). If this listing fails we
+ *      ABORT — leaving storage orphans behind would be worse than the
+ *      owner retrying after a transient DB blip.
  *   3. supabase.auth.admin.deleteUser(user.id). Every owner_id-keyed
- *      table in the public schema has FK ON DELETE CASCADE on
- *      auth.users(id), so the actual cleanup of files / collections /
- *      share_links / link_events / mcp_api_keys / automation_subscriptions
- *      happens automatically.
- *   4. Sign the (now-deleted) session out + redirect to /login.
+ *      public-schema table has FK ON DELETE CASCADE on auth.users(id),
+ *      so files / collections / share_links / link_events / mcp_api_keys
+ *      / automation_subscriptions cascade away in one Supabase txn. If
+ *      this fails the DB is still consistent and storage is untouched.
+ *   4. Best-effort storage cleanup AFTER the user is gone. Failures
+ *      queue into pending_storage_deletions for the orphan sweep.
+ *   5. Sign the local session out + redirect to /login.
+ *
+ * Why storage AFTER deleteUser: if storage went first and deleteUser
+ * then failed, the account would survive but its PDFs would be gone
+ * — broken share links pointing at missing blobs. The reverse failure
+ * mode (deleteUser succeeds, storage cleanup fails) leaves orphans
+ * that the sweep job recovers, with no broken-link surface.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -42,8 +49,8 @@ export async function POST(request: Request) {
     return redirectToSettings(request.url, 'error', '비밀번호를 입력해주세요.');
   }
 
-  // Re-auth check. Uses signInWithPassword on the user's own email; if
-  // the password is wrong we get an error and bail before touching data.
+  // Re-auth check. signInWithPassword on the user's own email; wrong
+  // password ⇒ bail before touching anything.
   const { error: reauthError } = await supabase.auth.signInWithPassword({
     email: user.email,
     password
@@ -54,47 +61,34 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Best-effort PDF cleanup before the auth row goes away. We collect
-  // every storage_path the user owns, then delete them in one batch
-  // call. Anything that fails is queued for the orphan sweep so the
-  // bucket doesn't leak the user's files after their account is gone.
+  // 1) Snapshot storage paths BEFORE we delete the auth user. If the
+  // listing itself fails we abort — proceeding would leak the orphan
+  // paths since we'd no longer be able to recover them after cascade.
+  let paths: string[] = [];
   try {
-    const { data: files } = await admin
+    const { data: files, error: listError } = await admin
       .from('files')
       .select('storage_path')
       .eq('owner_id', user.id);
-    const paths = (files ?? [])
+    if (listError) throw listError;
+    paths = (files ?? [])
       .map((f) => (f as { storage_path: string }).storage_path)
       .filter((p): p is string => Boolean(p));
-
-    if (paths.length > 0) {
-      const { error: storageError } = await admin.storage.from('pdf-files').remove(paths);
-      if (storageError) {
-        // Queue every path; the bulk remove is all-or-nothing per Supabase API
-        // semantics, so a single failure means none were deleted.
-        await admin.from('pending_storage_deletions').insert(
-          paths.map((p) => ({
-            storage_path: p,
-            reason: `account_delete: ${storageError.message}`
-          }))
-        );
-        console.error('[deleteAccount] storage bulk remove failed', {
-          ownerId: user.id,
-          count: paths.length,
-          reason: storageError.message
-        });
-      }
-    }
   } catch (err) {
-    // Even the file listing failed — log and proceed. The auth user
-    // delete below still cascades the DB rows; storage orphans are
-    // recoverable via the sweep job.
-    console.error('[deleteAccount] storage prep failed', {
+    console.error('[deleteAccount] storage listing failed — aborting', {
       ownerId: user.id,
       err: err instanceof Error ? err.message : 'unknown_error'
     });
+    return redirectToSettings(
+      request.url,
+      'error',
+      '계정 삭제 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+    );
   }
 
+  // 2) Delete the auth user (and cascade-clean every owner_id row).
+  // Storage is still intact at this point — if deleteUser fails we
+  // surface the error and the data is unchanged.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
   if (deleteError) {
     console.error('[deleteAccount] admin.deleteUser failed', {
@@ -104,8 +98,42 @@ export async function POST(request: Request) {
     return redirectToSettings(request.url, 'error', '계정 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  // Wipe the local session cookies (the user is gone — supabase will
-  // refuse the session anyway, but this clears the browser state).
+  // 3) Best-effort storage cleanup AFTER the user is gone. Anything
+  // that fails goes into pending_storage_deletions for the sweep job.
+  if (paths.length > 0) {
+    try {
+      const { error: storageError } = await admin.storage.from('pdf-files').remove(paths);
+      if (storageError) {
+        console.error('[deleteAccount] storage bulk remove failed', {
+          ownerId: user.id,
+          count: paths.length,
+          reason: storageError.message
+        });
+        try {
+          await admin.from('pending_storage_deletions').insert(
+            paths.map((p) => ({
+              storage_path: p,
+              reason: `account_delete: ${storageError.message}`
+            }))
+          );
+        } catch (queueErr) {
+          console.error('[deleteAccount] failed to queue storage cleanup', {
+            ownerId: user.id,
+            count: paths.length,
+            queueErr: queueErr instanceof Error ? queueErr.message : 'unknown_error'
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[deleteAccount] storage cleanup threw', {
+        ownerId: user.id,
+        count: paths.length,
+        err: err instanceof Error ? err.message : 'unknown_error'
+      });
+    }
+  }
+
+  // 4) Wipe the local session cookies (the user is already gone server-side).
   await supabase.auth.signOut();
 
   const url = new URL('/login', request.url);
