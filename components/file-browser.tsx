@@ -26,7 +26,8 @@ import {
 } from '@polaris/ui';
 import { ArrowDownIcon, ArrowUpIcon, SearchIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { formatBytes, formatDateTime } from '@/lib/format';
@@ -37,78 +38,99 @@ type SortDir = 'asc' | 'desc';
 type DeleteAction = (formData: FormData) => void | Promise<void>;
 
 const PAGE_SIZE_OPTIONS = ['10', '25', '50', '100'] as const;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function FileBrowser({
   files,
   totalCount,
-  fetchedLimit,
+  page,
+  pageSize,
+  search,
+  sortKey,
+  sortDir,
   deleteFileAction
 }: {
   files: FileRow[];
-  totalCount?: number;
-  fetchedLimit?: number;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
   deleteFileAction: DeleteAction;
 }) {
-  // The server caps the number of rows we fetch (FILES_DEFAULT_LIMIT in
-  // lib/data.ts). When the cap is hit we surface it so the user knows
-  // their search runs only over the most-recent slice.
-  const truncated = typeof totalCount === 'number' && typeof fetchedLimit === 'number' && totalCount > fetchedLimit;
-  const [query, setQuery] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('created_at');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [pageSize, setPageSize] = useState(25);
-  const [page, setPage] = useState(1);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+  const [draftSearch, setDraftSearch] = useState(search);
+  const debounceRef = useRef<number | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return files;
-    return files.filter((f) => f.original_name.toLowerCase().includes(q));
-  }, [files, query]);
-
-  const sorted = useMemo(() => {
-    const copy = [...filtered];
-    copy.sort((a, b) => {
-      const dir = sortDir === 'asc' ? 1 : -1;
-      if (sortKey === 'original_name') return a.original_name.localeCompare(b.original_name) * dir;
-      if (sortKey === 'size_bytes') return (a.size_bytes - b.size_bytes) * dir;
-      return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
-    });
-    return copy;
-  }, [filtered, sortKey, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(page, totalPages);
-  const start = (safePage - 1) * pageSize;
-  const visible = sorted.slice(start, start + pageSize);
+
+  const buildHref = useCallback(
+    (overrides: Partial<{ fp: number; fz: number; fq: string; fs: SortKey; fd: SortDir }>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      const set = (key: string, value: string | number | undefined) => {
+        if (value === undefined || value === '' || value === null) next.delete(key);
+        else next.set(key, String(value));
+      };
+      if ('fp' in overrides) set('fp', overrides.fp === 1 ? undefined : overrides.fp);
+      if ('fz' in overrides) set('fz', overrides.fz);
+      if ('fq' in overrides) set('fq', overrides.fq?.trim() || undefined);
+      if ('fs' in overrides) set('fs', overrides.fs);
+      if ('fd' in overrides) set('fd', overrides.fd);
+      const qs = next.toString();
+      return qs ? `${pathname}?${qs}` : pathname;
+    },
+    [pathname, searchParams]
+  );
+
+  const navigate = useCallback(
+    (overrides: Parameters<typeof buildHref>[0]) => {
+      const href = buildHref(overrides);
+      startTransition(() => router.push(href, { scroll: false }));
+    },
+    [buildHref, router]
+  );
+
+  // Debounce free-text search → URL push. The server re-renders with the
+  // new query and Next streams the updated table back in via transition.
+  useEffect(() => {
+    setDraftSearch(search);
+  }, [search]);
+
+  useEffect(() => {
+    if (draftSearch === search) return;
+    if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      navigate({ fq: draftSearch, fp: 1 });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
+    };
+  }, [draftSearch, search, navigate]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      navigate({ fd: sortDir === 'asc' ? 'desc' : 'asc', fp: 1 });
     } else {
-      setSortKey(key);
-      setSortDir(key === 'original_name' ? 'asc' : 'desc');
+      const nextDir: SortDir = key === 'original_name' ? 'asc' : 'desc';
+      navigate({ fs: key, fd: nextDir, fp: 1 });
     }
-    setPage(1);
   };
 
   const sortIndicator = (key: SortKey) => {
     if (sortKey !== key) return null;
-    return sortDir === 'asc'
-      ? <ArrowUpIcon size={12} aria-hidden />
-      : <ArrowDownIcon size={12} aria-hidden />;
+    return sortDir === 'asc' ? (
+      <ArrowUpIcon size={12} aria-hidden />
+    ) : (
+      <ArrowDownIcon size={12} aria-hidden />
+    );
   };
 
-  const handleQuery = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-    setPage(1);
-  };
-
-  const handlePageSize = (value: string) => {
-    setPageSize(Number(value));
-    setPage(1);
-  };
-
-  if (files.length === 0) {
+  if (totalCount === 0 && search === '') {
     return (
       <EmptyState
         title="업로드된 파일이 없습니다"
@@ -123,8 +145,8 @@ export function FileBrowser({
         <div className="file-browser-search">
           <SearchIcon size={16} aria-hidden />
           <Input
-            value={query}
-            onChange={handleQuery}
+            value={draftSearch}
+            onChange={(e) => setDraftSearch(e.target.value)}
             placeholder="파일명 검색"
             aria-label="파일명 검색"
             className="file-browser-search-input"
@@ -132,14 +154,13 @@ export function FileBrowser({
         </div>
         <div className="file-browser-meta">
           <Badge variant="neutral" tone="subtle">
-            {filtered.length === files.length
-              ? truncated
-                ? `최근 ${files.length} / 전체 ${totalCount}개`
-                : `${files.length}개`
-              : `${filtered.length} / ${files.length}개`}
+            {search ? `${totalCount}개 일치` : `전체 ${totalCount}개`}
           </Badge>
           <span className="muted small">페이지당</span>
-          <Select value={String(pageSize)} onValueChange={handlePageSize}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => navigate({ fz: Number(value), fp: 1 })}
+          >
             <SelectTrigger className="file-browser-pagesize" aria-label="페이지당 행 수">
               <SelectValue />
             </SelectTrigger>
@@ -154,10 +175,10 @@ export function FileBrowser({
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {files.length === 0 ? (
         <EmptyState
           title="검색 결과가 없습니다"
-          description={`"${query}"와 일치하는 파일이 없습니다. 다른 키워드로 시도해보세요.`}
+          description={`"${search}"와 일치하는 파일이 없습니다. 다른 키워드로 시도해보세요.`}
         />
       ) : (
         <Table density="compact">
@@ -182,7 +203,7 @@ export function FileBrowser({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((file) => (
+            {files.map((file) => (
               <TableRow key={file.id}>
                 <TableCell>
                   <span className="row-actions">
@@ -213,7 +234,7 @@ export function FileBrowser({
 
       {totalPages > 1 ? (
         <Pagination className="file-browser-pagination">
-          <PaginationPrev disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <PaginationPrev disabled={safePage <= 1} onClick={() => navigate({ fp: safePage - 1 })}>
             이전
           </PaginationPrev>
           {pageNumberItems(safePage, totalPages).map((item, idx) =>
@@ -224,7 +245,7 @@ export function FileBrowser({
                 key={item}
                 active={item === safePage}
                 aria-current={item === safePage ? 'page' : undefined}
-                onClick={() => setPage(item)}
+                onClick={() => navigate({ fp: item })}
               >
                 {item}
               </PaginationItem>
@@ -232,7 +253,7 @@ export function FileBrowser({
           )}
           <PaginationNext
             disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => navigate({ fp: safePage + 1 })}
           >
             다음
           </PaginationNext>

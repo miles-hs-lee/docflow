@@ -8,18 +8,62 @@ import { HiddenInput } from '@/components/hidden-input';
 import { UploadForm } from '@/components/upload-form';
 import { createCollectionAction, deleteCollectionAction, deleteFileAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
-import { listCollections, listFiles } from '@/lib/data';
+import {
+  FILES_PAGE_SIZE_DEFAULT,
+  FILES_PAGE_SIZE_MAX,
+  listCollections,
+  listFiles,
+  type FilesSortDir,
+  type FilesSortKey
+} from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
 
 type DashboardPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const SORT_KEYS: ReadonlyArray<FilesSortKey> = ['created_at', 'original_name', 'size_bytes'];
+const SORT_DIRS: ReadonlyArray<FilesSortDir> = ['asc', 'desc'];
+
+function pickString(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const { supabase } = await requireOwner();
-  const [filesResult, collections] = await Promise.all([listFiles(supabase), listCollections(supabase)]);
-  const { rows: files, total: filesTotal, limit: filesLimit } = filesResult;
+
+  // URL contract for the file browser:
+  //   fp = page (1-based)   fz = page size       fq = search query
+  //   fs = sort key         fd = sort direction
+  const search = pickString(params.fq)?.trim() ?? '';
+  const sizeRaw = Number(pickString(params.fz) ?? '');
+  const pageSize = Number.isFinite(sizeRaw) && sizeRaw > 0
+    ? Math.min(sizeRaw, FILES_PAGE_SIZE_MAX)
+    : FILES_PAGE_SIZE_DEFAULT;
+  const pageRaw = Number(pickString(params.fp) ?? '1');
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+  const sortKeyParam = pickString(params.fs) as FilesSortKey | undefined;
+  const sortDirParam = pickString(params.fd) as FilesSortDir | undefined;
+  const sortKey: FilesSortKey = sortKeyParam && SORT_KEYS.includes(sortKeyParam) ? sortKeyParam : 'created_at';
+  const sortDir: FilesSortDir = sortDirParam && SORT_DIRS.includes(sortDirParam)
+    ? sortDirParam
+    : sortKey === 'original_name'
+      ? 'asc'
+      : 'desc';
+
+  const [filesResult, collections] = await Promise.all([
+    listFiles(supabase, {
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      search,
+      sortKey,
+      sortDir
+    }),
+    listCollections(supabase)
+  ]);
+  const { rows: files, total: filesTotal } = filesResult;
 
   const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
   const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
@@ -44,13 +88,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <FileBrowser
           files={files}
           totalCount={filesTotal}
-          fetchedLimit={filesLimit}
+          page={page}
+          pageSize={pageSize}
+          search={search}
+          sortKey={sortKey}
+          sortDir={sortDir}
           deleteFileAction={deleteFileAction}
         />
       </Card>
 
       <Card className="panel collapsible" variant="padded">
-        <CollectionBuilderLazy files={files} createCollectionAction={createCollectionAction} />
+        <CollectionBuilderLazy createCollectionAction={createCollectionAction} />
       </Card>
 
       <Card className="panel" variant="padded">

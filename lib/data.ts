@@ -19,27 +19,49 @@ import type {
 
 type OwnerClient = Awaited<ReturnType<typeof createOwnerClient>>;
 
-// Owners with thousands of uploads were paying for the entire table on
-// every dashboard render. The page browser needs at most a few hundred
-// rows at a time; the full collection is reachable via search/filter.
-const FILES_DEFAULT_LIMIT = 500;
+// Real server-side pagination + search. The dashboard reads ?fp / ?fq /
+// ?fs / ?fd from the URL and passes them through; the file picker (used
+// by the collection builder) hits /api/owner/files with the same args.
+export const FILES_PAGE_SIZE_DEFAULT = 25;
+export const FILES_PAGE_SIZE_MAX = 100;
+
+export type FilesSortKey = 'created_at' | 'original_name' | 'size_bytes';
+export type FilesSortDir = 'asc' | 'desc';
+
+export type ListFilesOptions = {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  sortKey?: FilesSortKey;
+  sortDir?: FilesSortDir;
+};
 
 export async function listFiles(
   ownerClient: OwnerClient,
-  options?: { limit?: number }
-): Promise<{ rows: FileRow[]; total: number; limit: number }> {
-  const limit = options?.limit ?? FILES_DEFAULT_LIMIT;
-  const { data, error, count } = await ownerClient
-    .from('files')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(0, limit - 1);
+  options: ListFilesOptions = {}
+): Promise<{ rows: FileRow[]; total: number; limit: number; offset: number }> {
+  const limit = Math.min(Math.max(options.limit ?? FILES_PAGE_SIZE_DEFAULT, 1), FILES_PAGE_SIZE_MAX);
+  const offset = Math.max(options.offset ?? 0, 0);
+  const sortKey: FilesSortKey = options.sortKey ?? 'created_at';
+  const sortDir: FilesSortDir = options.sortDir ?? (sortKey === 'original_name' ? 'asc' : 'desc');
+  const search = (options.search ?? '').trim();
 
+  let query = ownerClient.from('files').select('*', { count: 'exact' });
+  if (search) {
+    // ILIKE on original_name. Escape % and _ so user-typed patterns
+    // can't accidentally turn into wildcards.
+    const escaped = search.replace(/[\\%_]/g, (c) => `\\${c}`);
+    query = query.ilike('original_name', `%${escaped}%`);
+  }
+  query = query.order(sortKey, { ascending: sortDir === 'asc' }).range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
   if (error) throw error;
   return {
     rows: (data ?? []) as FileRow[],
     total: count ?? 0,
-    limit
+    limit,
+    offset
   };
 }
 

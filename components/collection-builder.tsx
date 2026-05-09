@@ -1,58 +1,112 @@
 'use client';
 
-import { Badge, Button, Checkbox, EmptyState, FileIcon, Input } from '@polaris/ui';
+import {
+  Badge,
+  Button,
+  Checkbox,
+  EmptyState,
+  FileIcon,
+  Input,
+  PAGE_ELLIPSIS,
+  Pagination,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrev,
+  pageNumberItems
+} from '@polaris/ui';
 import { SearchIcon } from '@polaris/ui/icons';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { FileRow } from '@/lib/types';
 
 type CreateAction = (formData: FormData) => void | Promise<void>;
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+
+type FetchState = {
+  rows: FileRow[];
+  total: number;
+  loading: boolean;
+  error: string | null;
+};
+
 export function CollectionBuilder({
-  files,
   createCollectionAction
 }: {
-  files: FileRow[];
   createCollectionAction: CreateAction;
 }) {
-  const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Server-driven file picker — fetches from /api/owner/files with the
+  // current search/page so we never need every file in client memory.
+  const [draftQuery, setDraftQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [state, setState] = useState<FetchState>({ rows: [], total: 0, loading: true, error: null });
+  // Track the selected file IDs separately from the current page so the
+  // selection survives pagination + search.
+  const [selectedMap, setSelectedMap] = useState<Map<string, FileRow>>(new Map());
+  const debounceRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return files;
-    return files.filter((f) => f.original_name.toLowerCase().includes(q));
-  }, [files, query]);
+  useEffect(() => {
+    if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      setAppliedQuery(draftQuery);
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
+    };
+  }, [draftQuery]);
 
-  const toggleFile = (id: string, checked: boolean | 'indeterminate') => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (checked === true) next.add(id);
-      else next.delete(id);
+  useEffect(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String((page - 1) * PAGE_SIZE)
+    });
+    if (appliedQuery.trim()) params.set('q', appliedQuery.trim());
+
+    fetch(`/api/owner/files?${params.toString()}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('failed');
+        const json = (await res.json()) as { rows: FileRow[]; total: number };
+        setState({ rows: json.rows, total: json.total, loading: false, error: null });
+      })
+      .catch((err: unknown) => {
+        if ((err as { name?: string }).name === 'AbortError') return;
+        setState({ rows: [], total: 0, loading: false, error: '파일 목록을 불러오지 못했습니다.' });
+      });
+
+    return () => controller.abort();
+  }, [appliedQuery, page]);
+
+  const toggleFile = useCallback((file: FileRow, checked: boolean | 'indeterminate') => {
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      if (checked === true) next.set(file.id, file);
+      else next.delete(file.id);
       return next;
     });
-  };
+  }, []);
 
-  const selectFiltered = () => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const f of filtered) next.add(f.id);
+  const selectVisible = useCallback(() => {
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      for (const file of state.rows) next.set(file.id, file);
       return next;
     });
-  };
+  }, [state.rows]);
 
-  const clearSelection = () => setSelected(new Set());
+  const clearSelection = useCallback(() => setSelectedMap(new Map()), []);
 
-  if (files.length < 2) {
-    return (
-      <EmptyState
-        title="파일 2개 이상이 필요합니다"
-        description="문서 묶음을 만들려면 PDF를 하나 더 업로드해주세요."
-      />
-    );
-  }
-
-  const selectedList = files.filter((f) => selected.has(f.id));
+  const totalPages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const selectedList = Array.from(selectedMap.values());
 
   return (
     <form action={createCollectionAction} className="collection-builder">
@@ -65,55 +119,61 @@ export function CollectionBuilder({
         <div className="file-browser-search">
           <SearchIcon size={16} aria-hidden />
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
             placeholder="묶음에 추가할 파일 검색"
             aria-label="파일 검색"
             className="file-browser-search-input"
           />
         </div>
         <div className="collection-builder-meta-right">
-          <Badge variant="primary" tone={selected.size > 0 ? 'solid' : 'subtle'}>
-            선택 {selected.size}개
+          <Badge variant="primary" tone={selectedMap.size > 0 ? 'solid' : 'subtle'}>
+            선택 {selectedMap.size}개
           </Badge>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={selectFiltered}
-            disabled={filtered.length === 0}
+            onClick={selectVisible}
+            disabled={state.rows.length === 0}
           >
-            검색 결과 모두 선택
+            현재 페이지 모두 선택
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={clearSelection}
-            disabled={selected.size === 0}
+            disabled={selectedMap.size === 0}
           >
             선택 해제
           </Button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {state.error ? (
+        <EmptyState title="불러오기 실패" description={state.error} />
+      ) : state.loading && state.rows.length === 0 ? (
+        <p className="muted small">파일 목록을 불러오는 중...</p>
+      ) : state.rows.length === 0 ? (
         <EmptyState
-          title="검색 결과가 없습니다"
-          description={`"${query}"와 일치하는 파일이 없습니다.`}
+          title={appliedQuery ? '검색 결과가 없습니다' : '업로드된 파일이 없습니다'}
+          description={
+            appliedQuery
+              ? `"${appliedQuery}"와 일치하는 파일이 없습니다.`
+              : '문서 묶음을 만들려면 PDF를 먼저 업로드해주세요.'
+          }
         />
       ) : (
         <ul className="collection-builder-list">
-          {filtered.map((file) => {
-            const isChecked = selected.has(file.id);
+          {state.rows.map((file) => {
+            const isChecked = selectedMap.has(file.id);
             return (
               <li key={file.id} className={`collection-builder-row${isChecked ? ' selected' : ''}`}>
                 <label className="collection-builder-row-label">
                   <Checkbox
-                    name="fileIds"
-                    value={file.id}
                     checked={isChecked}
-                    onCheckedChange={(c) => toggleFile(file.id, c)}
+                    onCheckedChange={(c) => toggleFile(file, c)}
                   />
                   <FileIcon type="pdf" size={20} />
                   <span className="collection-builder-row-name">{file.original_name}</span>
@@ -123,6 +183,34 @@ export function CollectionBuilder({
           })}
         </ul>
       )}
+
+      {totalPages > 1 ? (
+        <Pagination className="file-browser-pagination">
+          <PaginationPrev disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            이전
+          </PaginationPrev>
+          {pageNumberItems(safePage, totalPages).map((item, idx) =>
+            item === PAGE_ELLIPSIS ? (
+              <span key={`e-${idx}`} className="muted small">…</span>
+            ) : (
+              <PaginationItem
+                key={item}
+                active={item === safePage}
+                aria-current={item === safePage ? 'page' : undefined}
+                onClick={() => setPage(item)}
+              >
+                {item}
+              </PaginationItem>
+            )
+          )}
+          <PaginationNext
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            다음
+          </PaginationNext>
+        </Pagination>
+      ) : null}
 
       {selectedList.length > 0 ? (
         <div className="collection-builder-summary">
@@ -138,8 +226,13 @@ export function CollectionBuilder({
         </div>
       ) : null}
 
-      <Button type="submit" disabled={selected.size < 2}>
-        문서 묶음 생성{selected.size >= 2 ? ` (${selected.size}개)` : ''}
+      {/* Submit the selection as fileIds — invisible inputs so the form action picks them up */}
+      {selectedList.map((file) => (
+        <input key={file.id} type="hidden" name="fileIds" value={file.id} />
+      ))}
+
+      <Button type="submit" disabled={selectedMap.size < 2}>
+        문서 묶음 생성{selectedMap.size >= 2 ? ` (${selectedMap.size}개)` : ''}
       </Button>
     </form>
   );

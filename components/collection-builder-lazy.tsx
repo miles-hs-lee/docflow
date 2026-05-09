@@ -3,8 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
-import type { FileRow } from '@/lib/types';
-
 type CreateAction = (formData: FormData) => void | Promise<void>;
 
 // Heavy client component (Polaris primitives + per-file checkboxes) that
@@ -16,10 +14,8 @@ const CollectionBuilder = dynamic(
 );
 
 export function CollectionBuilderLazy({
-  files,
   createCollectionAction
 }: {
-  files: FileRow[];
   createCollectionAction: CreateAction;
 }) {
   const [open, setOpen] = useState(false);
@@ -39,7 +35,7 @@ export function CollectionBuilderLazy({
         <span className="collapsible-chevron" aria-hidden>▾</span>
       </summary>
       <div className="collapsible-body">
-        {open ? <CollectionBuilder files={files} createCollectionAction={createCollectionAction} /> : null}
+        {open ? <CollectionBuilder createCollectionAction={createCollectionAction} /> : null}
       </div>
     </details>
   );
