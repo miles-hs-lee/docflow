@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:polaris": "eslint app components --config eslint.polaris.config.mjs --max-warnings=0",
+    "check:supabase-auth": "node scripts/check-supabase-auth.mjs"
   },
   "dependencies": {
+    "@polaris/ui": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.7.3/polaris-ui-0.7.3.tgz",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.0",
     "bcryptjs": "^2.4.3",
@@ -20,12 +23,16 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@polaris/lint": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.7.3/polaris-lint-0.7.3.tgz",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "autoprefixer": "^10.5.0",
     "eslint": "^9.20.1",
     "eslint-config-next": "15.2.4",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5.7.3"
   }
 }
