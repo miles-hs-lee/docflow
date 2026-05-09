@@ -8,9 +8,7 @@ import { getOwner } from '@/lib/auth';
 export default async function HomePage() {
   const { user } = await getOwner();
   const primaryHref = user ? '/dashboard' : '/signup';
-  const primaryLabel = user ? '대시보드로 이동' : '무료로 시작';
-  const secondaryHref = user ? '/dashboard' : '/login';
-  const secondaryLabel = user ? '대시보드' : '로그인';
+  const primaryLabel = user ? '대시보드' : '무료로 시작';
 
   return (
     <main className="landing-home-layout">
@@ -24,12 +22,20 @@ export default async function HomePage() {
             </span>
           </div>
           <div className="landing-nav">
-            <Button asChild variant="ghost" size="sm">
-              <Link href={secondaryHref}>{secondaryLabel}</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href={primaryHref}>{primaryLabel}</Link>
-            </Button>
+            {user ? (
+              <Button asChild size="sm">
+                <Link href={primaryHref}>{primaryLabel}</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/login">로그인</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href={primaryHref}>{primaryLabel}</Link>
+                </Button>
+              </>
+            )}
           </div>
         </header>
 
@@ -45,9 +51,11 @@ export default async function HomePage() {
               <Button asChild size="xl">
                 <Link href={primaryHref}>{primaryLabel}</Link>
               </Button>
-              <Button asChild variant="secondary" size="xl">
-                <Link href={secondaryHref}>{secondaryLabel}</Link>
-              </Button>
+              {user ? null : (
+                <Button asChild variant="secondary" size="xl">
+                  <Link href="/login">로그인</Link>
+                </Button>
+              )}
             </div>
           </div>
           <div className="landing-hero-visual" aria-hidden>
@@ -135,18 +143,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="landing-polaris-band">
-          <PolarisLogo variant="horizontal" size={36} aria-hidden />
-          <div className="landing-polaris-band-copy">
-            <h2>폴라리스오피스 디자인 표준 위에서 동작합니다</h2>
-            <p>
-              DocFlow는 <strong>Polaris Design v0.7.3</strong>의 토큰 · 컴포넌트 · NOVA AI 표면을 그대로 사용합니다.
-              다른 폴라리스 제품과 동일한 인터랙션 · 접근성 기준을 공유하므로,
-              사내 사용자에게 별도 적응 시간이 필요하지 않습니다.
-            </p>
-          </div>
-        </section>
-
         <Card className="landing-cta-card" variant="padded">
           <Badge variant="primary" tone="subtle">Get started</Badge>
           <h2>다음 제안서부터 다르게 보내보세요</h2>
@@ -155,15 +151,17 @@ export default async function HomePage() {
             <Button asChild size="xl">
               <Link href={primaryHref}>{primaryLabel}</Link>
             </Button>
-            <Button asChild variant="secondary" size="xl">
-              <Link href={secondaryHref}>{secondaryLabel}</Link>
-            </Button>
+            {user ? null : (
+              <Button asChild variant="secondary" size="xl">
+                <Link href="/login">로그인</Link>
+              </Button>
+            )}
           </div>
         </Card>
 
         <footer className="landing-attribution">
           <PolarisLogo variant="symbol" size={20} aria-hidden />
-          <span>DocFlow · Built with Polaris Office Design System v0.7.3</span>
+          <span>DocFlow · A Polaris Office service · © {new Date().getFullYear()} Polaris Office</span>
         </footer>
       </section>
     </main>
