@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Badge, Button, Card, Input } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 
-import { PdfViewer } from '@/components/pdf-viewer';
+import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
