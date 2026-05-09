@@ -19,11 +19,12 @@ export function evaluateBasePolicy({ link }: PolicyInput): DeniedReason | null {
     return 'expired';
   }
 
-  const effectiveMaxViews = link.one_time ? 1 : link.max_views;
-  if (effectiveMaxViews && link.view_count >= effectiveMaxViews) {
-    return 'max_views_reached';
-  }
-
+  // max_views / one_time are evaluated atomically inside claim_view (with
+  // session dedup so collection viewers can walk through multiple files in
+  // the same session without each file consuming a slot). Checking here
+  // would short-circuit before claim_view runs and break the dedup contract
+  // — a viewer who already opened file #1 would be blocked at file #2's
+  // page.tsx render even though their session already holds the view slot.
   return null;
 }
 

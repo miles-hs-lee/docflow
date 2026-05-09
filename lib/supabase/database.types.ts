@@ -330,8 +330,8 @@ export type Database = {
       link_events: {
         Row: {
           id: number;
-          link_id: string;
-          file_id: string;
+          link_id: string | null;
+          file_id: string | null;
           owner_id: string;
           event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason: string | null;
@@ -345,8 +345,8 @@ export type Database = {
         };
         Insert: {
           id?: number;
-          link_id: string;
-          file_id: string;
+          link_id: string | null;
+          file_id: string | null;
           owner_id: string;
           event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason?: string | null;
@@ -380,6 +380,13 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      hard_delete_link: {
+        Args: {
+          p_link_id: string;
+          p_owner_id: string;
+        };
+        Returns: boolean;
+      };
       claim_view: {
         Args: {
           p_link_id: string;

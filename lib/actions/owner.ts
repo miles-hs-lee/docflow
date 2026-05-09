@@ -177,6 +177,44 @@ export async function deleteCollectionAction(formData: FormData) {
     );
   }
 
+  // Honor the trash contract for soft-deleted links too: if we let the FK
+  // cascade fire when collections is deleted, the soft-deleted share_links
+  // disappear silently and their link_events become orphans (link_id NULL
+  // per migration 005). Wipe events + soft-deleted links explicitly first.
+  const { data: trashedLinks, error: trashFetchError } = await admin
+    .from('share_links')
+    .select('id')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .not('deleted_at', 'is', null);
+
+  if (trashFetchError) {
+    redirectWithError('/dashboard', '연결된 휴지통 링크를 확인하지 못했습니다.');
+  }
+
+  const trashedIds = (trashedLinks ?? []).map((l) => l.id);
+  if (trashedIds.length > 0) {
+    const { error: eventsError } = await admin
+      .from('link_events')
+      .delete()
+      .in('link_id', trashedIds)
+      .eq('owner_id', user.id);
+
+    if (eventsError) {
+      redirectWithError('/dashboard', '연결된 링크 이벤트를 삭제하지 못했습니다.');
+    }
+
+    const { error: linksError } = await admin
+      .from('share_links')
+      .delete()
+      .in('id', trashedIds)
+      .eq('owner_id', user.id);
+
+    if (linksError) {
+      redirectWithError('/dashboard', '연결된 휴지통 링크를 삭제하지 못했습니다.');
+    }
+  }
+
   const { error } = await admin.from('collections').delete().eq('id', collectionId).eq('owner_id', user.id);
   if (error) {
     redirectWithError('/dashboard', '문서 묶음 삭제에 실패했습니다.');
@@ -274,6 +312,17 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
 
   if (!name || !webhookUrl) {
     redirectWithError('/dashboard/automations', '구독 이름과 웹훅 URL은 필수입니다.');
+  }
+
+  // Refuse to create a subscription when no automation cron secret is set —
+  // otherwise outbox rows accumulate but never dispatch (the cron worker
+  // refuses to run without the secret), and an owner has no signal that
+  // their subscription is silently broken.
+  if (!process.env.AUTOMATION_CRON_SECRET && !process.env.CRON_SECRET) {
+    redirectWithError(
+      '/dashboard/automations',
+      '자동화 디스패처가 비활성화되어 있어 구독을 만들 수 없습니다. 관리자에게 AUTOMATION_CRON_SECRET 설정을 요청하세요.'
+    );
   }
 
   let parsedUrl: URL;
@@ -634,24 +683,16 @@ export async function hardDeleteLinkAction(formData: FormData) {
     redirectWithError('/dashboard/trash', '영구 삭제할 링크를 찾을 수 없습니다.');
   }
 
-  // Migration 005 changed link_events.link_id FK to ON DELETE SET NULL so
-  // the audit row survives when its parent file is hard-deleted (orphan
-  // cleanup). But the trash flow's contract is "영구 삭제 시 통계도 같이
-  // 제거" — explicitly wipe the link's events first, then drop the link.
-  // Deleting events first avoids leaving NULL-link orphans behind.
-  const { error: eventsError } = await admin
-    .from('link_events')
-    .delete()
-    .eq('link_id', linkId)
-    .eq('owner_id', user.id);
+  // Atomic: link_events delete + share_links delete inside one PL/pgSQL
+  // transaction (migration 008). The previous two-step admin client writes
+  // could leave the link surviving without its events if the second write
+  // failed.
+  const { data: deleted, error: rpcError } = await admin.rpc('hard_delete_link', {
+    p_link_id: linkId,
+    p_owner_id: user.id
+  });
 
-  if (eventsError) {
-    redirectWithError('/dashboard/trash', '링크 이벤트 삭제에 실패했습니다.');
-  }
-
-  const { error } = await admin.from('share_links').delete().eq('id', linkId).eq('owner_id', user.id);
-
-  if (error) {
+  if (rpcError || deleted !== true) {
     redirectWithError('/dashboard/trash', '영구 삭제에 실패했습니다.');
   }
 
@@ -696,6 +737,44 @@ export async function deleteFileAction(formData: FormData) {
       '/dashboard',
       '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
+  }
+
+  // Honor the trash contract for soft-deleted links too: a file delete
+  // would otherwise cascade-drop them and leave their events as orphans
+  // (link_id NULL via migration 005). Wipe events + soft-deleted links
+  // explicitly first.
+  const { data: trashedLinks, error: trashFetchError } = await admin
+    .from('share_links')
+    .select('id')
+    .eq('file_id', fileId)
+    .eq('owner_id', user.id)
+    .not('deleted_at', 'is', null);
+
+  if (trashFetchError) {
+    redirectWithError('/dashboard', '연결된 휴지통 링크를 확인하지 못했습니다.');
+  }
+
+  const trashedIds = (trashedLinks ?? []).map((l) => l.id);
+  if (trashedIds.length > 0) {
+    const { error: eventsError } = await admin
+      .from('link_events')
+      .delete()
+      .in('link_id', trashedIds)
+      .eq('owner_id', user.id);
+
+    if (eventsError) {
+      redirectWithError('/dashboard', '연결된 링크 이벤트를 삭제하지 못했습니다.');
+    }
+
+    const { error: linksError } = await admin
+      .from('share_links')
+      .delete()
+      .in('id', trashedIds)
+      .eq('owner_id', user.id);
+
+    if (linksError) {
+      redirectWithError('/dashboard', '연결된 휴지통 링크를 삭제하지 못했습니다.');
+    }
   }
 
   try {

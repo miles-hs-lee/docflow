@@ -115,8 +115,10 @@ export type AutomationSubscriptionRow = {
 
 export type LinkEventRow = {
   id: number;
-  link_id: string;
-  file_id: string;
+  // Migration 005 dropped NOT NULL on link_id / file_id and switched both
+  // FKs to ON DELETE SET NULL so audit rows survive parent hard-delete.
+  link_id: string | null;
+  file_id: string | null;
   owner_id: string;
   event_type: LinkEventType;
   reason: string | null;
