@@ -1,4 +1,5 @@
 import { Badge, Button, Card, Checkbox, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
+import { NovaLogo } from '@polaris/ui/logos';
 
 import { Flash } from '@/components/flash';
 import { HiddenInput } from '@/components/hidden-input';
@@ -50,6 +51,17 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
   return (
     <section className="stack-lg">
       <Flash success={success} error={error} />
+
+      <Card className="panel automations-hero" variant="padded">
+        <div className="between">
+          <div className="stack-sm">
+            <Badge variant="secondary" tone="subtle">NOVA · AI Automation</Badge>
+            <h1>자동화 &amp; MCP</h1>
+            <p className="muted">DocFlow의 문서 이벤트와 운영 작업을 AI Agent와 MCP 클라이언트에 연결합니다.</p>
+          </div>
+          <NovaLogo size={56} aria-hidden />
+        </div>
+      </Card>
 
       {newKey ? (
         <Card className="panel" variant="padded">

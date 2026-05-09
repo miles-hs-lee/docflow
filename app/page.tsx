@@ -1,4 +1,5 @@
 import { Badge, Button, Card, FileIcon } from '@polaris/ui';
+import { NovaLogo, PolarisLogo } from '@polaris/ui/logos';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -57,8 +58,11 @@ export default async function HomePage() {
                 <p className="kpi-label">Signals</p>
                 <p className="kpi-value">열람/거부/다운로드 추적</p>
               </article>
-              <article>
-                <p className="kpi-label">Agent-ready</p>
+              <article className="kpi-nova">
+                <div className="kpi-label-row">
+                  <NovaLogo size={18} aria-hidden />
+                  <p className="kpi-label">Agent-ready</p>
+                </div>
                 <p className="kpi-value">MCP + 이벤트 자동화</p>
               </article>
             </div>
@@ -111,7 +115,8 @@ export default async function HomePage() {
               <h3>후속 액션 우선순위</h3>
               <p>누가 읽었는지, 어디서 막혔는지 보고 다음 미팅/콜 순서를 정합니다.</p>
             </article>
-            <article className="landing-point">
+            <article className="landing-point landing-point-nova">
+              <Badge variant="secondary" tone="subtle">NOVA</Badge>
               <h3>에이전트 기반 운영</h3>
               <p>MCP 도구로 업로드, 링크 생성, 통계 조회를 자동화 파이프라인에 연결합니다.</p>
             </article>
@@ -158,6 +163,11 @@ export default async function HomePage() {
         </Card>
 
         <p className="landing-footnote">DocFlow는 문서를 보내는 순간이 아니라, 보낸 이후의 실행까지 관리하도록 설계되었습니다.</p>
+
+        <footer className="landing-attribution">
+          <PolarisLogo variant="symbol" size={20} aria-hidden />
+          <span>Designed with Polaris Office Design System v0.7.3</span>
+        </footer>
       </section>
     </main>
   );

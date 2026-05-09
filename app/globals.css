@@ -537,6 +537,37 @@ svg {
   font-weight: 700;
 }
 
+.landing-attribution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--polaris-spacing-2xs);
+  padding-top: var(--polaris-spacing-sm);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.kpi-label-row {
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-3xs);
+}
+
+.landing-kpi-strip article.kpi-nova,
+.landing-point.landing-point-nova {
+  border-color: color-mix(in srgb, var(--ai) 28%, var(--border));
+  background: linear-gradient(165deg, var(--surface), var(--ai-soft));
+}
+
+.automations-hero {
+  border-color: color-mix(in srgb, var(--ai) 24%, var(--border));
+  background: linear-gradient(160deg, var(--surface), var(--ai-soft));
+}
+
 .collection-file-chip {
   display: inline-flex;
   align-items: center;
