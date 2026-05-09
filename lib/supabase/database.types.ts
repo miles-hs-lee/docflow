@@ -380,6 +380,20 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_view: {
+        Args: {
+          p_link_id: string;
+          p_file_id: string;
+          p_session_id: string | null;
+          p_viewer_email: string | null;
+          p_ip_hash: string | null;
+          p_user_agent: string | null;
+        };
+        Returns: {
+          allowed: boolean;
+          reason: string | null;
+        }[];
+      };
       get_owner_link_metrics: {
         Args: {
           p_file_id: string;

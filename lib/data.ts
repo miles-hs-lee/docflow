@@ -286,6 +286,38 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
   };
 }
 
+export async function claimView(input: {
+  linkId: string;
+  fileId: string;
+  sessionId?: string;
+  viewerEmail?: string;
+  ipHash?: string | null;
+  userAgent?: string | null;
+}): Promise<{ allowed: boolean; reason: DeniedReason | null }> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc('claim_view', {
+    p_link_id: input.linkId,
+    p_file_id: input.fileId,
+    p_session_id: input.sessionId ?? null,
+    p_viewer_email: input.viewerEmail ?? null,
+    p_ip_hash: input.ipHash ?? null,
+    p_user_agent: input.userAgent ?? null
+  });
+
+  if (error) {
+    // Surface as a generic failure — the route handler treats this as
+    // file_missing rather than serving the document with stale counters.
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    allowed: Boolean(row?.allowed),
+    reason: (row?.reason as DeniedReason | null) ?? null
+  };
+}
+
 export async function recordLinkEvent(input: {
   linkId: string;
   fileId: string;

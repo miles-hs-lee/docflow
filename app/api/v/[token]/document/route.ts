@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
-import { getViewerLinkByToken, downloadPdfObject, recordLinkEvent } from '@/lib/data';
+import { claimView, downloadPdfObject, getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -119,6 +119,39 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return buildDeniedResponse(grantDenied);
   }
 
+  // Atomic view claim: re-checks active/expired/deleted/max_views inside a
+  // SELECT ... FOR UPDATE so two concurrent requests against a max_views=1
+  // link cannot both pass. The view event is inserted as part of the same
+  // transaction (so the bump_link_counters trigger increments inline).
+  let claim;
+  try {
+    claim = await claimView({
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+  } catch {
+    return buildDeniedResponse('file_missing', 500);
+  }
+
+  if (!claim.allowed) {
+    const reason = (claim.reason as DeniedReason) ?? 'file_missing';
+    await safeLogDenied({
+      reason,
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      ownerId: bundle.owner_id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+    return buildDeniedResponse(reason);
+  }
+
   let pdfBlob: Blob;
   try {
     pdfBlob = await downloadPdfObject(targetFile.storage_path);
@@ -135,21 +168,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     return buildDeniedResponse('file_missing', 404);
-  }
-
-  try {
-    await recordLinkEvent({
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      eventType: 'view',
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
-  } catch {
-    // Keep the document readable even if analytics logging fails.
   }
 
   const buffer = await pdfBlob.arrayBuffer();
