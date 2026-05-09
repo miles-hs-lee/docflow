@@ -168,14 +168,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';
-  // Stream straight from storage — see /document/route.ts for the same
-  // backpressure rationale (avoids holding 50 MB in Node memory).
-  const response = new NextResponse(pdfBlob.stream(), {
+  // Pass the Blob directly — see /document/route.ts for why
+  // pdfBlob.stream() is avoided (truncated body on Vercel serverless).
+  const response = new NextResponse(pdfBlob, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${safeName}"`,
-      'Content-Length': String(pdfBlob.size),
       'Cache-Control': 'private, no-store'
     }
   });

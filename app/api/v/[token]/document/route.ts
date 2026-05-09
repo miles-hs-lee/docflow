@@ -172,19 +172,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';
-  // Stream the body instead of materializing the entire PDF into a Node
-  // Buffer. arrayBuffer() doubled peak memory for a 50 MB doc and held
-  // the whole payload in RAM until the client finished downloading;
-  // blob.stream() lets the runtime backpressure straight from Supabase
-  // storage to the response without an intermediate copy.
+  // Pass the Blob to NextResponse directly — Next.js handles streaming
+  // and Content-Length without an explicit arrayBuffer() copy. This was
+  // briefly using pdfBlob.stream() but Vercel's serverless runtime
+  // returned a truncated body, breaking react-pdf with the generic
+  // "PDF를 표시할 수 없습니다." error.
   // Viewer session cookie is guaranteed by middleware on every /v/* request,
   // so this route handler does not need to set it.
-  return new NextResponse(pdfBlob.stream(), {
+  return new NextResponse(pdfBlob, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="${safeName}"`,
-      'Content-Length': String(pdfBlob.size),
       'Cache-Control': 'private, no-store'
     }
   });
