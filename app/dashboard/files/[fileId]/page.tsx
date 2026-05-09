@@ -1,8 +1,10 @@
+import { Badge, Button, Card, Checkbox, EmptyState, FileIcon, Input } from '@polaris/ui';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { CopyButton } from '@/components/copy-button';
+import { HiddenInput } from '@/components/hidden-input';
 import { Flash } from '@/components/flash';
 import {
   createShareLinkAction,
@@ -37,6 +39,12 @@ function linkStatus(link: {
   return 'active';
 }
 
+function statusVariant(status: ReturnType<typeof linkStatus>) {
+  if (status === 'active') return 'success' as const;
+  if (status === 'deleted') return 'danger' as const;
+  return 'warning' as const;
+}
+
 export default async function FileLinksPage({ params, searchParams }: FileLinksPageProps) {
   const { fileId } = await params;
   const query = await searchParams;
@@ -63,66 +71,45 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
     <section className="stack-lg">
       <Flash success={success} error={error} />
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <div className="between">
-          <div>
-            <h2>{file.original_name}</h2>
+          <div className="stack-sm">
+            <div className="row-actions">
+              <FileIcon type="pdf" size={34} />
+              <h2>{file.original_name}</h2>
+            </div>
             <p className="muted">업로드일: {formatDateTime(file.created_at)}</p>
           </div>
-          <Link href="/dashboard" className="button button-ghost">
-            파일 목록으로
-          </Link>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/dashboard">파일 목록으로</Link>
+          </Button>
         </div>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>공유 링크 생성</h2>
+        <p className="muted">링크마다 다른 만료일, 이메일 조건, 비밀번호, 다운로드 정책을 적용할 수 있습니다.</p>
         <form action={createShareLinkAction} className="form-grid link-create-grid">
-          <input type="hidden" name="fileId" value={file.id} />
-          <label>
-            링크 이름
-            <input name="label" required placeholder="거래처 A용" />
-          </label>
-          <label>
-            만료일
-            <input type="datetime-local" name="expiresAt" />
-          </label>
-          <label>
-            최대 조회수
-            <input type="number" name="maxViews" min={1} placeholder="미설정" />
-          </label>
-          <label>
-            허용 도메인(콤마 구분)
-            <input name="allowedDomains" placeholder="company.com,partner.org" />
-          </label>
-          <label>
-            비밀번호
-            <input name="password" type="password" placeholder="필요한 경우만 입력" />
-          </label>
+          <HiddenInput name="fileId" value={file.id} />
+          <Input name="label" required label="링크 이름" placeholder="거래처 A용" />
+          <Input type="datetime-local" name="expiresAt" label="만료일" />
+          <Input type="number" name="maxViews" min={1} label="최대 조회수" placeholder="미설정" />
+          <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
+          <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
           <div className="check-grid">
-            <label className="check-item">
-              <input type="checkbox" name="isActive" defaultChecked /> 활성
-            </label>
-            <label className="check-item">
-              <input type="checkbox" name="requireEmail" /> 이메일 요구
-            </label>
-            <label className="check-item">
-              <input type="checkbox" name="allowDownload" /> 다운로드 허용
-            </label>
-            <label className="check-item">
-              <input type="checkbox" name="oneTime" /> 1회성 링크
-            </label>
+            <Checkbox name="isActive" defaultChecked label="활성" containerClassName="check-item" />
+            <Checkbox name="requireEmail" label="이메일 요구" containerClassName="check-item" />
+            <Checkbox name="allowDownload" label="다운로드 허용" containerClassName="check-item" />
+            <Checkbox name="oneTime" label="1회성 링크" containerClassName="check-item" />
           </div>
-          <button type="submit" className="button button-primary">
-            링크 생성
-          </button>
+          <Button type="submit">링크 생성</Button>
         </form>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>링크 목록</h2>
         {links.length === 0 ? (
-          <p className="muted">생성된 링크가 없습니다.</p>
+          <EmptyState title="생성된 링크가 없습니다" description="첫 공유 링크를 만들면 URL과 정책, 통계가 이곳에 표시됩니다." />
         ) : (
           <div className="stack-sm">
             {links.map((link) => {
@@ -131,24 +118,26 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
               const url = `${appOrigin}/v/${link.token}`;
 
               return (
-                <article className="link-card compact" key={link.id}>
+                <Card className="link-card compact" variant="padded" key={link.id}>
                   <div className="link-card-head">
                     <div className="link-card-title">
                       <strong>{link.label}</strong>
                       <p className="mono">{url}</p>
                     </div>
                     <div className="summary-meta link-inline-actions">
-                      <span className={`badge badge-${status}`}>{status}</span>
+                      <Badge variant={statusVariant(status)} tone="subtle">
+                        {status}
+                      </Badge>
                       <CopyButton value={url} />
-                      <Link href={`/dashboard/links/${link.id}`} className="button button-ghost">
-                        통계
-                      </Link>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/dashboard/links/${link.id}`}>통계</Link>
+                      </Button>
                       <form action={softDeleteLinkAction}>
-                        <input type="hidden" name="linkId" value={link.id} />
-                        <input type="hidden" name="fileId" value={file.id} />
-                        <button type="submit" className="button button-danger">
+                        <HiddenInput name="linkId" value={link.id} />
+                        <HiddenInput name="fileId" value={file.id} />
+                        <Button type="submit" variant="danger" size="sm">
                           삭제
-                        </button>
+                        </Button>
                       </form>
                     </div>
                   </div>
@@ -180,56 +169,29 @@ export default async function FileLinksPage({ params, searchParams }: FileLinksP
                   <details className="link-edit-toggle">
                     <summary>정책 수정</summary>
                     <form action={updateShareLinkAction} className="form-grid compact">
-                      <input type="hidden" name="linkId" value={link.id} />
-                      <input type="hidden" name="fileId" value={file.id} />
-                      <label>
-                        이름
-                        <input name="label" defaultValue={link.label} required />
-                      </label>
-                      <label>
-                        만료일
-                        <input type="datetime-local" name="expiresAt" defaultValue={toDateTimeLocal(link.expires_at)} />
-                      </label>
-                      <label>
-                        최대 조회수
-                        <input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} />
-                      </label>
-                      <label>
-                        허용 도메인
-                        <input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} />
-                      </label>
-                      <label>
-                        새 비밀번호
-                        <input type="password" name="newPassword" placeholder="변경 시 입력" />
-                      </label>
+                      <HiddenInput name="linkId" value={link.id} />
+                      <HiddenInput name="fileId" value={file.id} />
+                      <Input name="label" defaultValue={link.label} required label="이름" />
+                      <Input type="datetime-local" name="expiresAt" defaultValue={toDateTimeLocal(link.expires_at)} label="만료일" />
+                      <Input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} label="최대 조회수" />
+                      <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
+                      <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />
                       <div className="check-grid">
-                        <label className="check-item">
-                          <input type="checkbox" name="isActive" defaultChecked={link.is_active} /> 활성
-                        </label>
-                        <label className="check-item">
-                          <input type="checkbox" name="requireEmail" defaultChecked={link.require_email} /> 이메일 요구
-                        </label>
-                        <label className="check-item">
-                          <input type="checkbox" name="allowDownload" defaultChecked={link.allow_download} /> 다운로드 허용
-                        </label>
-                        <label className="check-item">
-                          <input type="checkbox" name="oneTime" defaultChecked={link.one_time} /> 1회성
-                        </label>
-                        <label className="check-item">
-                          <input type="checkbox" name="clearPassword" /> 비밀번호 제거
-                        </label>
+                        <Checkbox name="isActive" defaultChecked={link.is_active} label="활성" containerClassName="check-item" />
+                        <Checkbox name="requireEmail" defaultChecked={link.require_email} label="이메일 요구" containerClassName="check-item" />
+                        <Checkbox name="allowDownload" defaultChecked={link.allow_download} label="다운로드 허용" containerClassName="check-item" />
+                        <Checkbox name="oneTime" defaultChecked={link.one_time} label="1회성" containerClassName="check-item" />
+                        <Checkbox name="clearPassword" label="비밀번호 제거" containerClassName="check-item" />
                       </div>
-                      <button type="submit" className="button button-primary">
-                        수정 저장
-                      </button>
+                      <Button type="submit">수정 저장</Button>
                     </form>
                   </details>
-                </article>
+                </Card>
               );
             })}
           </div>
         )}
-      </article>
+      </Card>
     </section>
   );
 }

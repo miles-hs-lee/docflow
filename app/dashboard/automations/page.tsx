@@ -1,4 +1,7 @@
+import { Badge, Button, Card, Checkbox, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
+
 import { Flash } from '@/components/flash';
+import { HiddenInput } from '@/components/hidden-input';
 import {
   createAutomationSubscriptionAction,
   createMcpApiKeyAction,
@@ -49,173 +52,151 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
       <Flash success={success} error={error} />
 
       {newKey ? (
-        <article className="panel">
+        <Card className="panel" variant="padded">
+          <Badge variant="warning" tone="subtle">한 번만 표시</Badge>
           <h2>새 MCP API 키</h2>
-          <p className="muted">
-            아래 키는 지금 한 번만 표시됩니다. 복사해서 안전한 비밀 저장소에 보관하세요.
-          </p>
+          <p className="muted">아래 키는 지금 한 번만 표시됩니다. 복사해서 안전한 비밀 저장소에 보관하세요.</p>
           <pre className="mono-wrap">{newKey}</pre>
-        </article>
+        </Card>
       ) : null}
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>MCP API 키 생성</h2>
         <p className="muted">AI Agent는 이 키를 사용해 `/api/mcp`를 호출합니다.</p>
         <form action={createMcpApiKeyAction} className="form-grid">
-          <label>
-            키 이름
-            <input name="label" required placeholder="예: CRM Agent Production" />
-          </label>
+          <Input name="label" required label="키 이름" placeholder="예: CRM Agent Production" />
           <fieldset className="form-fieldset">
             <legend>권한 스코프</legend>
             <div className="check-grid">
               {scopeOptions.map((scope) => (
-                <label key={scope.value} className="check-item">
-                  <input type="checkbox" name="scopes" value={scope.value} defaultChecked />
-                  <span className="mono">{scope.label}</span>
-                </label>
+                <Checkbox key={scope.value} name="scopes" value={scope.value} defaultChecked label={<span className="mono">{scope.label}</span>} containerClassName="check-item" />
               ))}
             </div>
           </fieldset>
-          <button type="submit" className="button button-primary">
-            API 키 생성
-          </button>
+          <Button type="submit">API 키 생성</Button>
         </form>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>API 키 목록</h2>
         {apiKeys.length === 0 ? (
-          <p className="muted">생성된 API 키가 없습니다.</p>
+          <EmptyState title="생성된 API 키가 없습니다" description="AI Agent 연동을 시작하려면 MCP API 키를 생성하세요." />
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>이름</th>
-                  <th>Prefix</th>
-                  <th>스코프</th>
-                  <th>최근 사용</th>
-                  <th>상태</th>
-                  <th>작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apiKeys.map((key) => (
-                  <tr key={key.id}>
-                    <td>{key.label}</td>
-                    <td className="mono">{key.key_prefix}</td>
-                    <td className="mono">{key.scopes.join(', ')}</td>
-                    <td>{formatDateTime(key.last_used_at)}</td>
-                    <td>{key.revoked_at ? '비활성' : '활성'}</td>
-                    <td>
-                      {key.revoked_at ? (
-                        <span className="muted small">-</span>
-                      ) : (
-                        <form action={revokeMcpApiKeyAction}>
-                          <input type="hidden" name="keyId" value={key.id} />
-                          <button type="submit" className="button button-danger">
-                            비활성화
-                          </button>
-                        </form>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>이름</TableHead>
+                <TableHead>Prefix</TableHead>
+                <TableHead>스코프</TableHead>
+                <TableHead>최근 사용</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>작업</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {apiKeys.map((key) => (
+                <TableRow key={key.id}>
+                  <TableCell>{key.label}</TableCell>
+                  <TableCell className="mono">{key.key_prefix}</TableCell>
+                  <TableCell className="mono">{key.scopes.join(', ')}</TableCell>
+                  <TableCell>{formatDateTime(key.last_used_at)}</TableCell>
+                  <TableCell>
+                    <Badge variant={key.revoked_at ? 'neutral' : 'success'} tone="subtle">
+                      {key.revoked_at ? '비활성' : '활성'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {key.revoked_at ? (
+                      <span className="muted small">-</span>
+                    ) : (
+                      <form action={revokeMcpApiKeyAction}>
+                        <HiddenInput name="keyId" value={key.id} />
+                        <Button type="submit" variant="danger" size="sm">
+                          비활성화
+                        </Button>
+                      </form>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>이벤트 자동화 구독</h2>
         <p className="muted">지정한 이벤트가 발생하면 웹훅으로 payload를 전달합니다.</p>
         <form action={createAutomationSubscriptionAction} className="form-grid">
-          <label>
-            구독 이름
-            <input name="name" required placeholder="예: 영업팀 Slack 알림" />
-          </label>
-          <label>
-            Webhook URL
-            <input type="url" name="webhookUrl" required placeholder="https://example.com/webhooks/docflow" />
-          </label>
-          <label>
-            서명 시크릿 (선택)
-            <input name="signingSecret" placeholder="HMAC 검증용 비밀값" />
-          </label>
-          <label className="check-inline">
-            <input type="checkbox" name="isActive" defaultChecked />
-            <span>즉시 활성화</span>
-          </label>
+          <Input name="name" required label="구독 이름" placeholder="예: 영업팀 Slack 알림" />
+          <Input type="url" name="webhookUrl" required label="Webhook URL" placeholder="https://example.com/webhooks/docflow" />
+          <Input name="signingSecret" label="서명 시크릿 (선택)" placeholder="HMAC 검증용 비밀값" />
+          <Checkbox name="isActive" defaultChecked label="즉시 활성화" containerClassName="check-inline" />
           <fieldset className="form-fieldset">
             <legend>구독 이벤트</legend>
             <div className="check-grid">
               {eventTypeOptions.map((eventType) => (
-                <label key={eventType.value} className="check-item">
-                  <input type="checkbox" name="eventTypes" value={eventType.value} defaultChecked />
-                  <span>{eventType.label}</span>
-                </label>
+                <Checkbox key={eventType.value} name="eventTypes" value={eventType.value} defaultChecked label={eventType.label} containerClassName="check-item" />
               ))}
             </div>
           </fieldset>
-          <button type="submit" className="button button-primary">
-            구독 추가
-          </button>
+          <Button type="submit">구독 추가</Button>
         </form>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h2>구독 목록</h2>
         {subscriptions.length === 0 ? (
-          <p className="muted">등록된 구독이 없습니다.</p>
+          <EmptyState title="등록된 구독이 없습니다" description="열람, 다운로드, 거부 등 문서 이벤트를 외부 도구로 전달할 수 있습니다." />
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>이름</th>
-                  <th>Webhook</th>
-                  <th>이벤트</th>
-                  <th>최근 전달</th>
-                  <th>최근 오류</th>
-                  <th>상태</th>
-                  <th>작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subscriptions.map((subscription) => (
-                  <tr key={subscription.id}>
-                    <td>{subscription.name}</td>
-                    <td className="mono">{subscription.webhook_url}</td>
-                    <td className="mono">{subscription.event_types.join(', ')}</td>
-                    <td>{formatDateTime(subscription.last_delivery_at)}</td>
-                    <td>{subscription.last_error ?? '-'}</td>
-                    <td>{subscription.is_active ? '활성' : '비활성'}</td>
-                    <td>
-                      <div className="row-actions">
-                        <form action={toggleAutomationSubscriptionAction}>
-                          <input type="hidden" name="subscriptionId" value={subscription.id} />
-                          <input type="hidden" name="nextValue" value={subscription.is_active ? 'false' : 'true'} />
-                          <button type="submit" className="button button-ghost">
-                            {subscription.is_active ? '비활성화' : '활성화'}
-                          </button>
-                        </form>
-                        <form action={deleteAutomationSubscriptionAction}>
-                          <input type="hidden" name="subscriptionId" value={subscription.id} />
-                          <button type="submit" className="button button-danger">
-                            삭제
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>이름</TableHead>
+                <TableHead>Webhook</TableHead>
+                <TableHead>이벤트</TableHead>
+                <TableHead>최근 전달</TableHead>
+                <TableHead>최근 오류</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>작업</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {subscriptions.map((subscription) => (
+                <TableRow key={subscription.id}>
+                  <TableCell>{subscription.name}</TableCell>
+                  <TableCell className="mono">{subscription.webhook_url}</TableCell>
+                  <TableCell className="mono">{subscription.event_types.join(', ')}</TableCell>
+                  <TableCell>{formatDateTime(subscription.last_delivery_at)}</TableCell>
+                  <TableCell>{subscription.last_error ?? '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={subscription.is_active ? 'success' : 'warning'} tone="subtle">
+                      {subscription.is_active ? '활성' : '비활성'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="row-actions">
+                      <form action={toggleAutomationSubscriptionAction}>
+                        <HiddenInput name="subscriptionId" value={subscription.id} />
+                        <HiddenInput name="nextValue" value={subscription.is_active ? 'false' : 'true'} />
+                        <Button type="submit" variant="secondary" size="sm">
+                          {subscription.is_active ? '비활성화' : '활성화'}
+                        </Button>
+                      </form>
+                      <form action={deleteAutomationSubscriptionAction}>
+                        <HiddenInput name="subscriptionId" value={subscription.id} />
+                        <Button type="submit" variant="danger" size="sm">
+                          삭제
+                        </Button>
+                      </form>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </article>
+      </Card>
     </section>
   );
 }

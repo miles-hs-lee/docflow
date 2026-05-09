@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, Badge, Button, Card, Input } from '@polaris/ui';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
@@ -22,10 +23,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   if (!link) {
     return (
       <main className="viewer-layout">
-        <section className="viewer-card">
+        <Card className="viewer-card" variant="padded">
           <h1>문서에 접근할 수 없습니다.</h1>
           <p>요청한 링크가 존재하지 않거나 사용할 수 없습니다.</p>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -98,10 +99,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
     return (
       <main className="viewer-layout">
-        <section className="viewer-card">
+        <Card className="viewer-card" variant="padded">
           <h1>접근할 수 없습니다.</h1>
           <p>{deniedMessage(baseDenied)}</p>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -109,32 +110,26 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   if (needsForm) {
     return (
       <main className="viewer-layout">
-        <section className="viewer-card">
+        <Card className="viewer-card" variant="padded">
           <h1>{link.label}</h1>
           <p>문서를 열람하려면 접근 조건을 입력해주세요.</p>
           {deniedReasonFromQuery ? (
-            <p className="flash flash-error">{deniedMessage(deniedReasonFromQuery)}</p>
+            <Alert variant="danger">
+              <AlertDescription>{deniedMessage(deniedReasonFromQuery)}</AlertDescription>
+            </Alert>
           ) : null}
           <form action={submitViewerAccessAction.bind(null, token)} className="form-grid">
             {requiresEmail ? (
-              <label>
-                이메일
-                <input type="email" name="email" required placeholder="name@company.com" />
-              </label>
+              <Input type="email" name="email" required label="이메일" placeholder="name@company.com" />
             ) : null}
 
             {requiresPassword ? (
-              <label>
-                비밀번호
-                <input type="password" name="password" required />
-              </label>
+              <Input type="password" name="password" required label="비밀번호" />
             ) : null}
 
-            <button type="submit" className="button button-primary">
-              접근 조건 제출
-            </button>
+            <Button type="submit">접근 조건 제출</Button>
           </form>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -146,10 +141,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   if (!activeFile) {
     return (
       <main className="viewer-layout">
-        <section className="viewer-card">
+        <Card className="viewer-card" variant="padded">
           <h1>문서에 접근할 수 없습니다.</h1>
           <p>이 링크에 연결된 문서를 찾을 수 없습니다.</p>
-        </section>
+        </Card>
       </main>
     );
   }
@@ -173,11 +168,11 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
         </div>
         <div className="viewer-actions">
           {link.allow_download ? (
-            <a className="button button-primary" href={downloadSrc}>
-              다운로드
-            </a>
+            <Button asChild size="sm">
+              <a href={downloadSrc}>다운로드</a>
+            </Button>
           ) : (
-            <span className="badge badge-inactive">다운로드 차단</span>
+            <Badge variant="warning" tone="subtle">다운로드 차단</Badge>
           )}
         </div>
       </header>

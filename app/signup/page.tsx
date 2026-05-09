@@ -1,3 +1,5 @@
+import { Badge, Button, Card, Input } from '@polaris/ui';
+import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -20,33 +22,26 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
 
   return (
     <main className="center-layout">
-      <section className="hero-card">
-        <p className="eyebrow">DocFlow</p>
+      <Card className="hero-card" variant="padded">
+        <Image src="/brand/docflow-logo.svg" alt="DocFlow" width={190} height={50} priority />
+        <Badge variant="info" tone="subtle">최소 정보 가입</Badge>
         <h1>회원가입</h1>
         <Flash error={error} success={success} />
-        <p>최소 정보(이메일, 비밀번호)만 입력하면 바로 계정을 만들 수 있습니다.</p>
+        <p className="muted">이메일과 비밀번호만 입력하면 바로 계정을 만들 수 있습니다.</p>
 
         <form action="/auth/signup" method="post" className="form-grid">
-          <label>
-            이메일
-            <input type="email" name="email" autoComplete="email" required />
-          </label>
-          <label>
-            비밀번호 (8자 이상)
-            <input type="password" name="password" autoComplete="new-password" minLength={8} required />
-          </label>
-          <button type="submit" className="button button-primary">
-            가입하기
-          </button>
+          <Input type="email" name="email" autoComplete="email" required label="이메일" />
+          <Input type="password" name="password" autoComplete="new-password" minLength={8} required label="비밀번호 (8자 이상)" />
+          <Button type="submit">가입하기</Button>
         </form>
 
-        <div className="auth-subsection">
+        <div className="auth-subsection row-actions">
           <p className="muted small">이미 계정이 있으신가요?</p>
-          <Link href="/login" className="button button-ghost">
-            로그인으로 이동
-          </Link>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/login">로그인으로 이동</Link>
+          </Button>
         </div>
-      </section>
+      </Card>
     </main>
   );
 }

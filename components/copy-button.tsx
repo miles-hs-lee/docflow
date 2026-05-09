@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@polaris/ui';
 
 type CopyButtonProps = {
   value: string;
@@ -10,18 +11,14 @@ export function CopyButton({ value }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
-    <button type="button" className="button button-ghost" onClick={handleCopy}>
-      {copied ? '복사됨' : 'URL 복사'}
-    </button>
+    <Button type="button" variant="secondary" size="sm" onClick={handleCopy}>
+      {copied ? '복사됨' : '복사'}
+    </Button>
   );
 }

@@ -1,3 +1,4 @@
+import { Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -52,21 +53,21 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
 
   return (
     <section className="stack-lg">
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <div className="between">
-          <div>
+          <div className="stack-sm">
             <h2>{link.label}</h2>
             <p className="muted">
               대상: {collectionName ? `문서 묶음 - ${collectionName}` : fileName ?? 'Unknown'}
             </p>
           </div>
-          <Link href={backPath} className="button button-ghost">
-            링크 목록으로
-          </Link>
+          <Button asChild variant="secondary" size="sm">
+            <Link href={backPath}>링크 목록으로</Link>
+          </Button>
         </div>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h3>요약 지표</h3>
         <div className="metric-grid">
           <div>
@@ -86,65 +87,61 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
             <p className="metric-value">{metrics?.denied ?? link.denied_count}</p>
           </div>
         </div>
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h3>거부 사유 집계</h3>
         {deniedBreakdown.length === 0 ? (
-          <p className="muted">거부 이벤트가 없습니다.</p>
+          <EmptyState title="거부 이벤트가 없습니다" description="정책 불충족 이벤트가 발생하면 이곳에 집계됩니다." />
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>사유</th>
-                  <th>건수</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deniedBreakdown.map((item) => (
-                  <tr key={item.reason}>
-                    <td>{item.reason}</td>
-                    <td>{item.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>사유</TableHead>
+                <TableHead>건수</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {deniedBreakdown.map((item) => (
+                <TableRow key={item.reason}>
+                  <TableCell>{item.reason}</TableCell>
+                  <TableCell>{item.total}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </article>
+      </Card>
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <h3>이벤트 로그 (최근 100건)</h3>
         {events.length === 0 ? (
-          <p className="muted">이벤트가 없습니다.</p>
+          <EmptyState title="이벤트가 없습니다" description="열람, 다운로드, 거부, 입력 이벤트가 발생하면 기록됩니다." />
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>시간</th>
-                  <th>이벤트</th>
-                  <th>사유</th>
-                  <th>이메일</th>
-                  <th>세션</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <tr key={event.id}>
-                    <td>{formatDateTime(event.created_at)}</td>
-                    <td>{event.event_type}</td>
-                    <td>{event.reason ?? '-'}</td>
-                    <td>{event.viewer_email ?? '-'}</td>
-                    <td className="mono">{event.session_id ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>시간</TableHead>
+                <TableHead>이벤트</TableHead>
+                <TableHead>사유</TableHead>
+                <TableHead>이메일</TableHead>
+                <TableHead>세션</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell>{formatDateTime(event.created_at)}</TableCell>
+                  <TableCell>{event.event_type}</TableCell>
+                  <TableCell>{event.reason ?? '-'}</TableCell>
+                  <TableCell>{event.viewer_email ?? '-'}</TableCell>
+                  <TableCell className="mono">{event.session_id ?? '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </article>
+      </Card>
     </section>
   );
 }

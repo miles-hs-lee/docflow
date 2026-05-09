@@ -1,20 +1,27 @@
-import { FlashQueryCleaner } from '@/components/flash-query-cleaner';
+import { Alert, AlertDescription, AlertTitle } from '@polaris/ui';
 
 type FlashProps = {
-  error?: string;
   success?: string;
+  error?: string;
 };
 
-export function Flash({ error, success }: FlashProps) {
-  if (!error && !success) {
-    return null;
-  }
+export function Flash({ success, error }: FlashProps) {
+  if (!success && !error) return null;
 
   return (
     <div className="flash-stack" role="status" aria-live="polite">
-      <FlashQueryCleaner />
-      {success ? <div className="flash flash-success">{success}</div> : null}
-      {error ? <div className="flash flash-error">{error}</div> : null}
+      {success ? (
+        <Alert variant="success">
+          <AlertTitle>완료</AlertTitle>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert variant="danger">
+          <AlertTitle>확인 필요</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
     </div>
   );
 }

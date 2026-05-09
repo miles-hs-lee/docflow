@@ -1,6 +1,8 @@
+import { Button, Card, EmptyState, Input } from '@polaris/ui';
 import Link from 'next/link';
 
 import { Flash } from '@/components/flash';
+import { HiddenInput } from '@/components/hidden-input';
 import { hardDeleteLinkAction, restoreLinkAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
 import { listTrashLinks } from '@/lib/data';
@@ -22,21 +24,24 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
     <section className="stack-lg">
       <Flash success={success} error={error} />
 
-      <article className="panel">
+      <Card className="panel" variant="padded">
         <div className="between">
-          <h2>휴지통 링크</h2>
-          <Link href="/dashboard" className="button button-ghost">
-            파일 목록
-          </Link>
+          <div className="stack-sm">
+            <h2>휴지통 링크</h2>
+            <p className="muted">소프트 삭제된 링크는 여기서 복구하거나 영구 삭제할 수 있습니다.</p>
+          </div>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/dashboard">파일 목록</Link>
+          </Button>
         </div>
 
         {links.length === 0 ? (
-          <p className="muted">휴지통이 비어 있습니다.</p>
+          <EmptyState title="휴지통이 비어 있습니다" description="삭제한 공유 링크가 이곳에 표시됩니다." />
         ) : (
           <div className="stack-md">
             {links.map((link) => (
-              <div key={link.id} className="trash-item">
-                <div>
+              <Card key={link.id} className="trash-item" variant="padded">
+                <div className="stack-sm">
                   <p>
                     <strong>{link.label}</strong>
                   </p>
@@ -48,25 +53,23 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
                 <div className="row-actions">
                   <form action={restoreLinkAction}>
-                    <input type="hidden" name="linkId" value={link.id} />
-                    <button type="submit" className="button button-primary">
-                      복구
-                    </button>
+                    <HiddenInput name="linkId" value={link.id} />
+                    <Button type="submit">복구</Button>
                   </form>
 
                   <form action={hardDeleteLinkAction} className="inline-form">
-                    <input type="hidden" name="linkId" value={link.id} />
-                    <input name="confirmation" placeholder="DELETE" required />
-                    <button type="submit" className="button button-danger">
+                    <HiddenInput name="linkId" value={link.id} />
+                    <Input name="confirmation" label="확인 문구" placeholder="DELETE" required containerClassName="hard-delete-field" />
+                    <Button type="submit" variant="danger">
                       영구 삭제
-                    </button>
+                    </Button>
                   </form>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
-      </article>
+      </Card>
     </section>
   );
 }
