@@ -386,16 +386,20 @@ svg {
 
 .landing-brand-divider {
   width: 1px;
-  height: 1.4rem;
+  height: 1.1rem;
   background: var(--border);
   display: inline-block;
+  opacity: 0.7;
 }
 
 .landing-brand-product {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  color: var(--polaris-label-neutral);
+  align-self: center;
+  transform: translateY(1px);
 }
 
 .landing-nav {
@@ -463,8 +467,17 @@ svg {
 .landing-section-head h2 {
   font-size: clamp(1.2rem, 1.9vw, 1.55rem);
   line-height: 1.25;
-  letter-spacing: -0.025em;
-  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.landing-eyebrow {
+  display: inline-block;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .landing-trust {

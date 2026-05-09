@@ -56,7 +56,7 @@ export default async function HomePage() {
               )}
             </div>
             <p className="landing-trust">
-              폴라리스오피스가 만든 B2A 문서 운영 서비스 · 신용카드 등록 없이 시작
+              폴라리스오피스 구독만 하면 DocFlow가 무료
             </p>
           </div>
           <div className="landing-hero-visual" aria-hidden>
@@ -72,7 +72,7 @@ export default async function HomePage() {
 
         <section className="landing-section">
           <header className="landing-section-head">
-            <Badge variant="neutral" tone="subtle">Why DocFlow</Badge>
+            <span className="landing-eyebrow">Why DocFlow</span>
             <h2>외부에 보낸 문서는 그 순간부터 운영 영역 밖이었습니다</h2>
           </header>
           <div className="landing-need-grid">
@@ -96,7 +96,7 @@ export default async function HomePage() {
 
         <section className="landing-section">
           <header className="landing-section-head">
-            <Badge variant="primary" tone="subtle">What&apos;s inside</Badge>
+            <span className="landing-eyebrow">What&apos;s inside</span>
             <h2>한 링크에 정책 · 신호 · 자동화를 묶었습니다</h2>
           </header>
           <div className="landing-feature-grid">
@@ -125,7 +125,7 @@ export default async function HomePage() {
 
         <section className="landing-section">
           <header className="landing-section-head">
-            <Badge variant="warning" tone="subtle">Use cases</Badge>
+            <span className="landing-eyebrow">Use cases</span>
             <h2>제안부터 계약까지, 외부로 나가는 모든 문서</h2>
           </header>
           <div className="landing-usecase-grid">
@@ -154,7 +154,7 @@ export default async function HomePage() {
 
         <section className="landing-section">
           <header className="landing-section-head">
-            <Badge variant="success" tone="subtle">Outcomes</Badge>
+            <span className="landing-eyebrow">Outcomes</span>
             <h2>같은 자료를 보내도 운영 결과가 달라집니다</h2>
           </header>
           <div className="landing-outcome-grid">
