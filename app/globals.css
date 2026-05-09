@@ -339,13 +339,35 @@ svg {
   gap: var(--polaris-spacing-xs);
 }
 
-.dashboard-user-email {
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 120ms ease, box-shadow 120ms ease;
+}
+
+.user-menu-trigger:hover {
+  opacity: 0.88;
+}
+
+.user-menu-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.user-menu-content .user-menu-email {
   max-width: 18rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--polaris-label-neutral);
-  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.82rem;
 }
 
 .nav-link {

@@ -1,7 +1,8 @@
-import { Button, Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
+import { Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
+import { UserMenu } from '@/components/user-menu';
 import { requireOwner } from '@/lib/auth';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -29,14 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
         </NavbarNav>
         <NavbarActions className="dashboard-actions">
-          <span className="dashboard-user-email" title={user.email}>
-            {user.email}
-          </span>
-          <form action="/auth/signout" method="post">
-            <Button type="submit" variant="ghost" size="sm">
-              로그아웃
-            </Button>
-          </form>
+          <UserMenu email={user.email ?? ''} />
         </NavbarActions>
       </Navbar>
       <main className="dashboard-content">{children}</main>

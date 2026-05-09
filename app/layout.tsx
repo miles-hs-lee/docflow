@@ -14,9 +14,21 @@ export const metadata: Metadata = {
   }
 };
 
+const themeBootstrap = `
+  try {
+    var stored = window.localStorage.getItem('docflow-theme');
+    if (stored === 'dark' || stored === 'light') {
+      document.documentElement.dataset.theme = stored;
+    }
+  } catch (e) {}
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" data-theme="light">
+    <html lang="ko" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body className="app-body">
         <PolarisProvider>{children}</PolarisProvider>
       </body>
