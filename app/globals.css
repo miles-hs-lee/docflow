@@ -903,51 +903,6 @@ svg {
   line-height: 1.65;
 }
 
-.landing-hero-pills {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--polaris-spacing-xs);
-  max-width: 38rem;
-}
-
-.landing-hero-pill {
-  display: flex;
-  align-items: center;
-  gap: var(--polaris-spacing-2xs);
-  padding: var(--polaris-spacing-xs);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.landing-hero-pill > svg {
-  flex: none;
-  color: var(--primary);
-}
-
-.landing-hero-pill > div {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
-.landing-hero-pill strong {
-  font-size: 0.85rem;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-
-.landing-hero-pill span {
-  color: var(--polaris-label-alternative);
-  font-size: 0.74rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .landing-section {
   display: grid;
   gap: var(--polaris-spacing-sm);
