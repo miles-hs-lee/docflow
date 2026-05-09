@@ -340,7 +340,14 @@ export async function listPerPageStats(args: {
   }
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    // Most likely cause: migration 004_page_analytics.sql has not been applied
+    // yet (link_events.page_number / dwell_ms columns missing, or 'page_view'
+    // event type not in the CHECK constraint). Degrade to empty so the owner
+    // page renders with an EmptyState instead of a 500.
+    console.error('[listPerPageStats] degraded to empty', error);
+    return [];
+  }
 
   const buckets = new Map<number, { views: number; total_dwell_ms: number }>();
   for (const row of data ?? []) {
