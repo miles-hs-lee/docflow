@@ -634,6 +634,21 @@ export async function hardDeleteLinkAction(formData: FormData) {
     redirectWithError('/dashboard/trash', '영구 삭제할 링크를 찾을 수 없습니다.');
   }
 
+  // Migration 005 changed link_events.link_id FK to ON DELETE SET NULL so
+  // the audit row survives when its parent file is hard-deleted (orphan
+  // cleanup). But the trash flow's contract is "영구 삭제 시 통계도 같이
+  // 제거" — explicitly wipe the link's events first, then drop the link.
+  // Deleting events first avoids leaving NULL-link orphans behind.
+  const { error: eventsError } = await admin
+    .from('link_events')
+    .delete()
+    .eq('link_id', linkId)
+    .eq('owner_id', user.id);
+
+  if (eventsError) {
+    redirectWithError('/dashboard/trash', '링크 이벤트 삭제에 실패했습니다.');
+  }
+
   const { error } = await admin.from('share_links').delete().eq('id', linkId).eq('owner_id', user.id);
 
   if (error) {
@@ -643,7 +658,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
   const ownerPath = getLinkOwnerPath(link);
   revalidatePath('/dashboard/trash');
   revalidatePath(ownerPath);
-  redirectWithSuccess('/dashboard/trash', '링크를 영구 삭제했습니다.');
+  redirectWithSuccess('/dashboard/trash', '링크와 관련 이벤트를 영구 삭제했습니다.');
 }
 
 export async function deleteFileAction(formData: FormData) {

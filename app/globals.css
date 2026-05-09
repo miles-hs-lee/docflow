@@ -393,23 +393,31 @@ svg {
   padding: var(--polaris-spacing-lg);
 }
 
+/* DateTimeInput visually mirrors Polaris Input's floating-label layout —
+   small caption-tone label inside the input box, native datetime widget
+   below — so the share-link form reads as a uniform row of fields instead
+   of "all placeholders + 만료일 floating in the column gap above." */
 .datetime-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--polaris-spacing-3xs);
+  position: relative;
+  display: block;
 }
 
 .datetime-field-label {
-  padding-left: var(--polaris-spacing-sm);
-  color: var(--polaris-label-assistive);
-  font-size: 0.78rem;
+  position: absolute;
+  top: 0.5rem;
+  left: var(--polaris-spacing-md);
+  font-size: 0.7rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--polaris-label-assistive);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .datetime-field input {
   width: 100%;
   height: 3.25rem;
-  padding: 0 var(--polaris-spacing-md);
+  padding: 1.2rem var(--polaris-spacing-md) 0.45rem;
   border: 1px solid var(--border);
   border-radius: var(--polaris-radius-sm);
   background: var(--surface);
