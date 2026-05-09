@@ -360,8 +360,8 @@ export type Database = {
         };
         Update: {
           id?: number;
-          link_id?: string;
-          file_id?: string;
+          link_id?: string | null;
+          file_id?: string | null;
           owner_id?: string;
           event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
           reason?: string | null;
@@ -386,6 +386,24 @@ export type Database = {
           p_owner_id: string;
         };
         Returns: boolean;
+      };
+      delete_file_cascade: {
+        Args: {
+          p_file_id: string;
+          p_owner_id: string;
+        };
+        Returns: {
+          status: 'not_found' | 'active_links_exist' | 'ok';
+        }[];
+      };
+      delete_collection_cascade: {
+        Args: {
+          p_collection_id: string;
+          p_owner_id: string;
+        };
+        Returns: {
+          status: 'not_found' | 'active_links_exist' | 'ok';
+        }[];
       };
       claim_view: {
         Args: {

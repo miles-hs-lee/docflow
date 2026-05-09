@@ -5,35 +5,43 @@ have intentionally not patched, with the rationale. Reviewed alongside
 each release; entries should either be removed (fixed upstream) or have
 their risk re-evaluated.
 
-## Known dependency advisories (as of 2026-05)
+## Dependency advisories — currently clean
 
-`npm audit --omit=dev` reports three transitive vulnerabilities at the
-time of writing. None are exploitable in the running application; they
-exist in build-time tooling that ships inside `next`'s subtree. The
-audit checker treats them as runtime because they live under `node_modules/next`,
-even though they execute only during `next build`.
+As of the most recent commit, `npm audit --omit=dev` reports **0 vulnerabilities**.
 
-| Advisory | Package | Severity | Path | Status |
-|---|---|---|---|---|
-| GHSA-3v7f-55p6-f55p | picomatch (POSIX class injection) | high | `node_modules/picomatch`, `node_modules/tinyglobby/node_modules/picomatch` | Build-time glob matcher used by tailwind/eslint. No untrusted glob inputs in the build pipeline. |
-| GHSA-c2c7-rcm5-vvqj | picomatch (extglob ReDoS) | high | same as above | Same build-time pathway. CI build is single-tenant and bounded. |
-| GHSA-qx2v-qp2m-jg93 | postcss `<8.5.10` (XSS via unescaped `</style>` in stringify) | moderate | `node_modules/next/node_modules/postcss` | Used by Next at build time to assemble the CSS bundle from our own source. We do not stringify untrusted CSS. |
+The earlier `picomatch` (high) and `postcss` (moderate) advisories that
+shipped inside `next` / `tailwind` / `eslint` subtrees are now patched
+through `npm overrides` in [`package.json`](../package.json):
 
-### Why we are not patching them today
+```jsonc
+"overrides": {
+  "postcss": "$postcss",      // pin every transitive postcss to our direct dep (8.5.14+, > advisory threshold)
+  "picomatch": "^4.0.3"        // bump nested picomatch instances past the ReDoS / POSIX-class advisories
+}
+```
 
-- **picomatch**: only reachable through `tailwindcss` and `eslint` build
-  steps. We control the input globs (defined in `tailwind.config.ts` /
-  `eslint.config.mjs`); no user-supplied data crosses the matcher.
-- **postcss**: `next` pins its own `postcss` version. `npm audit fix --force`
-  would downgrade `next` to `9.3.3`, which has its own pre-15.x security
-  advisories and lacks every App Router / RSC primitive the app relies on.
+`$postcss` tells npm to reuse the version of our top-level `postcss`
+dependency (`devDependencies.postcss`) for every transitive copy —
+including the one Next bundles internally. `picomatch ^4.0.3` is bumped
+in absolute terms because no top-level dep exists for it.
 
-### When to revisit
+### Re-audit cadence
 
-- A new `next` minor (15.6+) that bumps the embedded `postcss`.
-- `tailwindcss` / `eslint` minors that drop `picomatch`.
-- Any report that the picomatch ReDoS or postcss XSS is reachable from
-  *runtime* (not build-time) inputs in a Next App Router project.
+Run `npm audit --omit=dev` on every release branch and after any
+`npm install` that adds a new dep. If a new advisory appears under a
+package these overrides did not cover (e.g. `lodash`, `cross-spawn`),
+extend the overrides block or, if the package is a direct dep, bump
+the direct version. Document any advisory we *do* accept (rare) here
+with the rationale.
+
+### Override compatibility risk
+
+`postcss` 8.5.14 is API-compatible with the 8.4.x line Next normally
+ships, but a future Next major bump that depends on a new postcss
+feature could break under this override. The build runs as part of CI,
+so a regression would be caught immediately. If that happens, drop the
+override for `postcss` and document the residual advisory here while
+waiting on the next Next release.
 
 ## Other security guarantees
 

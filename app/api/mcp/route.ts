@@ -663,6 +663,13 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
       throw new Error('invalid_params');
     }
 
+    // Same guard as the UI action (lib/actions/owner.ts createAutomationSubscriptionAction):
+    // refuse to register a subscription when no dispatcher secret is set —
+    // otherwise outbox rows pile up but never fire.
+    if (!process.env.AUTOMATION_CRON_SECRET && !process.env.CRON_SECRET) {
+      throw new Error('automation_dispatcher_disabled');
+    }
+
     let webhookUrl: URL;
     try {
       webhookUrl = await assertSafePublicUrl(webhookUrlRaw);

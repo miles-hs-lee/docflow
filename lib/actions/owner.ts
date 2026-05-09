@@ -161,63 +161,26 @@ export async function deleteCollectionAction(formData: FormData) {
     redirectWithError('/dashboard', '삭제할 문서 묶음을 확인할 수 없습니다.');
   }
 
-  // Block hard-delete while active (non-trashed) links exist. The trash flow
-  // exists exactly so the owner can review what disappears before it does.
-  const { count: activeLinks } = await admin
-    .from('share_links')
-    .select('id', { count: 'exact', head: true })
-    .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
-    .is('deleted_at', null);
+  // delete_collection_cascade (migration 009) wraps the active-link gate,
+  // trash-link cleanup, event cleanup, and collection row delete inside a
+  // single PL/pgSQL transaction. Returns 'not_found' / 'active_links_exist' / 'ok'.
+  const { data, error: rpcError } = await admin.rpc('delete_collection_cascade', {
+    p_collection_id: collectionId,
+    p_owner_id: user.id
+  });
 
-  if ((activeLinks ?? 0) > 0) {
+  const status = Array.isArray(data) ? data[0]?.status : null;
+  if (rpcError || status == null) {
+    redirectWithError('/dashboard', '문서 묶음 삭제에 실패했습니다.');
+  }
+  if (status === 'not_found') {
+    redirectWithError('/dashboard', '삭제할 문서 묶음을 확인할 수 없습니다.');
+  }
+  if (status === 'active_links_exist') {
     redirectWithError(
       '/dashboard',
       '활성 링크가 남아있어 묶음을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
-  }
-
-  // Honor the trash contract for soft-deleted links too: if we let the FK
-  // cascade fire when collections is deleted, the soft-deleted share_links
-  // disappear silently and their link_events become orphans (link_id NULL
-  // per migration 005). Wipe events + soft-deleted links explicitly first.
-  const { data: trashedLinks, error: trashFetchError } = await admin
-    .from('share_links')
-    .select('id')
-    .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
-    .not('deleted_at', 'is', null);
-
-  if (trashFetchError) {
-    redirectWithError('/dashboard', '연결된 휴지통 링크를 확인하지 못했습니다.');
-  }
-
-  const trashedIds = (trashedLinks ?? []).map((l) => l.id);
-  if (trashedIds.length > 0) {
-    const { error: eventsError } = await admin
-      .from('link_events')
-      .delete()
-      .in('link_id', trashedIds)
-      .eq('owner_id', user.id);
-
-    if (eventsError) {
-      redirectWithError('/dashboard', '연결된 링크 이벤트를 삭제하지 못했습니다.');
-    }
-
-    const { error: linksError } = await admin
-      .from('share_links')
-      .delete()
-      .in('id', trashedIds)
-      .eq('owner_id', user.id);
-
-    if (linksError) {
-      redirectWithError('/dashboard', '연결된 휴지통 링크를 삭제하지 못했습니다.');
-    }
-  }
-
-  const { error } = await admin.from('collections').delete().eq('id', collectionId).eq('owner_id', user.id);
-  if (error) {
-    redirectWithError('/dashboard', '문서 묶음 삭제에 실패했습니다.');
   }
 
   revalidatePath('/dashboard');
@@ -723,67 +686,36 @@ export async function deleteFileAction(formData: FormData) {
     redirectWithError('/dashboard', '파일을 찾을 수 없습니다.');
   }
 
-  // Block hard-delete while active (non-trashed) links exist on this file.
-  // The trash flow is the only intended path that ultimately removes a link.
-  const { count: activeLinks } = await admin
-    .from('share_links')
-    .select('id', { count: 'exact', head: true })
-    .eq('file_id', fileId)
-    .eq('owner_id', user.id)
-    .is('deleted_at', null);
-
-  if ((activeLinks ?? 0) > 0) {
-    redirectWithError(
-      '/dashboard',
-      '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
-    );
-  }
-
-  // Honor the trash contract for soft-deleted links too: a file delete
-  // would otherwise cascade-drop them and leave their events as orphans
-  // (link_id NULL via migration 005). Wipe events + soft-deleted links
-  // explicitly first.
-  const { data: trashedLinks, error: trashFetchError } = await admin
-    .from('share_links')
-    .select('id')
-    .eq('file_id', fileId)
-    .eq('owner_id', user.id)
-    .not('deleted_at', 'is', null);
-
-  if (trashFetchError) {
-    redirectWithError('/dashboard', '연결된 휴지통 링크를 확인하지 못했습니다.');
-  }
-
-  const trashedIds = (trashedLinks ?? []).map((l) => l.id);
-  if (trashedIds.length > 0) {
-    const { error: eventsError } = await admin
-      .from('link_events')
-      .delete()
-      .in('link_id', trashedIds)
-      .eq('owner_id', user.id);
-
-    if (eventsError) {
-      redirectWithError('/dashboard', '연결된 링크 이벤트를 삭제하지 못했습니다.');
-    }
-
-    const { error: linksError } = await admin
-      .from('share_links')
-      .delete()
-      .in('id', trashedIds)
-      .eq('owner_id', user.id);
-
-    if (linksError) {
-      redirectWithError('/dashboard', '연결된 휴지통 링크를 삭제하지 못했습니다.');
-    }
-  }
-
+  // Storage delete first — Supabase Storage `remove` is idempotent, so
+  // a retry after partial failure is safe. If this throws we abort
+  // before touching DB rows so the file row stays addressable for retry.
   try {
     await removePdfObject(file.storage_path);
   } catch {
     redirectWithError('/dashboard', '스토리지 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  await admin.from('files').delete().eq('id', fileId).eq('owner_id', user.id);
+  // delete_file_cascade (migration 009) wraps the active-link gate,
+  // trash-link cleanup, event cleanup, and file row delete inside one
+  // PL/pgSQL transaction.
+  const { data, error: rpcError } = await admin.rpc('delete_file_cascade', {
+    p_file_id: fileId,
+    p_owner_id: user.id
+  });
+
+  const status = Array.isArray(data) ? data[0]?.status : null;
+  if (rpcError || status == null) {
+    redirectWithError('/dashboard', '파일 삭제에 실패했습니다.');
+  }
+  if (status === 'not_found') {
+    redirectWithError('/dashboard', '파일을 찾을 수 없습니다.');
+  }
+  if (status === 'active_links_exist') {
+    redirectWithError(
+      '/dashboard',
+      '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
+    );
+  }
 
   revalidatePath('/dashboard');
   redirectWithSuccess('/dashboard', '파일과 연결된 링크를 삭제했습니다.');
