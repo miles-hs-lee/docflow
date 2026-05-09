@@ -156,19 +156,9 @@ svg {
   gap: var(--polaris-spacing-xs);
 }
 
-.panel,
-.link-card,
-.trash-item {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
-  box-shadow: var(--shadow-card);
-}
-
 .panel {
   display: grid;
   gap: var(--polaris-spacing-sm);
-  padding: var(--polaris-spacing-md);
 }
 
 .panel h2,
