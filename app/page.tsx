@@ -174,22 +174,22 @@ export default async function HomePage() {
           <div className="landing-feature-grid">
             <Card className="landing-feature" variant="padded">
               <FileIcon type="pdf" size={36} />
-              <h3>Link Policy</h3>
+              <h3>링크 정책</h3>
               <p>만료, 비밀번호, 이메일 도메인 화이트리스트, 최대 조회수, 다운로드 차단을 링크별로 적용합니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <FileIcon type="folder" size={36} />
-              <h3>Document Bundles</h3>
+              <h3>문서 묶음</h3>
               <p>제안서 · 약관 · 소개서를 하나의 묶음 링크로 전달하고 파일 단위 통계를 분리해 봅니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
-              <Badge variant="info" tone="subtle">Live</Badge>
-              <h3>Signals &amp; Stats</h3>
+              <Badge variant="info" tone="subtle">실시간</Badge>
+              <h3>열람 신호와 통계</h3>
               <p>열람, 다운로드, 거부 사유, 비밀번호 실패까지 모든 이벤트를 링크 · 파일 · 파트너 축으로 집계합니다.</p>
             </Card>
             <Card className="landing-feature landing-feature-nova" variant="padded">
               <NovaLogo size={32} aria-hidden />
-              <h3>MCP Automation</h3>
+              <h3>MCP 자동화</h3>
               <p>업로드, 링크 발급, 통계 조회를 MCP API 키 한 줄로 AI Agent · Slack · CRM 워크플로우에 연결합니다.</p>
             </Card>
           </div>
