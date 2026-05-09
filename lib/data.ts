@@ -19,14 +19,28 @@ import type {
 
 type OwnerClient = Awaited<ReturnType<typeof createOwnerClient>>;
 
-export async function listFiles(ownerClient: OwnerClient): Promise<FileRow[]> {
-  const { data, error } = await ownerClient
+// Owners with thousands of uploads were paying for the entire table on
+// every dashboard render. The page browser needs at most a few hundred
+// rows at a time; the full collection is reachable via search/filter.
+const FILES_DEFAULT_LIMIT = 500;
+
+export async function listFiles(
+  ownerClient: OwnerClient,
+  options?: { limit?: number }
+): Promise<{ rows: FileRow[]; total: number; limit: number }> {
+  const limit = options?.limit ?? FILES_DEFAULT_LIMIT;
+  const { data, error, count } = await ownerClient
     .from('files')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(0, limit - 1);
 
   if (error) throw error;
-  return (data ?? []) as FileRow[];
+  return {
+    rows: (data ?? []) as FileRow[],
+    total: count ?? 0,
+    limit
+  };
 }
 
 export async function getFile(ownerClient: OwnerClient, fileId: string): Promise<FileRow | null> {

@@ -1,7 +1,7 @@
 import { Button, Card, EmptyState, FileIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
 import Link from 'next/link';
 
-import { CollectionBuilder } from '@/components/collection-builder';
+import { CollectionBuilderLazy } from '@/components/collection-builder-lazy';
 import { FileBrowser } from '@/components/file-browser';
 import { FileInput } from '@/components/file-input';
 import { Flash } from '@/components/flash';
@@ -18,7 +18,8 @@ type DashboardPageProps = {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
   const { supabase } = await requireOwner();
-  const [files, collections] = await Promise.all([listFiles(supabase), listCollections(supabase)]);
+  const [filesResult, collections] = await Promise.all([listFiles(supabase), listCollections(supabase)]);
+  const { rows: files, total: filesTotal, limit: filesLimit } = filesResult;
 
   const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
   const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
@@ -49,22 +50,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <Card className="panel" variant="padded">
         <h2>내 파일</h2>
-        <FileBrowser files={files} deleteFileAction={deleteFileAction} />
+        <FileBrowser
+          files={files}
+          totalCount={filesTotal}
+          fetchedLimit={filesLimit}
+          deleteFileAction={deleteFileAction}
+        />
       </Card>
 
       <Card className="panel collapsible" variant="padded">
-        <details className="collapsible-details">
-          <summary className="collapsible-summary">
-            <div className="stack-sm">
-              <h2>문서 묶음 생성</h2>
-              <p className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</p>
-            </div>
-            <span className="collapsible-chevron" aria-hidden>▾</span>
-          </summary>
-          <div className="collapsible-body">
-            <CollectionBuilder files={files} createCollectionAction={createCollectionAction} />
-          </div>
-        </details>
+        <CollectionBuilderLazy files={files} createCollectionAction={createCollectionAction} />
       </Card>
 
       <Card className="panel" variant="padded">

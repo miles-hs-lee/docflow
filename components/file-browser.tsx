@@ -40,11 +40,19 @@ const PAGE_SIZE_OPTIONS = ['10', '25', '50', '100'] as const;
 
 export function FileBrowser({
   files,
+  totalCount,
+  fetchedLimit,
   deleteFileAction
 }: {
   files: FileRow[];
+  totalCount?: number;
+  fetchedLimit?: number;
   deleteFileAction: DeleteAction;
 }) {
+  // The server caps the number of rows we fetch (FILES_DEFAULT_LIMIT in
+  // lib/data.ts). When the cap is hit we surface it so the user knows
+  // their search runs only over the most-recent slice.
+  const truncated = typeof totalCount === 'number' && typeof fetchedLimit === 'number' && totalCount > fetchedLimit;
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -125,7 +133,9 @@ export function FileBrowser({
         <div className="file-browser-meta">
           <Badge variant="neutral" tone="subtle">
             {filtered.length === files.length
-              ? `${files.length}개`
+              ? truncated
+                ? `최근 ${files.length} / 전체 ${totalCount}개`
+                : `${files.length}개`
               : `${filtered.length} / ${files.length}개`}
           </Badge>
           <span className="muted small">페이지당</span>
