@@ -2,7 +2,9 @@ import { getViewerCookieSecret } from '@/lib/env-server';
 import { signViewerGrant, verifyViewerGrant } from '@/lib/security';
 import type { ViewerGrantPayload } from '@/lib/types';
 
-export const VIEWER_SESSION_COOKIE = 'docflow_vid';
+// Re-export from edge-safe module so older import paths keep working
+// while the middleware can pull the constant alone without security.ts.
+export { VIEWER_SESSION_COOKIE } from '@/lib/viewer-session';
 
 export function getGrantCookieName(linkId: string) {
   return `docflow_grant_${linkId.replace(/-/g, '')}`;

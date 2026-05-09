@@ -48,7 +48,15 @@ export function parseAllowedDomains(input: string) {
 
 export function hashIp(ip: string | null | undefined) {
   if (!ip) return null;
-  return crypto.createHash('sha256').update(ip).digest('hex');
+  // HMAC with a server-side salt — IPv4 has only ~4G addresses, so an
+  // unsalted SHA-256 is trivial to reverse with a precomputed table.
+  // Falls back to VIEWER_COOKIE_SECRET if a dedicated IP_HASH_SALT is unset
+  // (kept as one secret in dev; deploys should set both independently).
+  const salt = process.env.IP_HASH_SALT || process.env.VIEWER_COOKIE_SECRET;
+  if (!salt) {
+    throw new Error('Missing IP_HASH_SALT (or VIEWER_COOKIE_SECRET fallback) for IP hashing.');
+  }
+  return crypto.createHmac('sha256', salt).update(ip).digest('hex');
 }
 
 export function timingSafeEqualString(a: string, b: string) {
@@ -60,21 +68,10 @@ export function signWebhookPayload(body: string, secret: string, timestamp: stri
   return crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
 }
 
-export function createViewerSessionId() {
-  return crypto.randomUUID();
-}
-
-export function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-export function normalizeViewerSessionId(value: string | null | undefined) {
-  if (!value || !isUuid(value)) {
-    return createViewerSessionId();
-  }
-
-  return value;
-}
+// Viewer session helpers live in lib/viewer-session.ts so the edge-runtime
+// middleware can import them without pulling node:crypto. Re-exported here
+// to keep the existing import paths working across server-only callers.
+export { createViewerSessionId, isUuid, normalizeViewerSessionId } from '@/lib/viewer-session';
 
 export function signViewerGrant(payload: ViewerGrantPayload, secret: string) {
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');

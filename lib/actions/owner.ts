@@ -1,11 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
 import { requireOwner } from '@/lib/auth';
 import { removePdfObject } from '@/lib/data';
+import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
 import {
   generateMcpApiKey,
   generateShareToken,
@@ -199,11 +201,22 @@ export async function createMcpApiKeyAction(formData: FormData) {
     redirectWithError('/dashboard/automations', 'API 키 생성에 실패했습니다.');
   }
 
+  // Pass the secret via short-lived HttpOnly cookie instead of URL params,
+  // so it never enters Vercel access logs, browser history, or Referer headers.
+  const cookieStore = await cookies();
+  cookieStore.set(MCP_NEW_KEY_COOKIE, rawKey, {
+    path: '/dashboard/automations',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 120 // ~2 minutes — enough to copy, then auto-expires
+  });
+
   revalidatePath('/dashboard/automations');
-  const url = new URL('/dashboard/automations', 'http://localhost');
-  url.searchParams.set('success', 'MCP API 키가 생성되었습니다. 지금 값은 다시 확인할 수 없으니 복사해주세요.');
-  url.searchParams.set('newKey', rawKey);
-  redirect(`${url.pathname}${url.search}`);
+  redirectWithSuccess(
+    '/dashboard/automations',
+    'MCP API 키가 생성되었습니다. 지금 값은 다시 확인할 수 없으니 복사해주세요.'
+  );
 }
 
 export async function revokeMcpApiKeyAction(formData: FormData) {

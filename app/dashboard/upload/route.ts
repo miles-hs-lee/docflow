@@ -49,6 +49,12 @@ export async function POST(request: Request) {
     return redirectToDashboard(request.url, 'error', '파일 크기는 50MB를 초과할 수 없습니다.');
   }
 
+  // Magic byte check — MIME/extension are spoofable. Mirrors the MCP route.
+  const headerBytes = Buffer.from(await file.slice(0, 5).arrayBuffer());
+  if (headerBytes.toString('binary') !== '%PDF-') {
+    return redirectToDashboard(request.url, 'error', 'PDF 파일만 업로드할 수 있습니다. 확장자만 .pdf인 다른 형식은 거부됩니다.');
+  }
+
   const fileId = crypto.randomUUID();
   const safeName = sanitizeFileName(file.name || `${fileId}.pdf`);
   const storagePath = `${user.id}/${fileId}/${safeName}`;

@@ -67,17 +67,8 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
   if (baseDenied) {
     const headersList = await headers();
-    const rawSessionId = cookieStore.get(VIEWER_SESSION_COOKIE)?.value;
-    const sessionId = normalizeViewerSessionId(rawSessionId);
-    if (!rawSessionId || rawSessionId !== sessionId) {
-      cookieStore.set(VIEWER_SESSION_COOKIE, sessionId, {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 30
-      });
-    }
+    // Session cookie is guaranteed by middleware on every /v/* request — read only.
+    const sessionId = normalizeViewerSessionId(cookieStore.get(VIEWER_SESSION_COOKIE)?.value);
 
     const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
     const userAgent = headersList.get('user-agent');

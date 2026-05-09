@@ -1,5 +1,6 @@
 import { Badge, Button, Card, Checkbox, EmptyState, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
 import { NovaLogo } from '@polaris/ui/logos';
+import { cookies } from 'next/headers';
 
 import { Flash } from '@/components/flash';
 import { HiddenInput } from '@/components/hidden-input';
@@ -13,6 +14,7 @@ import {
 import { requireOwner } from '@/lib/auth';
 import { listAutomationSubscriptions, listMcpApiKeys } from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
+import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
 
 type AutomationsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -46,7 +48,11 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
 
   const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
   const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
-  const newKey = typeof params.newKey === 'string' ? params.newKey : null;
+  // Read once from the short-lived HttpOnly flash cookie. Cookie auto-expires
+  // after 120s; we cannot clear it here (server component), and clearing in a
+  // route handler would race with the redirect — the short TTL is the safety net.
+  const cookieStore = await cookies();
+  const newKey = cookieStore.get(MCP_NEW_KEY_COOKIE)?.value ?? null;
 
   return (
     <section className="stack-lg">
