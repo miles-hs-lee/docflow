@@ -360,6 +360,10 @@ svg {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
+.user-menu-content {
+  z-index: var(--polaris-z-modal);
+}
+
 .user-menu-content .user-menu-email {
   max-width: 18rem;
   overflow: hidden;
