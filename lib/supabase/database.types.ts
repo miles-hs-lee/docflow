@@ -275,6 +275,7 @@ export type Database = {
           view_count: number;
           download_count: number;
           denied_count: number;
+          policy_version: number;
           created_at: string;
           updated_at: string;
         };
@@ -297,6 +298,7 @@ export type Database = {
           view_count?: number;
           download_count?: number;
           denied_count?: number;
+          policy_version?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -319,6 +321,7 @@ export type Database = {
           view_count?: number;
           download_count?: number;
           denied_count?: number;
+          policy_version?: number;
           created_at?: string;
           updated_at?: string;
         };

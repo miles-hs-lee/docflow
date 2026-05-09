@@ -48,6 +48,7 @@ export type ShareLinkRow = {
   view_count: number;
   download_count: number;
   denied_count: number;
+  policy_version: number;
   created_at: string;
   updated_at: string;
 };
@@ -167,6 +168,7 @@ export type DeniedReasonCount = {
 
 export type ViewerGrantPayload = {
   linkId: string;
+  policyVersion: number;
   email?: string;
   grantedAt: number;
 };

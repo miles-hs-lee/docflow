@@ -192,6 +192,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
   const cookieStore = await cookies();
   cookieStore.set(getGrantCookieName(bundle.id), encodeGrantCookie({
     linkId: bundle.id,
+    policyVersion: bundle.policy_version,
     email: normalizedEmail,
     grantedAt: Date.now()
   }), {

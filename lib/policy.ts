@@ -38,6 +38,13 @@ export function evaluateGrantPolicy({ link, grant }: PolicyInput): DeniedReason 
     return 'access_not_granted';
   }
 
+  // Grant cookies are pinned to the policy snapshot at issue time. If the
+  // owner changed any policy field afterward (e.g. added a password), the
+  // bumped policy_version invalidates this grant and forces re-auth.
+  if (grant.policyVersion !== link.policy_version) {
+    return 'access_not_granted';
+  }
+
   if (requiresEmail) {
     if (!grant.email) {
       return 'email_required';

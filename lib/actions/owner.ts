@@ -160,6 +160,22 @@ export async function deleteCollectionAction(formData: FormData) {
     redirectWithError('/dashboard', '삭제할 문서 묶음을 확인할 수 없습니다.');
   }
 
+  // Block hard-delete while active (non-trashed) links exist. The trash flow
+  // exists exactly so the owner can review what disappears before it does.
+  const { count: activeLinks } = await admin
+    .from('share_links')
+    .select('id', { count: 'exact', head: true })
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .is('deleted_at', null);
+
+  if ((activeLinks ?? 0) > 0) {
+    redirectWithError(
+      '/dashboard',
+      '활성 링크가 남아있어 묶음을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
+    );
+  }
+
   const { error } = await admin.from('collections').delete().eq('id', collectionId).eq('owner_id', user.id);
   if (error) {
     redirectWithError('/dashboard', '문서 묶음 삭제에 실패했습니다.');
@@ -652,6 +668,22 @@ export async function deleteFileAction(formData: FormData) {
 
   if (fileError || !file) {
     redirectWithError('/dashboard', '파일을 찾을 수 없습니다.');
+  }
+
+  // Block hard-delete while active (non-trashed) links exist on this file.
+  // The trash flow is the only intended path that ultimately removes a link.
+  const { count: activeLinks } = await admin
+    .from('share_links')
+    .select('id', { count: 'exact', head: true })
+    .eq('file_id', fileId)
+    .eq('owner_id', user.id)
+    .is('deleted_at', null);
+
+  if ((activeLinks ?? 0) > 0) {
+    redirectWithError(
+      '/dashboard',
+      '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
+    );
   }
 
   try {
