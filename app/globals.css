@@ -449,14 +449,14 @@ svg {
 
 .file-browser-search > svg {
   position: absolute;
-  left: var(--polaris-spacing-sm);
+  left: calc(var(--polaris-spacing-md) - 2px);
   color: var(--polaris-label-assistive);
   pointer-events: none;
   z-index: 1;
 }
 
-.file-browser-search-input input {
-  padding-left: calc(var(--polaris-spacing-sm) + 1.25rem);
+.file-browser-search-input {
+  padding-left: calc(var(--polaris-spacing-md) + 1.5rem) !important;
 }
 
 .file-browser-meta {
