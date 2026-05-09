@@ -686,15 +686,10 @@ export async function deleteFileAction(formData: FormData) {
     redirectWithError('/dashboard', '파일을 찾을 수 없습니다.');
   }
 
-  // Storage delete first — Supabase Storage `remove` is idempotent, so
-  // a retry after partial failure is safe. If this throws we abort
-  // before touching DB rows so the file row stays addressable for retry.
-  try {
-    await removePdfObject(file.storage_path);
-  } catch {
-    redirectWithError('/dashboard', '스토리지 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
-  }
-
+  // Order matters: run the DB cascade FIRST so its active-link gate can
+  // reject the deletion before we touch storage. If we deleted the PDF
+  // first and then learned an active share_link still pointed at it, the
+  // owner would be left with a working link to a missing file.
   // delete_file_cascade (migration 009) wraps the active-link gate,
   // trash-link cleanup, event cleanup, and file row delete inside one
   // PL/pgSQL transaction.
@@ -715,6 +710,17 @@ export async function deleteFileAction(formData: FormData) {
       '/dashboard',
       '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
+  }
+
+  // Best-effort storage cleanup AFTER the DB row is gone. If this throws
+  // the file row is already deleted (the owner sees the file disappear
+  // from the dashboard) and an orphan blob remains in storage. That's
+  // strictly better than the alternative (broken share_link → live file)
+  // and recoverable through a future storage-orphan sweep.
+  try {
+    await removePdfObject(file.storage_path);
+  } catch {
+    // Swallow — DB is the source of truth, dashboard already reflects deletion.
   }
 
   revalidatePath('/dashboard');

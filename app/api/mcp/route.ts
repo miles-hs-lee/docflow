@@ -835,6 +835,23 @@ export async function POST(request: NextRequest) {
       if (message === 'file_too_large') {
         return rpcError(payload.id, -32004, 'Payload too large', message, 413);
       }
+      if (message === 'invalid_webhook_url') {
+        return rpcError(payload.id, -32602, 'Invalid params', message, 400);
+      }
+      if (message === 'automation_dispatcher_disabled') {
+        // Distinct from a server fault: the request was well-formed but the
+        // operator has not enabled the cron dispatcher. 503 communicates
+        // "service is paused, retry later or ask the operator" to the MCP
+        // client; -32011 is in the application-defined range so clients can
+        // map this to a configuration prompt instead of a generic retry.
+        return rpcError(
+          payload.id,
+          -32011,
+          'Automation dispatcher disabled',
+          'AUTOMATION_CRON_SECRET (or CRON_SECRET) is not set on the server. Subscriptions cannot be created until the operator enables the dispatcher.',
+          503
+        );
+      }
 
       return rpcError(payload.id, -32000, 'Tool execution failed', message, 500);
     }
