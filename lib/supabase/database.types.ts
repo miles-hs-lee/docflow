@@ -420,7 +420,7 @@ export type Database = {
           p_owner_id: string;
         };
         Returns: {
-          status: 'not_found' | 'active_links_exist' | 'ok';
+          status: 'not_found' | 'active_links_exist' | 'active_collection_links_exist' | 'ok';
         }[];
       };
       delete_collection_cascade: {

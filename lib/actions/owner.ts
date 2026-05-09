@@ -711,6 +711,12 @@ export async function deleteFileAction(formData: FormData) {
       '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
   }
+  if (status === 'active_collection_links_exist') {
+    redirectWithError(
+      '/dashboard',
+      '이 파일이 포함된 문서 묶음에 활성 공유 링크가 있어 삭제할 수 없습니다. 묶음 링크를 먼저 휴지통으로 옮긴 뒤 다시 시도하세요.'
+    );
+  }
 
   // Best-effort storage cleanup AFTER the DB row is gone. If this throws
   // the file row is already deleted (the owner sees the file disappear
