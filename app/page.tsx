@@ -1,9 +1,21 @@
-import { Badge, Button, Card, FileIcon } from '@polaris/ui';
+import { Avatar, AvatarFallback, Badge, Button, Card, FileIcon } from '@polaris/ui';
 import { NovaLogo, PolarisLogo } from '@polaris/ui/logos';
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { getOwner } from '@/lib/auth';
+
+const HERO_HEATMAP_FILE = '폴라리스 2026 제안서.pdf';
+const HERO_HEATMAP_PAGES: { page: number; dwellMs: number }[] = [
+  { page: 1, dwellMs: 12_000 },
+  { page: 2, dwellMs: 34_000 },
+  { page: 3, dwellMs: 8_000 },
+  { page: 4, dwellMs: 47_000 },
+  { page: 5, dwellMs: 27_000 },
+  { page: 6, dwellMs: 6_000 },
+  { page: 7, dwellMs: 19_000 },
+  { page: 8, dwellMs: 41_000 }
+];
+const HERO_HEATMAP_MAX_DWELL = Math.max(...HERO_HEATMAP_PAGES.map((p) => p.dwellMs));
 
 export default async function HomePage() {
   const { user } = await getOwner();
@@ -60,13 +72,48 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="landing-hero-visual" aria-hidden>
-            <Image
-              src="/landing/docflow-b2a-hero.svg"
-              alt=""
-              width={1200}
-              height={760}
-              priority
-            />
+            <div className="hero-mock">
+              <header className="hero-mock-window">
+                <span className="hero-mock-dot" />
+                <span className="hero-mock-dot" />
+                <span className="hero-mock-dot" />
+                <span className="hero-mock-window-title">DocFlow · 페이지별 열람</span>
+              </header>
+              <Card className="hero-mock-panel" variant="padded">
+                <div className="hero-mock-head">
+                  <div className="hero-mock-head-text">
+                    <Badge variant="info" tone="subtle">Live</Badge>
+                    <h3 className="hero-mock-title">{HERO_HEATMAP_FILE}</h3>
+                    <p className="hero-mock-sub">상대방이 머문 시간 기반</p>
+                  </div>
+                  <FileIcon type="pdf" size={32} />
+                </div>
+                <div className="hero-mock-heatmap">
+                  {HERO_HEATMAP_PAGES.map(({ page, dwellMs }) => {
+                    const widthPct = Math.max(6, Math.round((dwellMs / HERO_HEATMAP_MAX_DWELL) * 100));
+                    const isPeak = dwellMs === HERO_HEATMAP_MAX_DWELL;
+                    return (
+                      <div key={page} className={`hero-mock-row${isPeak ? ' peak' : ''}`}>
+                        <span className="hero-mock-row-label">p.{page}</span>
+                        <div className="hero-mock-bar">
+                          <div className="hero-mock-bar-fill" style={{ width: `${widthPct}%` }} />
+                        </div>
+                        <span className="hero-mock-row-dwell">{Math.round(dwellMs / 1000)}s</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hero-mock-foot">
+                  <Avatar size="sm">
+                    <AvatarFallback>P</AvatarFallback>
+                  </Avatar>
+                  <div className="hero-mock-foot-text">
+                    <strong>partner@example.co.kr</strong>
+                    <span className="muted small">방금 4페이지에서 47초 머묾 · 후속 콜 우선순위 ↑</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </section>
 
