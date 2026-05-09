@@ -168,12 +168,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';
-  const buffer = await pdfBlob.arrayBuffer();
-  const response = new NextResponse(buffer, {
+  // Stream straight from storage — see /document/route.ts for the same
+  // backpressure rationale (avoids holding 50 MB in Node memory).
+  const response = new NextResponse(pdfBlob.stream(), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${safeName}"`,
+      'Content-Length': String(pdfBlob.size),
       'Cache-Control': 'private, no-store'
     }
   });

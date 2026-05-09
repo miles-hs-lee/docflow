@@ -3,9 +3,9 @@ import Link from 'next/link';
 
 import { CollectionBuilderLazy } from '@/components/collection-builder-lazy';
 import { FileBrowser } from '@/components/file-browser';
-import { FileInput } from '@/components/file-input';
 import { Flash } from '@/components/flash';
 import { HiddenInput } from '@/components/hidden-input';
+import { UploadForm } from '@/components/upload-form';
 import { createCollectionAction, deleteCollectionAction, deleteFileAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
 import { listCollections, listFiles } from '@/lib/data';
@@ -36,16 +36,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
           <FileIcon type="pdf" size={42} />
         </div>
-        <form action="/dashboard/upload" method="post" className="upload-form" encType="multipart/form-data">
-          <FileInput
-            name="pdf"
-            accept="application/pdf,.pdf"
-            required
-            className="upload-file"
-            aria-label="업로드할 PDF 파일"
-          />
-          <Button type="submit">업로드</Button>
-        </form>
+        <UploadForm />
       </Card>
 
       <Card className="panel" variant="padded">
