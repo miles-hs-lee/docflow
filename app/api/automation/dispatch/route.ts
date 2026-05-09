@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseBearerToken } from '@/lib/agent-auth';
 import { signWebhookPayload, timingSafeEqualString } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { assertSafePublicUrl, SAFE_FETCH_TIMEOUT_MS } from '@/lib/url-safety';
 
 const RETRY_DELAYS_SECONDS = [60, 300, 1800, 7200, 21600, 43200];
 const MAX_ATTEMPTS = 10;
@@ -166,10 +167,18 @@ async function runDispatch(limit: number) {
         }
 
         try {
+          // Re-validate the URL at dispatch time. The owner cannot change a
+          // subscription's URL post-create without going through the same
+          // safety check, but DNS for an external host could have started
+          // pointing at an internal IP since (DNS rebinding). assertSafePublicUrl
+          // is cheap; SAFE_FETCH_TIMEOUT_MS caps each attempt at 5s.
+          await assertSafePublicUrl(subscription.webhook_url);
           const response = await fetch(subscription.webhook_url, {
             method: 'POST',
             headers,
-            body
+            body,
+            signal: AbortSignal.timeout(SAFE_FETCH_TIMEOUT_MS),
+            redirect: 'manual'
           });
           const responseText = truncate(await response.text());
 

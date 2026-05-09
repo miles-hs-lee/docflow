@@ -8,6 +8,7 @@ import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
 import { requireOwner } from '@/lib/auth';
 import { removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
+import { assertSafePublicUrl } from '@/lib/url-safety';
 import {
   generateMcpApiKey,
   generateShareToken,
@@ -277,13 +278,9 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
 
   let parsedUrl: URL;
   try {
-    parsedUrl = new URL(webhookUrl);
-  } catch {
-    redirectWithError('/dashboard/automations', '유효한 웹훅 URL을 입력해주세요.');
-  }
-
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    redirectWithError('/dashboard/automations', '웹훅 URL은 http/https만 지원합니다.');
+    parsedUrl = await assertSafePublicUrl(webhookUrl);
+  } catch (e) {
+    redirectWithError('/dashboard/automations', e instanceof Error ? e.message : '유효한 웹훅 URL을 입력해주세요.');
   }
 
   const { error } = await admin.from('automation_subscriptions').insert({

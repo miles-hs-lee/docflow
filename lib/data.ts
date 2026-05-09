@@ -221,6 +221,34 @@ export async function getMetricsForFile(ownerClient: OwnerClient, fileId: string
   return map;
 }
 
+/**
+ * Per-link metrics — works for both file-attached and collection-attached links.
+ * The get_owner_link_metrics RPC is file_id-scoped, so collection links never
+ * appeared in the map and the link detail page reported unique_viewers as 0.
+ */
+export async function getMetricsForLink(ownerClient: OwnerClient, link: ShareLinkRow): Promise<LinkMetrics> {
+  const { data: events, error } = await ownerClient
+    .from('link_events')
+    .select('session_id')
+    .eq('link_id', link.id)
+    .eq('event_type', 'view');
+
+  const uniqueSessions = new Set<string>();
+  if (!error) {
+    for (const row of (events ?? []) as Array<{ session_id: string | null }>) {
+      if (row.session_id) uniqueSessions.add(row.session_id);
+    }
+  }
+
+  return {
+    link_id: link.id,
+    views: link.view_count,
+    unique_viewers: uniqueSessions.size,
+    downloads: link.download_count,
+    denied: link.denied_count
+  };
+}
+
 export async function getDeniedBreakdown(ownerClient: OwnerClient, linkId: string): Promise<DeniedReasonCount[]> {
   const { data, error } = await ownerClient.rpc('get_denied_reason_breakdown' as never, {
     p_link_id: linkId

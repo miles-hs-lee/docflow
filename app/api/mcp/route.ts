@@ -6,6 +6,7 @@ import { authenticateMcpBearerToken, ensureScope, parseBearerToken } from '@/lib
 import { publicEnv } from '@/lib/env-public';
 import { generateShareToken, hashPassword, parseAllowedDomains } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { assertSafePublicUrl } from '@/lib/url-safety';
 
 type RpcRequest = {
   jsonrpc?: string;
@@ -664,11 +665,8 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
 
     let webhookUrl: URL;
     try {
-      webhookUrl = new URL(webhookUrlRaw);
+      webhookUrl = await assertSafePublicUrl(webhookUrlRaw);
     } catch {
-      throw new Error('invalid_webhook_url');
-    }
-    if (!['http:', 'https:'].includes(webhookUrl.protocol)) {
       throw new Error('invalid_webhook_url');
     }
 

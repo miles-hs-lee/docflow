@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireOwner } from '@/lib/auth';
-import { getDeniedBreakdown, getLink, getMetricsForFile } from '@/lib/data';
+import { getDeniedBreakdown, getLink, getMetricsForLink } from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
 
 type LinkDetailPageProps = {
@@ -44,10 +44,11 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
       .limit(100)
   ]);
 
-  const metricsMap = link.file_id ? await getMetricsForFile(supabase, link.file_id) : new Map();
+  // Per-link metrics work for both file-attached and collection-attached links;
+  // the previous file-scoped lookup left collection links with unique_viewers = 0.
+  const metrics = await getMetricsForLink(supabase, link);
   const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || null;
   const collectionName = ((collectionResult.data as { name?: string } | null)?.name) || null;
-  const metrics = metricsMap.get(link.id);
   const events = (eventsResult.data ?? []) as LinkEventRow[];
   const backPath = link.collection_id ? `/dashboard/collections/${link.collection_id}` : `/dashboard/files/${link.file_id}`;
 
