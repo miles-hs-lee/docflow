@@ -62,6 +62,14 @@ export async function POST(request: Request) {
       return redirectWithMessage(request.url, 'error', '이미 가입된 이메일입니다. 비밀번호를 확인해주세요.');
     }
 
+    if (signInError.message.toLowerCase().includes('invalid api key')) {
+      return redirectWithMessage(
+        request.url,
+        'error',
+        '서버 설정 오류입니다. NEXT_PUBLIC_SUPABASE_ANON_KEY가 Supabase에서 거부되었습니다.'
+      );
+    }
+
     return redirectWithMessage(request.url, 'error', '가입 후 로그인에 실패했습니다. 다시 시도해주세요.');
   }
 
