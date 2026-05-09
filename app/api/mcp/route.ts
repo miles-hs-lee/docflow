@@ -838,6 +838,12 @@ export async function POST(request: NextRequest) {
       if (message === 'invalid_webhook_url') {
         return rpcError(payload.id, -32602, 'Invalid params', message, 400);
       }
+      if (message === 'file_not_found' || message === 'collection_not_found') {
+        // Caller referenced a parent that doesn't exist (or doesn't belong
+        // to this owner). Distinct from a server fault — the MCP client
+        // should surface "no such file/collection" rather than retry.
+        return rpcError(payload.id, -32602, 'Not found', message, 404);
+      }
       if (message === 'automation_dispatcher_disabled') {
         // Distinct from a server fault: the request was well-formed but the
         // operator has not enabled the cron dispatcher. 503 communicates

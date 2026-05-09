@@ -138,6 +138,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      pending_storage_deletions: {
+        Row: {
+          id: number;
+          storage_path: string;
+          reason: string | null;
+          created_at: string;
+          processed_at: string | null;
+          attempts: number;
+        };
+        Insert: {
+          id?: number;
+          storage_path: string;
+          reason?: string | null;
+          created_at?: string;
+          processed_at?: string | null;
+          attempts?: number;
+        };
+        Update: {
+          id?: number;
+          storage_path?: string;
+          reason?: string | null;
+          created_at?: string;
+          processed_at?: string | null;
+          attempts?: number;
+        };
+        Relationships: [];
+      };
       automation_event_outbox: {
         Row: {
           id: number;

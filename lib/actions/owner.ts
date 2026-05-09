@@ -714,13 +714,35 @@ export async function deleteFileAction(formData: FormData) {
 
   // Best-effort storage cleanup AFTER the DB row is gone. If this throws
   // the file row is already deleted (the owner sees the file disappear
-  // from the dashboard) and an orphan blob remains in storage. That's
-  // strictly better than the alternative (broken share_link → live file)
-  // and recoverable through a future storage-orphan sweep.
+  // from the dashboard) and an orphan blob would remain in storage —
+  // worse than a broken share_link from a privacy/audit perspective.
+  // Queue the failure to pending_storage_deletions so a sweep job (not
+  // yet implemented) can retry, and log it for the operator in the
+  // meantime. The owner-facing flow still reports success because the
+  // record-of-truth (DB) is already consistent.
   try {
     await removePdfObject(file.storage_path);
-  } catch {
-    // Swallow — DB is the source of truth, dashboard already reflects deletion.
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'unknown_error';
+    console.error('[deleteFileAction] storage cleanup failed', {
+      storagePath: file.storage_path,
+      reason
+    });
+    try {
+      await admin.from('pending_storage_deletions').insert({
+        storage_path: file.storage_path,
+        reason
+      });
+    } catch (queueErr) {
+      // Queue insert itself failed — the console.error above is the only
+      // remaining audit trail. Surface it in logs so the operator can
+      // recover the storage_path manually if needed.
+      console.error('[deleteFileAction] failed to queue storage cleanup', {
+        storagePath: file.storage_path,
+        reason,
+        queueErr: queueErr instanceof Error ? queueErr.message : 'unknown_error'
+      });
+    }
   }
 
   revalidatePath('/dashboard');
