@@ -7,6 +7,8 @@ import { uploadPdfObject } from '@/lib/data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
 function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
@@ -41,6 +43,10 @@ export async function POST(request: Request) {
 
   if (!isPdfMime && !isPdfExt) {
     return redirectToDashboard(request.url, 'error', 'PDF 파일만 업로드할 수 있습니다.');
+  }
+
+  if (file.size > MAX_PDF_BYTES) {
+    return redirectToDashboard(request.url, 'error', '파일 크기는 50MB를 초과할 수 없습니다.');
   }
 
   const fileId = crypto.randomUUID();

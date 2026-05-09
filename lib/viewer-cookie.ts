@@ -1,4 +1,4 @@
-import { serverEnv } from '@/lib/env-server';
+import { getViewerCookieSecret } from '@/lib/env-server';
 import { signViewerGrant, verifyViewerGrant } from '@/lib/security';
 import type { ViewerGrantPayload } from '@/lib/types';
 
@@ -9,12 +9,12 @@ export function getGrantCookieName(linkId: string) {
 }
 
 export function encodeGrantCookie(payload: ViewerGrantPayload) {
-  return signViewerGrant(payload, serverEnv.viewerCookieSecret);
+  return signViewerGrant(payload, getViewerCookieSecret());
 }
 
 export function decodeGrantCookie(raw: string | null | undefined, linkId: string) {
   if (!raw) return null;
-  const payload = verifyViewerGrant(raw, serverEnv.viewerCookieSecret);
+  const payload = verifyViewerGrant(raw, getViewerCookieSecret());
   if (!payload || payload.linkId !== linkId) return null;
   return payload;
 }

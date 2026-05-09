@@ -641,8 +641,13 @@ export async function deleteFileAction(formData: FormData) {
     redirectWithError('/dashboard', '파일을 찾을 수 없습니다.');
   }
 
+  try {
+    await removePdfObject(file.storage_path);
+  } catch {
+    redirectWithError('/dashboard', '스토리지 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
   await admin.from('files').delete().eq('id', fileId).eq('owner_id', user.id);
-  await removePdfObject(file.storage_path);
 
   revalidatePath('/dashboard');
   redirectWithSuccess('/dashboard', '파일과 연결된 링크를 삭제했습니다.');
