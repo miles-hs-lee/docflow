@@ -1,8 +1,8 @@
 import { Button, Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { requireOwner } from '@/lib/auth';
+import { PolarisLogo } from '@polaris/ui/logos';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requireOwner();
@@ -11,10 +11,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="dashboard-shell">
       <Navbar className="dashboard-header">
         <div>
-          <NavbarBrand asChild className="brand-lockup">
-            <Link href="/dashboard" className="brand-link">
-              <Image src="/brand/docflow-mark.svg" alt="" width={24} height={24} aria-hidden className="brand-mark" />
-              <span>DocFlow</span>
+          <NavbarBrand asChild>
+            <Link href="/dashboard" className="landing-brand">
+              <PolarisLogo variant="horizontal" size={24} aria-hidden />
+              <span className="landing-brand-divider" aria-hidden />
+              <span className="landing-brand-product">DocFlow</span>
             </Link>
           </NavbarBrand>
           <p className="muted small">{user.email}</p>

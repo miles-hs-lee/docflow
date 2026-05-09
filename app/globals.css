@@ -329,20 +329,6 @@ svg {
   padding: var(--polaris-spacing-xs) var(--polaris-spacing-lg);
 }
 
-.brand-link,
-.brand-lockup {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--polaris-spacing-2xs);
-  color: var(--text);
-  font-weight: 850;
-  letter-spacing: -0.03em;
-}
-
-.brand-mark {
-  flex: none;
-}
-
 .nav-link {
   border: 1px solid transparent;
   border-radius: var(--polaris-radius-pill);
@@ -392,30 +378,24 @@ svg {
 }
 
 .landing-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--polaris-spacing-sm);
-  flex-wrap: wrap;
-}
-
-.landing-brand img {
-  width: min(12.25rem, 100%);
-  height: auto;
-}
-
-.landing-brand-meta {
   display: inline-flex;
   align-items: center;
-  gap: var(--polaris-spacing-3xs);
-  border: 1px solid var(--border);
-  border-radius: var(--polaris-radius-pill);
-  background: var(--surface);
-  color: var(--polaris-label-neutral);
-  padding: var(--polaris-spacing-3xs) var(--polaris-spacing-xs);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  gap: var(--polaris-spacing-2xs);
+  color: var(--text);
+}
+
+.landing-brand-divider {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--border);
+  display: inline-block;
+}
+
+.landing-brand-product {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .landing-nav {
@@ -487,11 +467,50 @@ svg {
   font-weight: 800;
 }
 
+.landing-trust {
+  margin-top: var(--polaris-spacing-2xs);
+  color: var(--polaris-label-alternative);
+  font-size: 0.82rem;
+}
+
+.landing-cta-fineprint {
+  margin-top: var(--polaris-spacing-3xs);
+  color: var(--polaris-label-alternative);
+  font-size: 0.78rem;
+}
+
 .landing-need-grid,
 .landing-outcome-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--polaris-spacing-sm);
+}
+
+.landing-usecase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--polaris-spacing-sm);
+}
+
+.landing-usecase {
+  display: grid;
+  align-content: start;
+  gap: var(--polaris-spacing-2xs);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--polaris-spacing-sm);
+}
+
+.landing-usecase h3 {
+  font-size: 1.05rem;
+  letter-spacing: -0.015em;
+}
+
+.landing-usecase p {
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.92rem;
 }
 
 .landing-feature-grid {
@@ -754,6 +773,7 @@ svg {
   .landing-feature-grid,
   .landing-need-grid,
   .landing-outcome-grid,
+  .landing-usecase-grid,
   .form-grid.compact {
     grid-template-columns: 1fr;
   }
