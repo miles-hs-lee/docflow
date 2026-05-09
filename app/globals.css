@@ -948,11 +948,6 @@ svg {
   white-space: nowrap;
 }
 
-.landing-hero-pill-nova {
-  border-color: color-mix(in srgb, var(--ai) 30%, var(--border));
-  background: linear-gradient(165deg, var(--surface), var(--ai-soft));
-}
-
 .landing-section {
   display: grid;
   gap: var(--polaris-spacing-sm);
