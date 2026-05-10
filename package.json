@@ -12,7 +12,7 @@
     "postinstall": "node -e \"const path=require('node:path');const reactPdfDir=path.dirname(require.resolve('react-pdf/package.json'));const worker=require.resolve('pdfjs-dist/build/pdf.worker.min.mjs',{paths:[reactPdfDir]});require('node:fs').copyFileSync(worker,'public/pdf.worker.min.mjs')\""
   },
   "dependencies": {
-    "@polaris/ui": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.8.0-rc.6/polaris-ui-0.8.0-rc.6.tgz",
+    "@polaris/ui": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.8.0-rc.7/polaris-ui-0.8.0-rc.7.tgz",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.0",
     "bcryptjs": "^2.4.3",
@@ -25,7 +25,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@polaris/lint": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.8.0-rc.6/polaris-lint-0.8.0-rc.6.tgz",
+    "@polaris/lint": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.8.0-rc.7/polaris-lint-0.8.0-rc.7.tgz",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.10",
