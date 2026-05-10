@@ -2,6 +2,7 @@ import { Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
+import { DashboardNav } from '@/components/dashboard-nav';
 import { FlashToast } from '@/components/flash-toast';
 import { PolarisProvider } from '@/components/polaris-provider';
 import { UserMenu } from '@/components/user-menu';
@@ -22,15 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
         </NavbarBrand>
         <NavbarNav className="dashboard-nav">
-          <Link href="/dashboard" className="nav-link">
-            파일
-          </Link>
-          <Link href="/dashboard/automations" className="nav-link">
-            자동화
-          </Link>
-          <Link href="/dashboard/trash" className="nav-link">
-            휴지통
-          </Link>
+          <DashboardNav />
         </NavbarNav>
         <NavbarActions className="dashboard-actions">
           <UserMenu email={user.email ?? ''} />

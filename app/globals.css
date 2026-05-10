@@ -330,6 +330,11 @@ svg {
   color: var(--text);
 }
 
+.nav-link[aria-current='page'] {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary-strong);
+}
+
 .dashboard-content {
   width: min(78rem, 100%);
   justify-self: center;
