@@ -125,9 +125,9 @@ export default async function AutomationsPage() {
                     <TableHead>이름</TableHead>
                     <TableHead>Prefix</TableHead>
                     <TableHead>스코프</TableHead>
-                    <TableHead className="whitespace-nowrap">최근 사용</TableHead>
-                    <TableHead className="whitespace-nowrap">상태</TableHead>
-                    <TableHead className="whitespace-nowrap">작업</TableHead>
+                    <TableHead nowrap>최근 사용</TableHead>
+                    <TableHead nowrap>상태</TableHead>
+                    <TableHead nowrap>작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -203,10 +203,10 @@ export default async function AutomationsPage() {
                     <TableHead>이름</TableHead>
                     <TableHead>Webhook</TableHead>
                     <TableHead>이벤트</TableHead>
-                    <TableHead className="whitespace-nowrap">최근 전달</TableHead>
-                    <TableHead className="whitespace-nowrap">최근 오류</TableHead>
-                    <TableHead className="whitespace-nowrap">상태</TableHead>
-                    <TableHead className="whitespace-nowrap">작업</TableHead>
+                    <TableHead nowrap>최근 전달</TableHead>
+                    <TableHead nowrap>최근 오류</TableHead>
+                    <TableHead nowrap>상태</TableHead>
+                    <TableHead nowrap>작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
