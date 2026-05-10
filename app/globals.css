@@ -419,6 +419,29 @@ svg {
    .upload-progress* removed — replaced by Polaris FileInput + Progress
    in v0.7.5 (UploadForm now renders entirely with primitives). */
 
+.expiry-date-label {
+  color: var(--polaris-label-neutral);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-left: var(--polaris-spacing-2xs);
+}
+
+.link-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: var(--primary-strong);
+}
+
 .landing-home-layout {
   min-height: 100vh;
   display: grid;

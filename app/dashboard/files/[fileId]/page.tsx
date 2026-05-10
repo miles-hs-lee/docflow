@@ -7,7 +7,6 @@ import {
   CardTitle,
   Checkbox,
   CopyButton,
-  DateTimeInput,
   EmptyState,
   FileIcon,
   HStack,
@@ -20,6 +19,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
+import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import {
@@ -35,13 +35,6 @@ import { formatDateTime } from '@/lib/format';
 type FileLinksPageProps = {
   params: Promise<{ fileId: string }>;
 };
-
-function toDateTimeLocal(value: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  const tzOffsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
-}
 
 function linkStatus(link: {
   is_active: boolean;
@@ -145,7 +138,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
             <form action={createShareLinkAction} className="form-grid link-create-grid">
               <HiddenInput name="fileId" value={file.id} />
               <Input name="label" required label="링크 이름" placeholder="거래처 A용" />
-              <DateTimeInput name="expiresAt" label="만료일" />
+              <ExpiryDateField name="expiresAt" />
               <Input type="number" name="maxViews" min={1} label="최대 조회수" placeholder="미설정" />
               <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
               <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
@@ -221,7 +214,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                           <HiddenInput name="linkId" value={link.id} />
                           <HiddenInput name="fileId" value={file.id} />
                           <Input name="label" defaultValue={link.label} required label="이름" />
-                          <DateTimeInput name="expiresAt" defaultValue={toDateTimeLocal(link.expires_at)} label="만료일" />
+                          <ExpiryDateField name="expiresAt" defaultValue={link.expires_at} />
                           <Input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} label="최대 조회수" />
                           <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
                           <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />
