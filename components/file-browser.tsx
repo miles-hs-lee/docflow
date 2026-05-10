@@ -19,7 +19,7 @@ import {
 } from '@polaris/ui';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useTransition } from 'react';
+import { useCallback, useTransition, type MouseEvent } from 'react';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { formatBytes, formatDateTime } from '@/lib/format';
@@ -163,32 +163,48 @@ export function FileBrowser({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {files.map((file) => (
-              <TableRow key={file.id}>
-                <TableCell>
-                  <FileCard
-                    type="pdf"
-                    name={file.original_name}
-                    meta={`${formatBytes(file.size_bytes)} · ${formatDateTime(file.created_at)}`}
-                  />
-                </TableCell>
-                <TableCell>{formatDateTime(file.created_at)}</TableCell>
-                <TableCell>{formatBytes(file.size_bytes)}</TableCell>
-                <TableCell>
-                  <HStack align="center" gap={2} wrap>
-                    <Button asChild variant="secondary" size="sm">
-                      <Link href={`/dashboard/files/${file.id}`}>링크 관리</Link>
-                    </Button>
-                    <form action={deleteFileAction}>
-                      <HiddenInput name="fileId" value={file.id} />
-                      <Button type="submit" variant="danger" size="sm">
-                        파일 삭제
+            {files.map((file) => {
+              const detailHref = `/dashboard/files/${file.id}`;
+              const handleRowClick = (event: MouseEvent<HTMLTableRowElement>) => {
+                // Polaris already swallows clicks on interactive descendants
+                // (buttons, anchors, form controls), but guard against
+                // future regressions for our custom HiddenInput etc.
+                const target = event.target as HTMLElement;
+                if (target.closest('button, a, form, input, [role="menu"]')) return;
+                router.push(detailHref);
+              };
+              return (
+                <TableRow
+                  key={file.id}
+                  clickable
+                  onClick={handleRowClick}
+                  aria-label={`${file.original_name} 링크 관리로 이동`}
+                >
+                  <TableCell>
+                    <FileCard
+                      type="pdf"
+                      name={file.original_name}
+                      meta={`${formatBytes(file.size_bytes)} · ${formatDateTime(file.created_at)}`}
+                    />
+                  </TableCell>
+                  <TableCell>{formatDateTime(file.created_at)}</TableCell>
+                  <TableCell>{formatBytes(file.size_bytes)}</TableCell>
+                  <TableCell>
+                    <HStack align="center" gap={2} wrap>
+                      <Button asChild variant="secondary" size="sm">
+                        <Link href={detailHref}>링크 관리</Link>
                       </Button>
-                    </form>
-                  </HStack>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <form action={deleteFileAction}>
+                        <HiddenInput name="fileId" value={file.id} />
+                        <Button type="submit" variant="danger" size="sm">
+                          파일 삭제
+                        </Button>
+                      </form>
+                    </HStack>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

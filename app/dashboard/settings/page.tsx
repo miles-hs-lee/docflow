@@ -2,12 +2,12 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Button,
   Card,
   CardBody,
   CardHeader,
   CardTitle,
   Input,
+  PageHeader,
   Stack
 } from '@polaris/ui';
 
@@ -20,6 +20,7 @@ export default async function SettingsPage() {
   return (
     <Stack asChild gap={5}>
       <section>
+        <PageHeader title="설정" description={user.email ?? '계정 설정'} />
         <Card>
           <CardHeader>
             <CardTitle>계정 정보</CardTitle>

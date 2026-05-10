@@ -6,6 +6,7 @@ import {
   CardTitle,
   EmptyState,
   HStack,
+  PageHeader,
   Stack,
   Stat,
   Table,
@@ -16,6 +17,7 @@ import {
   TableRow,
   VStack
 } from '@polaris/ui';
+import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -72,21 +74,19 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
   return (
     <Stack asChild gap={5}>
       <section>
-        <Card>
-          <CardBody>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={2}>
-                <h2>{link.label}</h2>
-                <p className="muted">
-                  대상: {collectionName ? `문서 묶음 - ${collectionName}` : fileName ?? 'Unknown'}
-                </p>
-              </VStack>
-              <Button asChild variant="secondary" size="sm">
-                <Link href={backPath}>링크 목록으로</Link>
-              </Button>
-            </HStack>
-          </CardBody>
-        </Card>
+        <PageHeader
+          eyebrow={
+            <span className="muted small">
+              공유 링크 · {collectionName ? `문서 묶음 — ${collectionName}` : fileName ?? 'Unknown'}
+            </span>
+          }
+          title={link.label}
+          actions={
+            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
+              <Link href={backPath}>링크 목록</Link>
+            </Button>
+          }
+        />
 
         <Card>
           <CardHeader>

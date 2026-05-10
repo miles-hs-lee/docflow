@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@polaris/ui';
+import { ExpandIcon, SettingsIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -60,14 +61,19 @@ export function UserMenu({ email }: { email: string }) {
           {email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild icon={<SettingsIcon size={16} />}>
           <Link href="/dashboard/settings">계정 설정</Link>
         </DropdownMenuItem>
         <DropdownMenuCheckboxItem checked={isDark} onCheckedChange={handleThemeChange}>
           다크 모드
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
-        <DropdownMenuFormItem action="/auth/signout" method="post" destructive>
+        <DropdownMenuFormItem
+          action="/auth/signout"
+          method="post"
+          destructive
+          icon={<ExpandIcon size={16} />}
+        >
           로그아웃
         </DropdownMenuFormItem>
       </DropdownMenuContent>

@@ -2,14 +2,14 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
-  CardTitle,
   EmptyState,
   HStack,
   Input,
+  PageHeader,
   Stack,
   VStack
 } from '@polaris/ui';
+import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 
 import { HiddenInput } from '@/components/hidden-input';
@@ -25,18 +25,16 @@ export default async function TrashPage() {
   return (
     <Stack asChild gap={5}>
       <section>
+        <PageHeader
+          title="휴지통"
+          description="소프트 삭제된 링크는 여기서 복구하거나 영구 삭제할 수 있습니다."
+          actions={
+            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
+              <Link href="/dashboard">파일 목록</Link>
+            </Button>
+          }
+        />
         <Card>
-          <CardHeader>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={2}>
-                <CardTitle>휴지통 링크</CardTitle>
-                <p className="muted">소프트 삭제된 링크는 여기서 복구하거나 영구 삭제할 수 있습니다.</p>
-              </VStack>
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/dashboard">파일 목록</Link>
-              </Button>
-            </HStack>
-          </CardHeader>
           <CardBody>
             {links.length === 0 ? (
               <EmptyState

@@ -7,7 +7,8 @@ export function PolarisProvider({ children }: { children: React.ReactNode }) {
     <TooltipProvider delayDuration={180}>
       <ToastProvider swipeDirection="right">
         {children}
-        <Toaster />
+        {/* defaultDuration (v0.7.6) — toast() callsites no longer need to pass `duration` for the standard 4s feedback. */}
+        <Toaster defaultDuration={4000} />
         <ToastViewport position="top-right" />
       </ToastProvider>
     </TooltipProvider>

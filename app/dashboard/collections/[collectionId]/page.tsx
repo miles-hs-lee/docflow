@@ -11,10 +11,12 @@ import {
   FileIcon,
   HStack,
   Input,
+  PageHeader,
   Stack,
   Stat,
   VStack
 } from '@polaris/ui';
+import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -76,24 +78,21 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   return (
     <Stack asChild gap={5}>
       <section>
-        <Card>
-          <CardBody>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={3}>
-                <HStack align="center" gap={2}>
-                  <FileIcon type="folder" size={34} />
-                  <h2>{collection.name}</h2>
-                </HStack>
-                <p className="muted">
-                  포함 문서 {files.length}개 {collection.description ? `| ${collection.description}` : ''}
-                </p>
-              </VStack>
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/dashboard">대시보드로</Link>
-              </Button>
+        <PageHeader
+          eyebrow={
+            <HStack align="center" gap={2}>
+              <FileIcon type="folder" size={20} />
+              <span className="muted small">문서 묶음 · {files.length}개 포함</span>
             </HStack>
-          </CardBody>
-        </Card>
+          }
+          title={collection.name}
+          description={collection.description ?? undefined}
+          actions={
+            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
+              <Link href="/dashboard">대시보드</Link>
+            </Button>
+          }
+        />
 
         <Card>
           <CardHeader>

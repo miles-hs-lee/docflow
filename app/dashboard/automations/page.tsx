@@ -9,14 +9,14 @@ import {
   EmptyState,
   HStack,
   Input,
+  PageHeader,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-  VStack
+  TableRow
 } from '@polaris/ui';
 import { NovaLogo } from '@polaris/ui/logos';
 import { cookies } from 'next/headers';
@@ -68,18 +68,12 @@ export default async function AutomationsPage() {
   return (
     <Stack asChild gap={5}>
       <section>
-        <Card className="automations-hero">
-          <CardBody>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={2}>
-                <Badge variant="secondary" tone="subtle">NOVA · AI Automation</Badge>
-                <h1>자동화 &amp; MCP</h1>
-                <p className="muted">DocFlow의 문서 이벤트와 운영 작업을 AI Agent와 MCP 클라이언트에 연결합니다.</p>
-              </VStack>
-              <NovaLogo size={56} aria-hidden />
-            </HStack>
-          </CardBody>
-        </Card>
+        <PageHeader
+          eyebrow={<Badge variant="secondary" tone="subtle">NOVA · AI Automation</Badge>}
+          title="자동화 & MCP"
+          description="DocFlow의 문서 이벤트와 운영 작업을 AI Agent와 MCP 클라이언트에 연결합니다."
+          actions={<NovaLogo size={48} aria-hidden />}
+        />
 
         {newKey ? (
           <Card>

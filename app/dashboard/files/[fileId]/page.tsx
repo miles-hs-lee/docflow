@@ -11,10 +11,12 @@ import {
   FileIcon,
   HStack,
   Input,
+  PageHeader,
   Stack,
   Stat,
   VStack
 } from '@polaris/ui';
+import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -76,22 +78,20 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
   return (
     <Stack asChild gap={5}>
       <section>
-        <Card>
-          <CardBody>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={3}>
-                <HStack align="center" gap={2}>
-                  <FileIcon type="pdf" size={34} />
-                  <h2>{file.original_name}</h2>
-                </HStack>
-                <p className="muted">업로드일: {formatDateTime(file.created_at)}</p>
-              </VStack>
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/dashboard">파일 목록으로</Link>
-              </Button>
+        <PageHeader
+          eyebrow={
+            <HStack align="center" gap={2}>
+              <FileIcon type="pdf" size={20} />
+              <span className="muted small">PDF · 업로드 {formatDateTime(file.created_at)}</span>
             </HStack>
-          </CardBody>
-        </Card>
+          }
+          title={file.original_name}
+          actions={
+            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
+              <Link href="/dashboard">파일 목록</Link>
+            </Button>
+          }
+        />
 
         <Card>
           <CardHeader>

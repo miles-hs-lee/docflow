@@ -317,23 +317,8 @@ svg {
   font-size: 0.82rem;
 }
 
-.nav-link {
-  border-radius: var(--polaris-radius-sm);
-  color: var(--polaris-label-neutral);
-  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.nav-link:hover {
-  background: var(--surface-soft);
-  color: var(--text);
-}
-
-.nav-link[aria-current='page'] {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary-strong);
-}
+/* .nav-link* removed — Polaris NavbarItem (v0.7.7) ships active styling
+   built in (brand tint + aria-current). DashboardNav passes boolean. */
 
 .dashboard-content {
   width: min(78rem, 100%);
