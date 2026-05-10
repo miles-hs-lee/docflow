@@ -6,19 +6,20 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  CopyButton,
+  DateTimeInput,
   EmptyState,
   FileIcon,
   HStack,
   Input,
   Stack,
+  Stat,
   VStack
 } from '@polaris/ui';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { CopyButton } from '@/components/copy-button';
-import { DateTimeInput } from '@/components/datetime-input';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import {
@@ -187,7 +188,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                           <Badge variant={statusVariant(status)} tone="subtle">
                             {status}
                           </Badge>
-                          <CopyButton value={url} />
+                          <CopyButton text={url} size="sm" variant="secondary" />
                           <Button asChild variant="ghost" size="sm">
                             <Link href={`/dashboard/links/${link.id}`}>통계</Link>
                           </Button>
@@ -201,24 +202,16 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                         </HStack>
                       </div>
 
-                      <div className="metric-grid compact">
-                        <div>
-                          <p className="metric-label">조회수</p>
-                          <p className="metric-value">{metrics?.views ?? link.view_count}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">유니크</p>
-                          <p className="metric-value">{metrics?.unique_viewers ?? 0}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">다운로드</p>
-                          <p className="metric-value">{metrics?.downloads ?? link.download_count}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">거부</p>
-                          <p className="metric-value">{metrics?.denied ?? link.denied_count}</p>
-                        </div>
-                      </div>
+                      <HStack gap={4} wrap>
+                        <Stat label="조회수" value={metrics?.views ?? link.view_count} />
+                        <Stat label="유니크" value={metrics?.unique_viewers ?? 0} />
+                        <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
+                        <Stat
+                          label="거부"
+                          value={metrics?.denied ?? link.denied_count}
+                          deltaTone={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
+                        />
+                      </HStack>
 
                       <LinkPolicySummary link={link} />
 

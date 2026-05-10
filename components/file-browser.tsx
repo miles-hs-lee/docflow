@@ -6,17 +6,7 @@ import {
   EmptyState,
   FileCard,
   HStack,
-  Input,
-  PAGE_ELLIPSIS,
-  Pagination,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrev,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  PaginationFooter,
   Stack,
   Table,
   TableBody,
@@ -24,12 +14,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  pageNumberItems
+  TableSearchInput,
+  type TableSortDirection
 } from '@polaris/ui';
-import { ArrowDownIcon, ArrowUpIcon, SearchIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useTransition } from 'react';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { formatBytes, formatDateTime } from '@/lib/format';
@@ -39,7 +29,6 @@ type SortKey = 'created_at' | 'original_name' | 'size_bytes';
 type SortDir = 'asc' | 'desc';
 type DeleteAction = (formData: FormData) => void | Promise<void>;
 
-const PAGE_SIZE_OPTIONS = ['10', '25', '50', '100'] as const;
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function FileBrowser({
@@ -65,16 +54,11 @@ export function FileBrowser({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
-  const [draftSearch, setDraftSearch] = useState(search);
-  const debounceRef = useRef<number | null>(null);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const safePage = Math.min(page, totalPages);
 
   const buildHref = useCallback(
-    (overrides: Partial<{ fp: number; fz: number; fq: string; fs: SortKey; fd: SortDir }>) => {
+    (overrides: Partial<{ fp: number; fz: number; fq: string; fs: SortKey | null; fd: SortDir | null }>) => {
       const next = new URLSearchParams(searchParams.toString());
-      const set = (key: string, value: string | number | undefined) => {
+      const set = (key: string, value: string | number | undefined | null) => {
         if (value === undefined || value === '' || value === null) next.delete(key);
         else next.set(key, String(value));
       };
@@ -97,39 +81,18 @@ export function FileBrowser({
     [buildHref, router]
   );
 
-  // Debounce free-text search → URL push. The server re-renders with the
-  // new query and Next streams the updated table back in via transition.
-  useEffect(() => {
-    setDraftSearch(search);
-  }, [search]);
+  // Polaris TableHead sortable: each column tracks its own direction
+  // (null when not the active sort). On change we push a new URL with
+  // (fs, fd) updated. The cycle null→asc→desc→null is built in.
+  const directionFor = (key: SortKey): TableSortDirection => (sortKey === key ? sortDir : null);
 
-  useEffect(() => {
-    if (draftSearch === search) return;
-    if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      navigate({ fq: draftSearch, fp: 1 });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current != null) window.clearTimeout(debounceRef.current);
-    };
-  }, [draftSearch, search, navigate]);
-
-  const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      navigate({ fd: sortDir === 'asc' ? 'desc' : 'asc', fp: 1 });
+  const handleSortChange = (key: SortKey) => (next: TableSortDirection) => {
+    if (next === null) {
+      // Reverting to default — sort by created_at desc.
+      navigate({ fs: 'created_at', fd: 'desc', fp: 1 });
     } else {
-      const nextDir: SortDir = key === 'original_name' ? 'asc' : 'desc';
-      navigate({ fs: key, fd: nextDir, fp: 1 });
+      navigate({ fs: key, fd: next, fp: 1 });
     }
-  };
-
-  const sortIndicator = (key: SortKey) => {
-    if (sortKey !== key) return null;
-    return sortDir === 'asc' ? (
-      <ArrowUpIcon size={12} aria-hidden />
-    ) : (
-      <ArrowDownIcon size={12} aria-hidden />
-    );
   };
 
   if (totalCount === 0 && search === '') {
@@ -149,37 +112,16 @@ export function FileBrowser({
   return (
     <Stack gap={4}>
       <HStack justify="between" align="center" gap={4} wrap>
-        <div className="file-browser-search">
-          <SearchIcon size={16} aria-hidden />
-          <Input
-            value={draftSearch}
-            onChange={(e) => setDraftSearch(e.target.value)}
-            placeholder="파일명 검색"
-            aria-label="파일명 검색"
-            className="file-browser-search-input"
-          />
-        </div>
-        <HStack align="center" gap={2}>
-          <Badge variant="neutral" tone="subtle">
-            {search ? `${totalCount}개 일치` : `전체 ${totalCount}개`}
-          </Badge>
-          <span className="muted small">페이지당</span>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(value) => navigate({ fz: Number(value), fp: 1 })}
-          >
-            <SelectTrigger className="file-browser-pagesize" aria-label="페이지당 행 수">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </HStack>
+        <TableSearchInput
+          value={search}
+          onValueChange={(next) => navigate({ fq: next, fp: 1 })}
+          debounceMs={SEARCH_DEBOUNCE_MS}
+          placeholder="파일명 검색"
+          aria-label="파일명 검색"
+        />
+        <Badge variant="neutral" tone="subtle">
+          {search ? `${totalCount}개 일치` : `전체 ${totalCount}개`}
+        </Badge>
       </HStack>
 
       {files.length === 0 ? (
@@ -196,20 +138,26 @@ export function FileBrowser({
         <Table density="compact">
           <TableHeader>
             <TableRow>
-              <TableHead>
-                <button type="button" className="sort-th" onClick={() => toggleSort('original_name')}>
-                  파일명 {sortIndicator('original_name')}
-                </button>
+              <TableHead
+                sortable
+                sortDirection={directionFor('original_name')}
+                onSortChange={handleSortChange('original_name')}
+              >
+                파일명
               </TableHead>
-              <TableHead>
-                <button type="button" className="sort-th" onClick={() => toggleSort('created_at')}>
-                  업로드일 {sortIndicator('created_at')}
-                </button>
+              <TableHead
+                sortable
+                sortDirection={directionFor('created_at')}
+                onSortChange={handleSortChange('created_at')}
+              >
+                업로드일
               </TableHead>
-              <TableHead>
-                <button type="button" className="sort-th" onClick={() => toggleSort('size_bytes')}>
-                  크기 {sortIndicator('size_bytes')}
-                </button>
+              <TableHead
+                sortable
+                sortDirection={directionFor('size_bytes')}
+                onSortChange={handleSortChange('size_bytes')}
+              >
+                크기
               </TableHead>
               <TableHead>작업</TableHead>
             </TableRow>
@@ -245,32 +193,14 @@ export function FileBrowser({
         </Table>
       )}
 
-      {totalPages > 1 ? (
-        <Pagination className="file-browser-pagination">
-          <PaginationPrev disabled={safePage <= 1} onClick={() => navigate({ fp: safePage - 1 })}>
-            이전
-          </PaginationPrev>
-          {pageNumberItems(safePage, totalPages).map((item, idx) =>
-            item === PAGE_ELLIPSIS ? (
-              <span key={`e-${idx}`} className="muted small">…</span>
-            ) : (
-              <PaginationItem
-                key={item}
-                active={item === safePage}
-                aria-current={item === safePage ? 'page' : undefined}
-                onClick={() => navigate({ fp: item })}
-              >
-                {item}
-              </PaginationItem>
-            )
-          )}
-          <PaginationNext
-            disabled={safePage >= totalPages}
-            onClick={() => navigate({ fp: safePage + 1 })}
-          >
-            다음
-          </PaginationNext>
-        </Pagination>
+      {totalCount > pageSize ? (
+        <PaginationFooter
+          page={page}
+          total={totalCount}
+          pageSize={pageSize}
+          onPageChange={(next) => navigate({ fp: next })}
+          onPageSizeChange={(size) => navigate({ fz: size, fp: 1 })}
+        />
       ) : null}
     </Stack>
   );

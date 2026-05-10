@@ -1,6 +1,6 @@
 'use client';
 
-import { VStack } from '@polaris/ui';
+import { Disclosure } from '@polaris/ui';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
@@ -22,22 +22,17 @@ export function CollectionBuilderLazy({
   const [open, setOpen] = useState(false);
 
   return (
-    <details
-      className="collapsible-details"
-      onToggle={(event) => {
-        setOpen((event.currentTarget as HTMLDetailsElement).open);
-      }}
+    <Disclosure
+      title={
+        <span className="disclosure-title">
+          <span className="disclosure-title-main">문서 묶음 생성</span>
+          <span className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</span>
+        </span>
+      }
+      open={open}
+      onOpenChange={setOpen}
     >
-      <summary className="collapsible-summary">
-        <VStack gap={2}>
-          <h2>문서 묶음 생성</h2>
-          <p className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</p>
-        </VStack>
-        <span className="collapsible-chevron" aria-hidden>▾</span>
-      </summary>
-      <div className="collapsible-body">
-        {open ? <CollectionBuilder createCollectionAction={createCollectionAction} /> : null}
-      </div>
-    </details>
+      {open ? <CollectionBuilder createCollectionAction={createCollectionAction} /> : null}
+    </Disclosure>
   );
 }

@@ -6,19 +6,20 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  CopyButton,
+  DateTimeInput,
   EmptyState,
   FileIcon,
   HStack,
   Input,
   Stack,
+  Stat,
   VStack
 } from '@polaris/ui';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
-import { CopyButton } from '@/components/copy-button';
-import { DateTimeInput } from '@/components/datetime-input';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import {
@@ -175,7 +176,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                           <Badge variant={statusVariant(status)} tone="subtle">
                             {status}
                           </Badge>
-                          <CopyButton value={url} />
+                          <CopyButton text={url} size="sm" variant="secondary" />
                           <Button asChild variant="ghost" size="sm">
                             <Link href={`/dashboard/links/${link.id}`}>통계</Link>
                           </Button>
@@ -189,24 +190,16 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                         </HStack>
                       </div>
 
-                      <div className="metric-grid compact">
-                        <div>
-                          <p className="metric-label">조회수</p>
-                          <p className="metric-value">{link.view_count}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">다운로드</p>
-                          <p className="metric-value">{link.download_count}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">거부</p>
-                          <p className="metric-value">{link.denied_count}</p>
-                        </div>
-                        <div>
-                          <p className="metric-label">생성일</p>
-                          <p className="metric-value">{formatDateOnly(link.created_at)}</p>
-                        </div>
-                      </div>
+                      <HStack gap={4} wrap>
+                        <Stat label="조회수" value={link.view_count} />
+                        <Stat label="다운로드" value={link.download_count} />
+                        <Stat
+                          label="거부"
+                          value={link.denied_count}
+                          deltaTone={link.denied_count > 0 ? 'negative' : 'neutral'}
+                        />
+                        <Stat label="생성일" value={formatDateOnly(link.created_at)} />
+                      </HStack>
 
                       <details className="link-edit-toggle">
                         <summary>정책 수정</summary>

@@ -100,7 +100,6 @@ svg {
 .eyebrow,
 .landing-panel-kicker,
 .kpi-label,
-.metric-label,
 .process-step {
   color: var(--primary-strong);
   font-size: 0.75rem;
@@ -249,34 +248,8 @@ svg {
   accent-color: var(--primary);
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--polaris-spacing-xs);
-}
-
-.metric-grid > div {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  padding: var(--polaris-spacing-sm);
-}
-
-.metric-grid.compact > div {
-  padding: var(--polaris-spacing-xs);
-}
-
-.metric-value {
-  margin-top: var(--polaris-spacing-3xs);
-  color: var(--text);
-  font-size: 1.45rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.metric-grid.compact .metric-value {
-  font-size: 1rem;
-}
+/* .metric-grid / .metric-label / .metric-value removed
+   — replaced by Polaris <Stat /> in v0.7.4. */
 
 .dashboard-shell {
   min-height: 100vh;
@@ -363,157 +336,10 @@ svg {
   padding: var(--polaris-spacing-lg);
 }
 
-/* DateTimeInput uses an external label (above the input) instead of
-   Polaris Input's floating-label-inside-the-box pattern.
-   Reason: <input type="datetime-local"> renders a native widget
-   ("연도. 월. 일. -- --:--") that we cannot push down or hide; any label
-   absolutely positioned inside the input box overlaps it on every browser.
-   The two-row layout below — small caption-tone label, then box —
-   guarantees no overlap and reads cleanly even when the native widget
-   typography differs across Chrome / Safari / Firefox. */
-.datetime-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.datetime-field-label {
-  padding-left: var(--polaris-spacing-2xs);
-  color: var(--polaris-label-neutral);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.datetime-field input {
-  width: 100%;
-  height: 3rem;
-  padding: 0 var(--polaris-spacing-md);
-  border: 1px solid var(--border);
-  border-radius: var(--polaris-radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.9rem;
-}
-
-.datetime-field input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.file-browser {
-  display: grid;
-  gap: var(--polaris-spacing-sm);
-}
-
-.file-browser-toolbar,
-.collection-builder-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--polaris-spacing-sm);
-  flex-wrap: wrap;
-}
-
-.file-browser-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 16rem;
-  max-width: 28rem;
-}
-
-.file-browser-search > svg {
-  position: absolute;
-  left: calc(var(--polaris-spacing-md) - 2px);
-  color: var(--polaris-label-assistive);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.file-browser-search-input {
-  padding-left: calc(var(--polaris-spacing-md) + 1.5rem) !important;
-}
-
-.file-browser-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--polaris-spacing-2xs);
-  flex-wrap: wrap;
-}
-
-.file-browser-pagesize {
-  min-width: 4.5rem;
-}
-
-.sort-th {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--polaris-spacing-3xs);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
-.sort-th:hover {
-  color: var(--text);
-}
-
-.file-browser-pagination {
-  margin-top: var(--polaris-spacing-xs);
-}
-
-.collapsible-details {
-  display: grid;
-  gap: var(--polaris-spacing-sm);
-}
-
-.collapsible-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--polaris-spacing-sm);
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-}
-
-.collapsible-summary::-webkit-details-marker {
-  display: none;
-}
-
-.collapsible-chevron {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
-  background: var(--surface-soft);
-  color: var(--polaris-label-neutral);
-  font-size: 0.85rem;
-  transition: transform 160ms ease;
-}
-
-.collapsible-details[open] > .collapsible-summary > .collapsible-chevron {
-  transform: rotate(180deg);
-}
-
-.collapsible-body {
-  padding-top: var(--polaris-spacing-sm);
-  border-top: 1px solid var(--border);
-}
+/* .datetime-field, .file-browser, .file-browser-search, .sort-th,
+   .file-browser-pagination, .collapsible-* removed — replaced by
+   Polaris DateTimeInput / TableSearchInput / sortable TableHead /
+   PaginationFooter / Disclosure in v0.7.5. */
 
 .collection-builder {
   display: grid;
@@ -589,76 +415,9 @@ svg {
   gap: var(--polaris-spacing-2xs);
 }
 
-.upload-form {
-  display: flex;
-  align-items: stretch;
-  gap: var(--polaris-spacing-xs);
-  flex-wrap: wrap;
-}
-
-.upload-file {
-  flex: 1;
-  min-width: 18rem;
-  font: inherit;
-  border: 1px dashed color-mix(in srgb, var(--border-strong) 80%, var(--primary));
-  border-radius: var(--polaris-radius-sm);
-  background: var(--surface-soft);
-  color: var(--polaris-label-neutral);
-  padding: var(--polaris-spacing-2xs);
-  cursor: pointer;
-}
-
-.upload-file::file-selector-button {
-  margin-right: var(--polaris-spacing-xs);
-  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-sm);
-  border: 0;
-  border-radius: var(--polaris-radius-sm);
-  background: var(--primary);
-  color: var(--polaris-label-inverse);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-.upload-file::file-selector-button:hover {
-  background: var(--primary-strong);
-}
-
-.upload-file:focus-visible {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.upload-form-hint {
-  flex-basis: 100%;
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--polaris-spacing-2xs);
-}
-
-.upload-form-error {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--polaris-label-danger, #b3261e);
-  font-size: 0.875rem;
-}
-
-.upload-progress {
-  flex-basis: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--border-strong) 30%, transparent);
-  overflow: hidden;
-}
-
-.upload-progress-bar {
-  height: 100%;
-  background: var(--primary);
-  transition: width 120ms ease;
-}
+/* .upload-form, .upload-file*, .upload-form-hint/error,
+   .upload-progress* removed — replaced by Polaris FileInput + Progress
+   in v0.7.5 (UploadForm now renders entirely with primitives). */
 
 .landing-home-layout {
   min-height: 100vh;

@@ -8,15 +8,9 @@ import {
   FileIcon,
   HStack,
   Input,
-  PAGE_ELLIPSIS,
-  Pagination,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrev,
-  Skeleton,
-  Stack,
-  VStack,
-  pageNumberItems
+  PaginationFooter,
+  TableSkeleton,
+  VStack
 } from '@polaris/ui';
 import { SearchIcon } from '@polaris/ui/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -108,8 +102,6 @@ export function CollectionBuilder({
 
   const clearSelection = useCallback(() => setSelectedMap(new Map()), []);
 
-  const totalPages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
   const selectedList = Array.from(selectedMap.values());
 
   return (
@@ -158,11 +150,7 @@ export function CollectionBuilder({
       {state.error ? (
         <EmptyState title="불러오기 실패" description={state.error} />
       ) : state.loading && state.rows.length === 0 ? (
-        <VStack gap={2}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full rounded-polaris-sm" />
-          ))}
-        </VStack>
+        <TableSkeleton rows={5} columns={2} showHeader={false} />
       ) : state.rows.length === 0 ? (
         <EmptyState
           title={appliedQuery ? '검색 결과가 없습니다' : '업로드된 파일이 없습니다'}
@@ -192,32 +180,14 @@ export function CollectionBuilder({
         </ul>
       )}
 
-      {totalPages > 1 ? (
-        <Pagination className="file-browser-pagination">
-          <PaginationPrev disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            이전
-          </PaginationPrev>
-          {pageNumberItems(safePage, totalPages).map((item, idx) =>
-            item === PAGE_ELLIPSIS ? (
-              <span key={`e-${idx}`} className="muted small">…</span>
-            ) : (
-              <PaginationItem
-                key={item}
-                active={item === safePage}
-                aria-current={item === safePage ? 'page' : undefined}
-                onClick={() => setPage(item)}
-              >
-                {item}
-              </PaginationItem>
-            )
-          )}
-          <PaginationNext
-            disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            다음
-          </PaginationNext>
-        </Pagination>
+      {state.total > PAGE_SIZE ? (
+        <PaginationFooter
+          page={page}
+          total={state.total}
+          pageSize={PAGE_SIZE}
+          pageSizeOptions={undefined}
+          onPageChange={setPage}
+        />
       ) : null}
 
       {selectedList.length > 0 ? (

@@ -1,11 +1,8 @@
 'use client';
 
-import { Button, FileIcon } from '@polaris/ui';
+import { Button, FileInput, HStack, Progress, Stack } from '@polaris/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
-
-import { FileInput } from '@/components/file-input';
-import { formatBytes } from '@/lib/format';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -15,8 +12,7 @@ export function UploadForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [fileSize, setFileSize] = useState(0);
+  const [files, setFiles] = useState<File[]>([]);
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -26,8 +22,7 @@ export function UploadForm() {
       xhrRef.current.abort();
       xhrRef.current = null;
     }
-    setFileName(null);
-    setFileSize(0);
+    setFiles([]);
     setPhase('idle');
     setProgress(0);
     setErrorMessage(null);
@@ -37,7 +32,7 @@ export function UploadForm() {
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const file = fileInputRef.current?.files?.[0];
+      const file = files[0];
       if (!file) {
         setErrorMessage('PDF 파일을 선택해주세요.');
         setPhase('error');
@@ -95,60 +90,48 @@ export function UploadForm() {
       setErrorMessage(null);
       xhr.send(data);
     },
-    [reset, router]
+    [files, reset, router]
   );
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setFileName(file?.name ?? null);
-    setFileSize(file?.size ?? 0);
-    setPhase('idle');
-    setErrorMessage(null);
-  }, []);
-
   const isBusy = phase === 'uploading' || phase === 'processing';
+  // Pass null to Progress for indeterminate during the server-side
+  // processing phase (we no longer know % once bytes are uploaded).
+  const progressValue = phase === 'processing' ? null : progress;
 
   return (
-    <form onSubmit={handleSubmit} className="upload-form" encType="multipart/form-data">
-      <FileInput
-        ref={fileInputRef}
-        name="pdf"
-        accept="application/pdf,.pdf"
-        required
-        disabled={isBusy}
-        onChange={handleFileChange}
-        className="upload-file"
-        aria-label="업로드할 PDF 파일"
-      />
-      <Button type="submit" disabled={isBusy || !fileName}>
-        {phase === 'uploading'
-          ? `업로드 중 ${progress}%`
-          : phase === 'processing'
-            ? '처리 중...'
-            : phase === 'done'
-              ? '완료'
-              : '업로드'}
-      </Button>
-      {fileName && phase === 'idle' ? (
-        <p className="upload-form-hint muted small">
-          <FileIcon type="pdf" size={16} /> {fileName} · {formatBytes(fileSize)}
-        </p>
-      ) : null}
-      {isBusy ? (
-        <div
-          className="upload-progress"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={phase === 'processing' ? 100 : progress}
-        >
-          <div
-            className="upload-progress-bar"
-            style={{ width: `${phase === 'processing' ? 100 : progress}%` }}
+    <form onSubmit={handleSubmit} encType="multipart/form-data">
+      <Stack gap={3}>
+        <FileInput
+          ref={fileInputRef}
+          name="pdf"
+          accept="application/pdf,.pdf"
+          required
+          disabled={isBusy}
+          onFilesChange={setFiles}
+          aria-label="업로드할 PDF 파일"
+          buttonLabel="PDF 선택"
+          hint="최대 50MB · application/pdf"
+          error={errorMessage ?? undefined}
+        />
+        <HStack gap={2} align="center">
+          <Button type="submit" disabled={isBusy || files.length === 0}>
+            {phase === 'uploading'
+              ? `업로드 중 ${progress}%`
+              : phase === 'processing'
+                ? '처리 중...'
+                : phase === 'done'
+                  ? '완료'
+                  : '업로드'}
+          </Button>
+        </HStack>
+        {isBusy ? (
+          <Progress
+            value={progressValue}
+            tone={phase === 'processing' ? 'accent' : 'success'}
+            aria-label="업로드 진행률"
           />
-        </div>
-      ) : null}
-      {errorMessage ? <p className="upload-form-error">{errorMessage}</p> : null}
+        ) : null}
+      </Stack>
     </form>
   );
 }

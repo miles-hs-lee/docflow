@@ -7,6 +7,7 @@ import {
   EmptyState,
   HStack,
   Stack,
+  Stat,
   Table,
   TableBody,
   TableCell,
@@ -92,24 +93,16 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
             <CardTitle>요약 지표</CardTitle>
           </CardHeader>
           <CardBody>
-            <div className="metric-grid">
-              <div>
-                <p className="metric-label">조회수</p>
-                <p className="metric-value">{metrics?.views ?? link.view_count}</p>
-              </div>
-              <div>
-                <p className="metric-label">유니크</p>
-                <p className="metric-value">{metrics?.unique_viewers ?? 0}</p>
-              </div>
-              <div>
-                <p className="metric-label">다운로드</p>
-                <p className="metric-value">{metrics?.downloads ?? link.download_count}</p>
-              </div>
-              <div>
-                <p className="metric-label">거부</p>
-                <p className="metric-value">{metrics?.denied ?? link.denied_count}</p>
-              </div>
-            </div>
+            <HStack gap={5} wrap>
+              <Stat label="조회수" value={metrics?.views ?? link.view_count} />
+              <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
+              <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
+              <Stat
+                label="거부"
+                value={metrics?.denied ?? link.denied_count}
+                deltaTone={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
+              />
+            </HStack>
           </CardBody>
         </Card>
 
