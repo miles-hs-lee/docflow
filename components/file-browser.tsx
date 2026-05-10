@@ -4,7 +4,8 @@ import {
   Badge,
   Button,
   EmptyState,
-  FileIcon,
+  FileCard,
+  HStack,
   Input,
   PAGE_ELLIPSIS,
   Pagination,
@@ -16,6 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -135,13 +137,18 @@ export function FileBrowser({
       <EmptyState
         title="업로드된 파일이 없습니다"
         description="첫 PDF를 업로드하면 링크 정책과 통계를 관리할 수 있습니다."
+        action={
+          <Button asChild>
+            <Link href="#upload">PDF 업로드</Link>
+          </Button>
+        }
       />
     );
   }
 
   return (
-    <div className="file-browser">
-      <div className="file-browser-toolbar">
+    <Stack gap={4}>
+      <HStack justify="between" align="center" gap={4} wrap>
         <div className="file-browser-search">
           <SearchIcon size={16} aria-hidden />
           <Input
@@ -152,7 +159,7 @@ export function FileBrowser({
             className="file-browser-search-input"
           />
         </div>
-        <div className="file-browser-meta">
+        <HStack align="center" gap={2}>
           <Badge variant="neutral" tone="subtle">
             {search ? `${totalCount}개 일치` : `전체 ${totalCount}개`}
           </Badge>
@@ -172,13 +179,18 @@ export function FileBrowser({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </HStack>
+      </HStack>
 
       {files.length === 0 ? (
         <EmptyState
           title="검색 결과가 없습니다"
           description={`"${search}"와 일치하는 파일이 없습니다. 다른 키워드로 시도해보세요.`}
+          action={
+            <Button variant="ghost" onClick={() => navigate({ fq: '', fp: 1 })}>
+              검색 초기화
+            </Button>
+          }
         />
       ) : (
         <Table density="compact">
@@ -206,15 +218,16 @@ export function FileBrowser({
             {files.map((file) => (
               <TableRow key={file.id}>
                 <TableCell>
-                  <span className="row-actions">
-                    <FileIcon type="pdf" size={24} />
-                    <strong>{file.original_name}</strong>
-                  </span>
+                  <FileCard
+                    type="pdf"
+                    name={file.original_name}
+                    meta={`${formatBytes(file.size_bytes)} · ${formatDateTime(file.created_at)}`}
+                  />
                 </TableCell>
                 <TableCell>{formatDateTime(file.created_at)}</TableCell>
                 <TableCell>{formatBytes(file.size_bytes)}</TableCell>
                 <TableCell>
-                  <div className="row-actions">
+                  <HStack align="center" gap={2} wrap>
                     <Button asChild variant="secondary" size="sm">
                       <Link href={`/dashboard/files/${file.id}`}>링크 관리</Link>
                     </Button>
@@ -224,7 +237,7 @@ export function FileBrowser({
                         파일 삭제
                       </Button>
                     </form>
-                  </div>
+                  </HStack>
                 </TableCell>
               </TableRow>
             ))}
@@ -259,6 +272,6 @@ export function FileBrowser({
           </PaginationNext>
         </Pagination>
       ) : null}
-    </div>
+    </Stack>
   );
 }

@@ -1,9 +1,25 @@
-import { Button, Card, EmptyState, FileIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@polaris/ui';
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  FileIcon,
+  HStack,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  VStack
+} from '@polaris/ui';
 import Link from 'next/link';
 
 import { CollectionBuilderLazy } from '@/components/collection-builder-lazy';
 import { FileBrowser } from '@/components/file-browser';
-import { Flash } from '@/components/flash';
 import { HiddenInput } from '@/components/hidden-input';
 import { UploadForm } from '@/components/upload-form';
 import { createCollectionAction, deleteCollectionAction, deleteFileAction } from '@/lib/actions/owner';
@@ -65,86 +81,100 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ]);
   const { rows: files, total: filesTotal } = filesResult;
 
-  const success = typeof params.success === 'string' ? decodeURIComponent(params.success) : undefined;
-  const error = typeof params.error === 'string' ? decodeURIComponent(params.error) : undefined;
-
   return (
-    <section className="stack-lg">
-      <Flash success={success} error={error} />
+    <Stack asChild gap={5}>
+      <section>
+        <Card>
+          <CardHeader>
+            <HStack justify="between" align="start" gap={4}>
+              <VStack gap={2}>
+                <CardTitle>PDF 업로드</CardTitle>
+                <p className="muted">PDF 파일만 허용됩니다 (최대 50MB). 업로드 후 파일별로 여러 공유 링크를 만들 수 있습니다.</p>
+              </VStack>
+              <FileIcon type="pdf" size={42} />
+            </HStack>
+          </CardHeader>
+          <CardBody>
+            <UploadForm />
+          </CardBody>
+        </Card>
 
-      <Card className="panel" variant="padded">
-        <div className="between">
-          <div className="stack-sm">
-            <h2>PDF 업로드</h2>
-            <p className="muted">PDF 파일만 허용됩니다 (최대 50MB). 업로드 후 파일별로 여러 공유 링크를 만들 수 있습니다.</p>
-          </div>
-          <FileIcon type="pdf" size={42} />
-        </div>
-        <UploadForm />
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>내 파일</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <FileBrowser
+              files={files}
+              totalCount={filesTotal}
+              page={page}
+              pageSize={pageSize}
+              search={search}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              deleteFileAction={deleteFileAction}
+            />
+          </CardBody>
+        </Card>
 
-      <Card className="panel" variant="padded">
-        <h2>내 파일</h2>
-        <FileBrowser
-          files={files}
-          totalCount={filesTotal}
-          page={page}
-          pageSize={pageSize}
-          search={search}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          deleteFileAction={deleteFileAction}
-        />
-      </Card>
+        <Card className="collapsible">
+          <CollectionBuilderLazy createCollectionAction={createCollectionAction} />
+        </Card>
 
-      <Card className="panel collapsible" variant="padded">
-        <CollectionBuilderLazy createCollectionAction={createCollectionAction} />
-      </Card>
-
-      <Card className="panel" variant="padded">
-        <h2>문서 묶음 목록</h2>
-        {collections.length === 0 ? (
-          <EmptyState title="생성된 문서 묶음이 없습니다" description="여러 PDF를 하나의 공유 경험으로 묶을 수 있습니다." />
-        ) : (
-          <Table density="compact">
-            <TableHeader>
-              <TableRow>
-                <TableHead>묶음명</TableHead>
-                <TableHead>포함 문서 수</TableHead>
-                <TableHead>생성일</TableHead>
-                <TableHead>작업</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {collections.map((collection) => (
-                <TableRow key={collection.id}>
-                  <TableCell>
-                    <span className="row-actions">
-                      <FileIcon type="folder" size={24} />
-                      <strong>{collection.name}</strong>
-                    </span>
-                  </TableCell>
-                  <TableCell>{collection.file_count}</TableCell>
-                  <TableCell>{formatDateTime(collection.created_at)}</TableCell>
-                  <TableCell>
-                    <div className="row-actions">
-                      <Button asChild variant="secondary" size="sm">
-                        <Link href={`/dashboard/collections/${collection.id}`}>링크 관리</Link>
-                      </Button>
-                      <form action={deleteCollectionAction}>
-                        <HiddenInput name="collectionId" value={collection.id} />
-                        <Button type="submit" variant="danger" size="sm">
-                          묶음 삭제
-                        </Button>
-                      </form>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
-    </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>문서 묶음 목록</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {collections.length === 0 ? (
+              <EmptyState
+                title="생성된 문서 묶음이 없습니다"
+                description="여러 PDF를 하나의 공유 경험으로 묶을 수 있습니다."
+              />
+            ) : (
+              <Table density="compact">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>묶음명</TableHead>
+                    <TableHead>포함 문서 수</TableHead>
+                    <TableHead>생성일</TableHead>
+                    <TableHead>작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {collections.map((collection) => (
+                    <TableRow key={collection.id}>
+                      <TableCell>
+                        <HStack asChild align="center" gap={2}>
+                          <span>
+                            <FileIcon type="folder" size={24} />
+                            <strong>{collection.name}</strong>
+                          </span>
+                        </HStack>
+                      </TableCell>
+                      <TableCell>{collection.file_count}</TableCell>
+                      <TableCell>{formatDateTime(collection.created_at)}</TableCell>
+                      <TableCell>
+                        <HStack align="center" gap={2} wrap>
+                          <Button asChild variant="secondary" size="sm">
+                            <Link href={`/dashboard/collections/${collection.id}`}>링크 관리</Link>
+                          </Button>
+                          <form action={deleteCollectionAction}>
+                            <HiddenInput name="collectionId" value={collection.id} />
+                            <Button type="submit" variant="danger" size="sm">
+                              묶음 삭제
+                            </Button>
+                          </form>
+                        </HStack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+      </section>
+    </Stack>
   );
 }

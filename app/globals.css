@@ -138,43 +138,13 @@ svg {
   gap: var(--polaris-spacing-xs);
 }
 
-.stack-lg,
-.stack-md,
-.stack-sm {
-  display: grid;
-}
-
-.stack-lg {
-  gap: var(--polaris-spacing-md);
-}
-
-.stack-md {
-  gap: var(--polaris-spacing-sm);
-}
-
-.stack-sm {
-  gap: var(--polaris-spacing-xs);
-}
-
-.panel {
-  display: grid;
-  gap: var(--polaris-spacing-sm);
-}
-
-.panel h2,
-.panel h3,
+/* .stack-*, .panel, .between removed — replaced by Polaris Stack /
+   HStack / VStack and Card slot pattern (CardHeader/CardTitle/CardBody).
+   .hero-card kept since it's landing-only. */
 .hero-card h1 {
   letter-spacing: -0.025em;
 }
 
-.between {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--polaris-spacing-sm);
-}
-
-.row-actions,
 .inline-form,
 .landing-cta-row,
 .link-inline-actions,

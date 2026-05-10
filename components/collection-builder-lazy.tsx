@@ -1,5 +1,6 @@
 'use client';
 
+import { VStack } from '@polaris/ui';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
@@ -28,10 +29,10 @@ export function CollectionBuilderLazy({
       }}
     >
       <summary className="collapsible-summary">
-        <div className="stack-sm">
+        <VStack gap={2}>
           <h2>문서 묶음 생성</h2>
           <p className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</p>
-        </div>
+        </VStack>
         <span className="collapsible-chevron" aria-hidden>▾</span>
       </summary>
       <div className="collapsible-body">

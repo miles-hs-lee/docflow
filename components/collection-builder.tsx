@@ -6,12 +6,16 @@ import {
   Checkbox,
   EmptyState,
   FileIcon,
+  HStack,
   Input,
   PAGE_ELLIPSIS,
   Pagination,
   PaginationItem,
   PaginationNext,
   PaginationPrev,
+  Skeleton,
+  Stack,
+  VStack,
   pageNumberItems
 } from '@polaris/ui';
 import { SearchIcon } from '@polaris/ui/icons';
@@ -154,7 +158,11 @@ export function CollectionBuilder({
       {state.error ? (
         <EmptyState title="불러오기 실패" description={state.error} />
       ) : state.loading && state.rows.length === 0 ? (
-        <p className="muted small">파일 목록을 불러오는 중...</p>
+        <VStack gap={2}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-polaris-sm" />
+          ))}
+        </VStack>
       ) : state.rows.length === 0 ? (
         <EmptyState
           title={appliedQuery ? '검색 결과가 없습니다' : '업로드된 파일이 없습니다'}

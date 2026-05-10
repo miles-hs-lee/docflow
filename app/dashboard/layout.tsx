@@ -2,6 +2,7 @@ import { Navbar, NavbarActions, NavbarBrand, NavbarNav } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
+import { FlashToast } from '@/components/flash-toast';
 import { PolarisProvider } from '@/components/polaris-provider';
 import { UserMenu } from '@/components/user-menu';
 import { requireOwner } from '@/lib/auth';
@@ -36,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </NavbarActions>
       </Navbar>
       <main className="dashboard-content">{children}</main>
+      <FlashToast />
     </div>
     </PolarisProvider>
   );
