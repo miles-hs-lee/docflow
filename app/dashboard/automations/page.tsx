@@ -126,9 +126,9 @@ export default async function AutomationsPage() {
                     <TableHead>이름</TableHead>
                     <TableHead>Prefix</TableHead>
                     <TableHead>스코프</TableHead>
-                    <TableHead>최근 사용</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>작업</TableHead>
+                    <TableHead className="whitespace-nowrap">최근 사용</TableHead>
+                    <TableHead className="whitespace-nowrap">상태</TableHead>
+                    <TableHead className="whitespace-nowrap">작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,13 +137,13 @@ export default async function AutomationsPage() {
                       <TableCell>{key.label}</TableCell>
                       <TableCell className="mono">{key.key_prefix}</TableCell>
                       <TableCell className="mono">{key.scopes.join(', ')}</TableCell>
-                      <TableCell>{formatDateTime(key.last_used_at)}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateTime(key.last_used_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant={key.revoked_at ? 'neutral' : 'success'} tone="subtle">
                           {key.revoked_at ? '비활성' : '활성'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {key.revoked_at ? (
                           <span className="muted small">-</span>
                         ) : (
@@ -204,10 +204,10 @@ export default async function AutomationsPage() {
                     <TableHead>이름</TableHead>
                     <TableHead>Webhook</TableHead>
                     <TableHead>이벤트</TableHead>
-                    <TableHead>최근 전달</TableHead>
-                    <TableHead>최근 오류</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>작업</TableHead>
+                    <TableHead className="whitespace-nowrap">최근 전달</TableHead>
+                    <TableHead className="whitespace-nowrap">최근 오류</TableHead>
+                    <TableHead className="whitespace-nowrap">상태</TableHead>
+                    <TableHead className="whitespace-nowrap">작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -216,14 +216,14 @@ export default async function AutomationsPage() {
                       <TableCell>{subscription.name}</TableCell>
                       <TableCell className="mono">{subscription.webhook_url}</TableCell>
                       <TableCell className="mono">{subscription.event_types.join(', ')}</TableCell>
-                      <TableCell>{formatDateTime(subscription.last_delivery_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateTime(subscription.last_delivery_at)}</TableCell>
                       <TableCell>{subscription.last_error ?? '-'}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant={subscription.is_active ? 'success' : 'warning'} tone="subtle">
                           {subscription.is_active ? '활성' : '비활성'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <HStack align="center" gap={2} wrap>
                           <form action={toggleAutomationSubscriptionAction}>
                             <HiddenInput name="subscriptionId" value={subscription.id} />
