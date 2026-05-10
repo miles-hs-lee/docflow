@@ -9,12 +9,11 @@ import {
   CopyButton,
   EmptyState,
   FileIcon,
-  HStack,
   Input,
   PageHeader,
   Stack,
   Stat,
-  VStack
+  StatGroup
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
@@ -80,10 +79,10 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
       <section>
         <PageHeader
           eyebrow={
-            <HStack align="center" gap={2}>
+            <Stack direction="row" align="center" gap={2}>
               <FileIcon type="pdf" size={20} />
               <span className="muted small">PDF · 업로드 {formatDateTime(file.created_at)}</span>
-            </HStack>
+            </Stack>
           }
           title={file.original_name}
           actions={
@@ -164,7 +163,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                 description="첫 공유 링크를 만들면 URL과 정책, 통계가 이곳에 표시됩니다."
               />
             ) : (
-              <VStack gap={3}>
+              <Stack gap={3}>
                 {links.map((link) => {
                   const metrics = metricsMap.get(link.id);
                   const status = linkStatus(link);
@@ -177,7 +176,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                           <strong>{link.label}</strong>
                           <p className="mono">{url}</p>
                         </div>
-                        <HStack align="center" gap={2} wrap>
+                        <Stack direction="row" align="center" gap={2} wrap>
                           <Badge variant={statusVariant(status)} tone="subtle">
                             {status}
                           </Badge>
@@ -192,19 +191,19 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                               삭제
                             </Button>
                           </form>
-                        </HStack>
+                        </Stack>
                       </div>
 
-                      <HStack gap={4} wrap>
+                      <StatGroup cols={4} unwrapped>
                         <Stat label="조회수" value={metrics?.views ?? link.view_count} />
                         <Stat label="유니크" value={metrics?.unique_viewers ?? 0} />
                         <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
                         <Stat
                           label="거부"
                           value={metrics?.denied ?? link.denied_count}
-                          deltaTone={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
+                          deltaVariant={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
                         />
-                      </HStack>
+                      </StatGroup>
 
                       <LinkPolicySummary link={link} />
 
@@ -231,7 +230,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                     </Card>
                   );
                 })}
-              </VStack>
+              </Stack>
             )}
           </CardBody>
         </Card>

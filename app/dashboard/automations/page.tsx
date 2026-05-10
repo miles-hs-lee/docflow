@@ -7,7 +7,6 @@ import {
   CardTitle,
   Checkbox,
   EmptyState,
-  HStack,
   Input,
   PageHeader,
   Stack,
@@ -137,13 +136,13 @@ export default async function AutomationsPage() {
                       <TableCell>{key.label}</TableCell>
                       <TableCell className="mono">{key.key_prefix}</TableCell>
                       <TableCell className="mono">{key.scopes.join(', ')}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDateTime(key.last_used_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell nowrap>{formatDateTime(key.last_used_at)}</TableCell>
+                      <TableCell nowrap>
                         <Badge variant={key.revoked_at ? 'neutral' : 'success'} tone="subtle">
                           {key.revoked_at ? '비활성' : '활성'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell nowrap>
                         {key.revoked_at ? (
                           <span className="muted small">-</span>
                         ) : (
@@ -216,15 +215,15 @@ export default async function AutomationsPage() {
                       <TableCell>{subscription.name}</TableCell>
                       <TableCell className="mono">{subscription.webhook_url}</TableCell>
                       <TableCell className="mono">{subscription.event_types.join(', ')}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDateTime(subscription.last_delivery_at)}</TableCell>
+                      <TableCell nowrap>{formatDateTime(subscription.last_delivery_at)}</TableCell>
                       <TableCell>{subscription.last_error ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell nowrap>
                         <Badge variant={subscription.is_active ? 'success' : 'warning'} tone="subtle">
                           {subscription.is_active ? '활성' : '비활성'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <HStack align="center" gap={2} wrap>
+                      <TableCell nowrap>
+                        <Stack direction="row" align="center" gap={2} wrap>
                           <form action={toggleAutomationSubscriptionAction}>
                             <HiddenInput name="subscriptionId" value={subscription.id} />
                             <HiddenInput name="nextValue" value={subscription.is_active ? 'false' : 'true'} />
@@ -238,7 +237,7 @@ export default async function AutomationsPage() {
                               삭제
                             </Button>
                           </form>
-                        </HStack>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -6,11 +6,9 @@ import {
   Checkbox,
   EmptyState,
   FileIcon,
-  HStack,
   Input,
   PaginationFooter,
-  TableSkeleton,
-  VStack
+  TableSkeleton
 } from '@polaris/ui';
 import { SearchIcon } from '@polaris/ui/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -185,7 +183,7 @@ export function CollectionBuilder({
           page={page}
           total={state.total}
           pageSize={PAGE_SIZE}
-          pageSizeOptions={undefined}
+          showPageSize={false}
           onPageChange={setPage}
         />
       ) : null}

@@ -5,17 +5,16 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
-  HStack,
   PageHeader,
   Stack,
   Stat,
+  StatGroup,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-  VStack
+  TableRow
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
@@ -88,23 +87,16 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
           }
         />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>요약 지표</CardTitle>
-          </CardHeader>
-          <CardBody>
-            <HStack gap={5} wrap>
-              <Stat label="조회수" value={metrics?.views ?? link.view_count} />
-              <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
-              <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
-              <Stat
-                label="거부"
-                value={metrics?.denied ?? link.denied_count}
-                deltaTone={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
-              />
-            </HStack>
-          </CardBody>
-        </Card>
+        <StatGroup cols={4}>
+          <Stat label="조회수" value={metrics?.views ?? link.view_count} />
+          <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
+          <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
+          <Stat
+            label="거부"
+            value={metrics?.denied ?? link.denied_count}
+            deltaVariant={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
+          />
+        </StatGroup>
 
         <Card>
           <CardHeader>

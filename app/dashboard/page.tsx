@@ -6,15 +6,13 @@ import {
   CardTitle,
   EmptyState,
   FileIcon,
-  HStack,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-  VStack
+  TableRow
 } from '@polaris/ui';
 import Link from 'next/link';
 
@@ -86,13 +84,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <section>
         <Card>
           <CardHeader>
-            <HStack justify="between" align="start" gap={4}>
-              <VStack gap={2}>
+            <Stack direction="row" justify="between" align="start" gap={4}>
+              <Stack gap={2}>
                 <CardTitle>PDF 업로드</CardTitle>
                 <p className="muted">PDF 파일만 허용됩니다 (최대 50MB). 업로드 후 파일별로 여러 공유 링크를 만들 수 있습니다.</p>
-              </VStack>
+              </Stack>
               <FileIcon type="pdf" size={42} />
-            </HStack>
+            </Stack>
           </CardHeader>
           <CardBody>
             <UploadForm />
@@ -145,17 +143,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   {collections.map((collection) => (
                     <TableRow key={collection.id}>
                       <TableCell>
-                        <HStack asChild align="center" gap={2}>
+                        <Stack direction="row" asChild align="center" gap={2}>
                           <span>
                             <FileIcon type="folder" size={24} />
                             <strong>{collection.name}</strong>
                           </span>
-                        </HStack>
+                        </Stack>
                       </TableCell>
                       <TableCell>{collection.file_count}</TableCell>
                       <TableCell>{formatDateTime(collection.created_at)}</TableCell>
                       <TableCell>
-                        <HStack align="center" gap={2} wrap>
+                        <Stack direction="row" align="center" gap={2} wrap>
                           <Button asChild variant="secondary" size="sm">
                             <Link href={`/dashboard/collections/${collection.id}`}>링크 관리</Link>
                           </Button>
@@ -165,7 +163,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                               묶음 삭제
                             </Button>
                           </form>
-                        </HStack>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}

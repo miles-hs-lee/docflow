@@ -5,7 +5,6 @@ import {
   Button,
   EmptyState,
   FileCard,
-  HStack,
   PaginationFooter,
   Stack,
   Table,
@@ -111,7 +110,7 @@ export function FileBrowser({
 
   return (
     <Stack gap={4}>
-      <HStack justify="between" align="center" gap={4} wrap>
+      <Stack direction="row" justify="between" align="center" gap={4} wrap>
         <TableSearchInput
           value={search}
           onValueChange={(next) => navigate({ fq: next, fp: 1 })}
@@ -122,7 +121,7 @@ export function FileBrowser({
         <Badge variant="neutral" tone="subtle">
           {search ? `${totalCount}개 일치` : `전체 ${totalCount}개`}
         </Badge>
-      </HStack>
+      </Stack>
 
       {files.length === 0 ? (
         <EmptyState
@@ -190,7 +189,7 @@ export function FileBrowser({
                   <TableCell>{formatDateTime(file.created_at)}</TableCell>
                   <TableCell>{formatBytes(file.size_bytes)}</TableCell>
                   <TableCell>
-                    <HStack align="center" gap={2} wrap>
+                    <Stack direction="row" align="center" gap={2} wrap>
                       <Button asChild variant="secondary" size="sm">
                         <Link href={detailHref}>링크 관리</Link>
                       </Button>
@@ -200,7 +199,7 @@ export function FileBrowser({
                           파일 삭제
                         </Button>
                       </form>
-                    </HStack>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               );

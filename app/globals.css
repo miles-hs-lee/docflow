@@ -6,7 +6,7 @@
 
 :root {
   --bg: var(--polaris-background-base);
-  --bg-alt: var(--polaris-background-alternative);
+  --bg-alt: var(--polaris-fill-neutral);
   --surface: var(--polaris-layer-surface);
   --surface-soft: var(--polaris-fill-neutral);
   --text: var(--polaris-label-normal);
@@ -409,44 +409,12 @@ svg {
    .upload-progress* removed — replaced by Polaris FileInput + Progress
    in v0.7.5 (UploadForm now renders entirely with primitives). */
 
-/* ExpiryDateField — make Polaris DatePicker visually pair with sibling
-   Inputs (52px height, fills its grid column, placeholder acts as the
-   in-button label). The clear button is absolutely positioned at the
-   right edge so it doesn't change the field's footprint. */
-.expiry-date-field {
-  position: relative;
-  width: 100%;
-}
-
+/* DatePicker that needs to fill its grid column to visually pair with
+   sibling Inputs (the placeholder acts as the in-button label). */
 .expiry-date-picker {
   width: 100%;
   min-height: 52px;
   justify-content: flex-start;
-}
-
-.expiry-date-clear {
-  position: absolute;
-  right: var(--polaris-spacing-sm);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1.5rem;
-  height: 1.5rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--polaris-label-assistive);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.expiry-date-clear:hover {
-  background: var(--surface-soft);
-  color: var(--text);
 }
 
 .landing-home-layout {

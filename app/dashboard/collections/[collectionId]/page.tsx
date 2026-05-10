@@ -9,12 +9,11 @@ import {
   CopyButton,
   EmptyState,
   FileIcon,
-  HStack,
   Input,
   PageHeader,
   Stack,
   Stat,
-  VStack
+  StatGroup
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
@@ -80,10 +79,10 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
       <section>
         <PageHeader
           eyebrow={
-            <HStack align="center" gap={2}>
+            <Stack direction="row" align="center" gap={2}>
               <FileIcon type="folder" size={20} />
               <span className="muted small">문서 묶음 · {files.length}개 포함</span>
-            </HStack>
+            </Stack>
           }
           title={collection.name}
           description={collection.description ?? undefined}
@@ -152,7 +151,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                 description="묶음 링크를 만들면 문서 목록, 정책, 통계가 함께 관리됩니다."
               />
             ) : (
-              <VStack gap={3}>
+              <Stack gap={3}>
                 {links.map((link) => {
                   const status = linkStatus(link);
                   const url = `${appOrigin}/v/${link.token}`;
@@ -164,7 +163,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                           <strong>{link.label}</strong>
                           <p className="mono">{url}</p>
                         </div>
-                        <HStack align="center" gap={2} wrap>
+                        <Stack direction="row" align="center" gap={2} wrap>
                           <Badge variant={statusVariant(status)} tone="subtle">
                             {status}
                           </Badge>
@@ -179,19 +178,19 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                               삭제
                             </Button>
                           </form>
-                        </HStack>
+                        </Stack>
                       </div>
 
-                      <HStack gap={4} wrap>
+                      <StatGroup cols={4} unwrapped>
                         <Stat label="조회수" value={link.view_count} />
                         <Stat label="다운로드" value={link.download_count} />
                         <Stat
                           label="거부"
                           value={link.denied_count}
-                          deltaTone={link.denied_count > 0 ? 'negative' : 'neutral'}
+                          deltaVariant={link.denied_count > 0 ? 'negative' : 'neutral'}
                         />
                         <Stat label="생성일" value={formatDateOnly(link.created_at)} />
-                      </HStack>
+                      </StatGroup>
 
                       <details className="link-edit-toggle">
                         <summary>정책 수정</summary>
@@ -218,7 +217,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                     </Card>
                   );
                 })}
-              </VStack>
+              </Stack>
             )}
           </CardBody>
         </Card>

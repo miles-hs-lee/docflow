@@ -3,11 +3,9 @@ import {
   Card,
   CardBody,
   EmptyState,
-  HStack,
   Input,
   PageHeader,
-  Stack,
-  VStack
+  Stack
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
@@ -47,10 +45,10 @@ export default async function TrashPage() {
                 }
               />
             ) : (
-              <VStack gap={4}>
+              <Stack gap={4}>
                 {links.map((link) => (
                   <Card key={link.id} className="trash-item" variant="padded">
-                    <VStack gap={3}>
+                    <Stack gap={3}>
                       <p>
                         <strong>{link.label}</strong>
                       </p>
@@ -61,9 +59,9 @@ export default async function TrashPage() {
                           : link.file?.original_name ?? link.file_id}{' '}
                         | 삭제일: {formatDateTime(link.deleted_at)}
                       </p>
-                    </VStack>
+                    </Stack>
 
-                    <HStack align="center" gap={2} wrap>
+                    <Stack direction="row" align="center" gap={2} wrap>
                       <form action={restoreLinkAction}>
                         <HiddenInput name="linkId" value={link.id} />
                         <Button type="submit">복구</Button>
@@ -82,10 +80,10 @@ export default async function TrashPage() {
                           영구 삭제
                         </Button>
                       </form>
-                    </HStack>
+                    </Stack>
                   </Card>
                 ))}
-              </VStack>
+              </Stack>
             )}
           </CardBody>
         </Card>

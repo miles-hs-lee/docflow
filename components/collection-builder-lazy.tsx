@@ -29,6 +29,7 @@ export function CollectionBuilderLazy({
           <span className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</span>
         </span>
       }
+      headingLevel="h2"
       open={open}
       onOpenChange={setOpen}
     >

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, FileInput, HStack, Progress, Stack } from '@polaris/ui';
+import { Button, FileInput, Progress, Stack } from '@polaris/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 
@@ -110,10 +110,10 @@ export function UploadForm() {
           onFilesChange={setFiles}
           aria-label="업로드할 PDF 파일"
           buttonLabel="PDF 선택"
-          hint="최대 50MB · application/pdf"
+          helperText="최대 50MB · application/pdf"
           error={errorMessage ?? undefined}
         />
-        <HStack gap={2} align="center">
+        <Stack direction="row" gap={2} align="center">
           <Button type="submit" disabled={isBusy || files.length === 0}>
             {phase === 'uploading'
               ? `업로드 중 ${progress}%`
@@ -123,11 +123,11 @@ export function UploadForm() {
                   ? '완료'
                   : '업로드'}
           </Button>
-        </HStack>
+        </Stack>
         {isBusy ? (
           <Progress
             value={progressValue}
-            tone={phase === 'processing' ? 'accent' : 'success'}
+            variant={phase === 'processing' ? 'accent' : 'success'}
             aria-label="업로드 진행률"
           />
         ) : null}
