@@ -1,25 +1,29 @@
 'use client';
 
-import { DatePicker, HStack, VStack } from '@polaris/ui';
+import { DatePicker } from '@polaris/ui';
 import { useState } from 'react';
 
 type ExpiryDateFieldProps = {
   /** Hidden input name posted to the server action. */
   name: string;
-  label?: string;
   /** Existing expires_at ISO string (edit form). */
   defaultValue?: string | null;
 };
 
-// Wrapper around Polaris DatePicker for the share-link "expires at" field.
-// DatePicker is a controlled, button-style trigger (no `name` prop), so we
-// hold the picked Date in state and mirror it through a hidden input that
-// the server action reads via `parseOptionalDate(formData, 'expiresAt')`.
+// Wrapper around Polaris DatePicker for the share-link "expires at"
+// field. DatePicker is a controlled, button-style trigger (no `name`
+// prop), so we hold the picked Date in state and mirror it through a
+// hidden input that the server action's parseOptionalDate(...) reads.
 //
-// "만료" semantically = "valid through end of selected day", so we
-// serialize the local end-of-day (23:59:59.999) — converted to UTC by
-// toISOString() — instead of midnight at the start of the day.
-export function ExpiryDateField({ name, label = '만료일', defaultValue }: ExpiryDateFieldProps) {
+// "만료" semantically = "valid through end of selected day", so the
+// serialized value is local end-of-day (23:59:59.999) → toISOString().
+//
+// Visual: the DatePicker is forced to fill its grid column (w-full +
+// h-13 to match Input's 52px) and uses its `placeholder` as the
+// in-button label so it visually pairs with sibling Inputs that use the
+// floating-label-inside-the-box pattern. No external label needed —
+// `aria-label` covers AT.
+export function ExpiryDateField({ name, defaultValue }: ExpiryDateFieldProps) {
   const [date, setDate] = useState<Date | undefined>(
     defaultValue ? new Date(defaultValue) : undefined
   );
@@ -27,28 +31,27 @@ export function ExpiryDateField({ name, label = '만료일', defaultValue }: Exp
   const submittedValue = date ? endOfLocalDay(date).toISOString() : '';
 
   return (
-    <VStack gap={2}>
-      <span className="expiry-date-label">{label}</span>
-      <HStack align="center" gap={2}>
-        <DatePicker
-          value={date}
-          onChange={setDate}
-          placeholder="날짜 선택"
-          ariaLabel={label}
-        />
-        {date ? (
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setDate(undefined)}
-            aria-label={`${label} 지우기`}
-          >
-            지우기
-          </button>
-        ) : null}
-      </HStack>
+    <div className="expiry-date-field">
+      <DatePicker
+        value={date}
+        onChange={setDate}
+        placeholder="만료일 (선택)"
+        ariaLabel="만료일"
+        className="expiry-date-picker"
+      />
+      {date ? (
+        <button
+          type="button"
+          className="expiry-date-clear"
+          onClick={() => setDate(undefined)}
+          aria-label="만료일 지우기"
+          title="만료일 지우기"
+        >
+          ×
+        </button>
+      ) : null}
       <input type="hidden" name={name} value={submittedValue} />
-    </VStack>
+    </div>
   );
 }
 
