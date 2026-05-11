@@ -209,11 +209,18 @@ export function FileBrowser({
       )}
 
       {totalCount > pageSize ? (
+        // v0.8-rc.8: anchor mode renders pagination items as real <Link>
+        // — right-click "open in new tab" works, Next.js prefetches the
+        // target route on hover, JS-disabled clients still navigate.
+        // onPageChange is intentionally omitted (anchor href drives nav);
+        // onPageSizeChange stays imperative since the page-size selector
+        // isn't a navigation control.
         <PaginationFooter
           page={page}
           total={totalCount}
           pageSize={pageSize}
-          onPageChange={(next) => navigate({ fp: next })}
+          buildHref={(next) => buildHref({ fp: next })}
+          linkAs={Link}
           onPageSizeChange={(size) => navigate({ fz: size, fp: 1 })}
         />
       ) : null}
