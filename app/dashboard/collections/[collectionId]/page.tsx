@@ -187,7 +187,9 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                         <Stat
                           label="거부"
                           value={link.denied_count}
-                          deltaVariant={link.denied_count > 0 ? 'negative' : 'neutral'}
+                          {...(link.denied_count > 0
+                            ? { delta: '주의', deltaVariant: 'negative' as const }
+                            : {})}
                         />
                         <Stat label="생성일" value={formatDateOnly(link.created_at)} />
                       </StatGroup>

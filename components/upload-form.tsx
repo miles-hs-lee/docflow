@@ -125,11 +125,10 @@ export function UploadForm() {
           </Button>
         </Stack>
         {isBusy ? (
-          <Progress
-            value={progressValue}
-            variant={phase === 'processing' ? 'accent' : 'success'}
-            aria-label="업로드 진행률"
-          />
+          // Both phases are "in progress" — use the neutral accent tone.
+          // 'success' (green) is reserved for completion; the bar unmounts
+          // once phase === 'done', so it never has a valid success moment.
+          <Progress value={progressValue} variant="accent" aria-label="업로드 진행률" />
         ) : null}
       </Stack>
     </form>

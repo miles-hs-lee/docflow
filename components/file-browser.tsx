@@ -30,6 +30,21 @@ type DeleteAction = (formData: FormData) => void | Promise<void>;
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+// PaginationFooter anchor mode renders each page item as `linkAs`. Plain
+// next/link would (a) scroll the viewport to the top on every page click
+// and (b) eagerly prefetch every visible page-number link on viewport
+// entry — re-firing whenever the search/sort querystring changes. This
+// wrapper preserves scroll position and disables prefetch (pagination
+// targets are rarely the next click), keeping navigation to a single
+// router fetch on actual click.
+function PaginationLink({ href, children, ...rest }: React.ComponentProps<typeof Link>) {
+  return (
+    <Link href={href} scroll={false} prefetch={false} {...rest}>
+      {children}
+    </Link>
+  );
+}
+
 export function FileBrowser({
   files,
   totalCount,
@@ -209,18 +224,19 @@ export function FileBrowser({
       )}
 
       {totalCount > pageSize ? (
-        // v0.8-rc.8: anchor mode renders pagination items as real <Link>
-        // — right-click "open in new tab" works, Next.js prefetches the
-        // target route on hover, JS-disabled clients still navigate.
-        // onPageChange is intentionally omitted (anchor href drives nav);
-        // onPageSizeChange stays imperative since the page-size selector
-        // isn't a navigation control.
+        // v0.8-rc.8 anchor mode: each page item is a real <a> (PaginationLink),
+        // so right-click "open in new tab" works and the URL stays shareable.
+        // PaginationLink sets scroll={false} (preserve list position, matching
+        // the imperative navigate() path) and prefetch={false} (avoid
+        // prefetching every visible page link on viewport entry).
+        // onPageChange is omitted (the href drives navigation); page-size is
+        // imperative since it's a control, not a navigation target.
         <PaginationFooter
           page={page}
           total={totalCount}
           pageSize={pageSize}
           buildHref={(next) => buildHref({ fp: next })}
-          linkAs={Link}
+          linkAs={PaginationLink}
           onPageSizeChange={(size) => navigate({ fz: size, fp: 1 })}
         />
       ) : null}

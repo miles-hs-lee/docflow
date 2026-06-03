@@ -201,7 +201,9 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
                         <Stat
                           label="거부"
                           value={metrics?.denied ?? link.denied_count}
-                          deltaVariant={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
+                          {...((metrics?.denied ?? link.denied_count) > 0
+                            ? { delta: '주의', deltaVariant: 'negative' as const }
+                            : {})}
                         />
                       </StatGroup>
 

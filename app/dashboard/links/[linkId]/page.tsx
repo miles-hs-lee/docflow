@@ -87,16 +87,25 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
           }
         />
 
-        <StatGroup cols={4}>
-          <Stat label="조회수" value={metrics?.views ?? link.view_count} />
-          <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
-          <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
-          <Stat
-            label="거부"
-            value={metrics?.denied ?? link.denied_count}
-            deltaVariant={(metrics?.denied ?? link.denied_count) > 0 ? 'negative' : 'neutral'}
-          />
-        </StatGroup>
+        <Card>
+          <CardHeader>
+            <CardTitle>요약 지표</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <StatGroup cols={4} unwrapped>
+              <Stat label="조회수" value={metrics?.views ?? link.view_count} />
+              <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
+              <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
+              <Stat
+                label="거부"
+                value={metrics?.denied ?? link.denied_count}
+                {...((metrics?.denied ?? link.denied_count) > 0
+                  ? { delta: '주의', deltaVariant: 'negative' as const }
+                  : {})}
+              />
+            </StatGroup>
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader>
