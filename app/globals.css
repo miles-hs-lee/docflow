@@ -6,7 +6,9 @@
 
 :root {
   --bg: var(--polaris-background-base);
-  --bg-alt: var(--polaris-fill-neutral);
+  /* fill-normal is one step darker than fill-neutral, so the page
+     gradient keeps a depth cue distinct from --surface-soft below it. */
+  --bg-alt: var(--polaris-fill-normal);
   --surface: var(--polaris-layer-surface);
   --surface-soft: var(--polaris-fill-neutral);
   --text: var(--polaris-label-normal);

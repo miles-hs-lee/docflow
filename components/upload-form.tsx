@@ -113,17 +113,15 @@ export function UploadForm() {
           helperText="최대 50MB · application/pdf"
           error={errorMessage ?? undefined}
         />
-        <Stack direction="row" gap={2} align="center">
-          <Button type="submit" disabled={isBusy || files.length === 0}>
-            {phase === 'uploading'
-              ? `업로드 중 ${progress}%`
-              : phase === 'processing'
-                ? '처리 중...'
-                : phase === 'done'
-                  ? '완료'
-                  : '업로드'}
-          </Button>
-        </Stack>
+        <Button type="submit" disabled={isBusy || files.length === 0}>
+          {phase === 'uploading'
+            ? `업로드 중 ${progress}%`
+            : phase === 'processing'
+              ? '처리 중...'
+              : phase === 'done'
+                ? '완료'
+                : '업로드'}
+        </Button>
         {isBusy ? (
           // Both phases are "in progress" — use the neutral accent tone.
           // 'success' (green) is reserved for completion; the bar unmounts

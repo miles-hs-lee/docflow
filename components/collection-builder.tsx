@@ -8,11 +8,12 @@ import {
   FileIcon,
   Input,
   PaginationFooter,
+  TableSearchInput,
   TableSkeleton
 } from '@polaris/ui';
-import { SearchIcon } from '@polaris/ui/icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { HiddenInput } from '@/components/hidden-input';
 import type { FileRow } from '@/lib/types';
 
 type CreateAction = (formData: FormData) => void | Promise<void>;
@@ -110,16 +111,12 @@ export function CollectionBuilder({
       </div>
 
       <div className="collection-builder-toolbar">
-        <div className="file-browser-search">
-          <SearchIcon size={16} aria-hidden />
-          <Input
-            value={draftQuery}
-            onChange={(e) => setDraftQuery(e.target.value)}
-            placeholder="묶음에 추가할 파일 검색"
-            aria-label="파일 검색"
-            className="file-browser-search-input"
-          />
-        </div>
+        <TableSearchInput
+          value={draftQuery}
+          onValueChange={setDraftQuery}
+          placeholder="묶음에 추가할 파일 검색"
+          aria-label="파일 검색"
+        />
         <div className="collection-builder-meta-right">
           <Badge variant="primary" tone={selectedMap.size > 0 ? 'solid' : 'subtle'}>
             선택 {selectedMap.size}개
@@ -204,7 +201,7 @@ export function CollectionBuilder({
 
       {/* Submit the selection as fileIds — invisible inputs so the form action picks them up */}
       {selectedList.map((file) => (
-        <input key={file.id} type="hidden" name="fileIds" value={file.id} />
+        <HiddenInput key={file.id} name="fileIds" value={file.id} />
       ))}
 
       <Button type="submit" disabled={selectedMap.size < 2}>

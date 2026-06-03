@@ -32,27 +32,11 @@ import { requireOwner } from '@/lib/auth';
 import { getCollection, listFilesForCollection, listLinksForCollection } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { formatDateOnly } from '@/lib/format';
+import { linkStatus, statusVariant } from '@/lib/link-status';
 
 type CollectionLinksPageProps = {
   params: Promise<{ collectionId: string }>;
 };
-
-function linkStatus(link: {
-  is_active: boolean;
-  deleted_at: string | null;
-  expires_at: string | null;
-}) {
-  if (link.deleted_at) return 'deleted';
-  if (!link.is_active) return 'inactive';
-  if (link.expires_at && new Date(link.expires_at) < new Date()) return 'expired';
-  return 'active';
-}
-
-function statusVariant(status: ReturnType<typeof linkStatus>) {
-  if (status === 'active') return 'success' as const;
-  if (status === 'deleted') return 'danger' as const;
-  return 'warning' as const;
-}
 
 export default async function CollectionLinksPage({ params }: CollectionLinksPageProps) {
   const { collectionId } = await params;
