@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { recordLinkEvent } from '@/lib/data';
+import { recordPageViewBatch } from '@/lib/data';
 import { evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -117,27 +117,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const userAgent = request.headers.get('user-agent');
   const viewerEmail = grant?.email;
 
-  // Insert the batch in parallel — each row is a separate INSERT in
-  // recordLinkEvent. Per-page analytics must never break the viewer,
-  // so swallow individual failures inside the batch.
-  await Promise.all(
-    events.map((event) =>
-      recordLinkEvent({
-        linkId: link.id,
-        fileId: targetFileId,
-        ownerId: link.owner_id,
-        eventType: 'page_view',
-        sessionId,
-        viewerEmail,
-        ipHash,
-        userAgent,
-        pageNumber: event.pageNumber,
-        dwellMs: event.dwellMs
-      }).catch(() => {
-        // Swallow ingest failures per event.
-      })
-    )
-  );
+  // One multi-row INSERT for the whole batch instead of N round trips.
+  // Per-page analytics must never break the viewer, so swallow failures.
+  try {
+    await recordPageViewBatch({
+      linkId: link.id,
+      fileId: targetFileId,
+      ownerId: link.owner_id,
+      sessionId,
+      viewerEmail,
+      ipHash,
+      userAgent,
+      events
+    });
+  } catch {
+    // Swallow ingest failures — never block the viewer on analytics.
+  }
 
   return NextResponse.json({ ok: true, accepted: events.length });
 }

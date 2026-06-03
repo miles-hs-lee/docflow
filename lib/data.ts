@@ -453,6 +453,41 @@ export async function recordLinkEvent(input: {
   }
 }
 
+// Batched page_view ingest: one multi-row INSERT instead of N single-row
+// inserts. Shared metadata (link/owner/session/ip/ua) is constant across
+// the batch; only pageNumber + dwellMs vary per row.
+export async function recordPageViewBatch(input: {
+  linkId: string;
+  fileId: string;
+  ownerId: string;
+  sessionId?: string;
+  viewerEmail?: string;
+  ipHash?: string | null;
+  userAgent?: string | null;
+  events: { pageNumber: number; dwellMs: number }[];
+}) {
+  if (input.events.length === 0) return;
+  const admin = createAdminClient();
+
+  const rows = input.events.map((event) => ({
+    link_id: input.linkId,
+    file_id: input.fileId,
+    owner_id: input.ownerId,
+    event_type: 'page_view' as const,
+    session_id: input.sessionId,
+    viewer_email: input.viewerEmail,
+    ip_hash: input.ipHash,
+    user_agent: input.userAgent,
+    page_number: event.pageNumber,
+    dwell_ms: event.dwellMs
+  }));
+
+  const { error } = await admin.from('link_events').insert(rows);
+  if (error) {
+    throw error;
+  }
+}
+
 export async function listPerPageStats(args: {
   ownerId: string;
   fileId: string;

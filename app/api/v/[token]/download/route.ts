@@ -10,6 +10,10 @@ type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
+// Streaming a large PDF to a slow client can exceed Vercel's default 10s
+// budget; 60s is the Hobby ceiling.
+export const maxDuration = 60;
+
 function buildDeniedResponse(reason: DeniedReason, status = 403) {
   return NextResponse.json(
     {

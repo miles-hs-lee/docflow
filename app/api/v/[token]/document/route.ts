@@ -10,6 +10,12 @@ type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
+// Large PDFs streamed to slow clients can exceed Vercel's default 10s
+// function budget mid-stream, truncating the document (and burning a
+// claim_view slot on one-time/max-views links the viewer never received).
+// 60s is the Hobby ceiling; raise on Pro if very large PDFs are common.
+export const maxDuration = 60;
+
 function buildDeniedResponse(reason: DeniedReason, status = 403) {
   return NextResponse.json(
     {

@@ -7,6 +7,9 @@ import { uploadPdfObject } from '@/lib/data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
+// 50MB uploads over slow links can exceed the default 10s function budget.
+export const maxDuration = 60;
+
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
 function sanitizeFileName(name: string) {
