@@ -486,6 +486,27 @@ export async function claimViewCached(input: {
   return result;
 }
 
+// Has this viewer session actually claimed a view of the link? The
+// document/download route inserts the authoritative 'view' event on a
+// successful claim. Page-dwell ingest checks this so a token holder
+// can't pollute per-page analytics without ever opening the document.
+// Fails OPEN on error — analytics integrity is not worth dropping legit
+// dwell data during a transient DB hiccup.
+export async function hasViewForSession(linkId: string, sessionId: string): Promise<boolean> {
+  if (!sessionId) return false;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('link_events')
+    .select('id')
+    .eq('link_id', linkId)
+    .eq('session_id', sessionId)
+    .eq('event_type', 'view')
+    .limit(1)
+    .maybeSingle();
+  if (error) return true; // fail open
+  return Boolean(data);
+}
+
 export async function recordLinkEvent(input: {
   linkId: string;
   fileId: string;
@@ -632,4 +653,51 @@ export async function removePdfObject(path: string) {
   const admin = createAdminClient();
   const { error } = await admin.storage.from('pdf-files').remove([path]);
   if (error) throw error;
+}
+
+// Drain the pending_storage_deletions queue (rows enqueued when an inline
+// storage delete failed during file/collection/account deletion). Without
+// this the queue grows forever and "deleted" PDFs linger in storage —
+// a cost + compliance gap. Called from the dispatch cron alongside the
+// webhook outbox drain. Best-effort: per-row failures bump `attempts` and
+// are retried on the next run; rows past MAX_ATTEMPTS are left for manual
+// inspection rather than hammered forever.
+const STORAGE_SWEEP_BATCH = 100;
+const STORAGE_SWEEP_MAX_ATTEMPTS = 5;
+
+export async function processPendingStorageDeletions(): Promise<{ processed: number; failed: number }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('pending_storage_deletions')
+    .select('id, storage_path, attempts')
+    .is('processed_at', null)
+    .lt('attempts', STORAGE_SWEEP_MAX_ATTEMPTS)
+    .order('created_at', { ascending: true })
+    .limit(STORAGE_SWEEP_BATCH);
+
+  if (error || !data || data.length === 0) {
+    return { processed: 0, failed: 0 };
+  }
+
+  let processed = 0;
+  let failed = 0;
+  for (const row of data as { id: number; storage_path: string; attempts: number }[]) {
+    const { error: removeError } = await admin.storage.from('pdf-files').remove([row.storage_path]);
+    if (removeError) {
+      failed += 1;
+      await admin
+        .from('pending_storage_deletions')
+        .update({ attempts: row.attempts + 1 })
+        .eq('id', row.id);
+    } else {
+      // Supabase remove() is idempotent (already-gone path → no error), so
+      // success here means the object is gone for good.
+      processed += 1;
+      await admin
+        .from('pending_storage_deletions')
+        .update({ processed_at: new Date().toISOString(), attempts: row.attempts + 1 })
+        .eq('id', row.id);
+    }
+  }
+  return { processed, failed };
 }

@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 014까지 순서대로** 실행합니다.
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 015까지 순서대로** 실행합니다.
 
 | 번호 | 내용 |
 |---|---|
@@ -97,6 +97,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 014까지
 | 012 | cross-owner RLS 강화 (WITH CHECK + 부모 소유권 검증) |
 | 013 | 성능 RPC (페이지 통계, 뷰어 번들, 이벤트 verify) + composite indexes |
 | 014 | `files(owner_id, created_at desc)` index |
+| 015 | 파일 검색(pg_trgm)·정렬·이벤트피드 index |
 
 ### 4) Supabase Auth
 

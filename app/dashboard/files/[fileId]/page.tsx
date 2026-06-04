@@ -17,7 +17,6 @@ import {
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { ExpiryDateField } from '@/components/expiry-date-field';
@@ -40,7 +39,6 @@ type FileLinksPageProps = {
 
 export default async function FileLinksPage({ params }: FileLinksPageProps) {
   const { fileId } = await params;
-  const headerStore = await headers();
 
   const { supabase, user } = await requireOwner();
   const [file, links, metricsMap, pageStats] = await Promise.all([
@@ -54,9 +52,10 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
     notFound();
   }
 
-  const host = headerStore.get('x-forwarded-host') ?? headerStore.get('host');
-  const protocol = headerStore.get('x-forwarded-proto') ?? 'https';
-  const appOrigin = host ? `${protocol}://${host}` : publicEnv.appUrl;
+  // Use the configured app URL, not the request host. An attacker-set
+  // X-Forwarded-Host would otherwise produce share URLs pointing at their
+  // domain (phishing), and proxy/preview hosts would leak into copied links.
+  const appOrigin = publicEnv.appUrl;
 
   return (
     <Stack asChild gap={5}>

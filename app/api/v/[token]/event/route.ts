@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { recordPageViewBatch } from '@/lib/data';
+import { hasViewForSession, recordPageViewBatch } from '@/lib/data';
 import { evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
@@ -130,6 +130,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const ipHash = hashIp(ip);
   const userAgent = request.headers.get('user-agent');
   const viewerEmail = grant?.email;
+
+  // Only record page dwell for a session that actually claimed a view of
+  // this link (the document/download claim path inserts the 'view' event).
+  // Without this a token holder could POST page_view events to pollute the
+  // owner's per-page analytics without ever opening the document.
+  if (!(await hasViewForSession(link.id, sessionId))) {
+    return NextResponse.json({ error: 'view_not_claimed' }, { status: 409 });
+  }
 
   // One multi-row INSERT for the whole batch instead of N round trips.
   // Per-page analytics must never break the viewer, so swallow failures.

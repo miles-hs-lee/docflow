@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { publicEnv } from '@/lib/env-public';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { hashIp } from '@/lib/security';
 import { createClient } from '@/lib/supabase/server';
 
 function redirectWithMessage(requestUrl: string, key: 'error' | 'success', message: string) {
@@ -16,14 +19,24 @@ export async function POST(request: Request) {
     return redirectWithMessage(request.url, 'error', '유효한 이메일을 입력해주세요.');
   }
 
+  // Throttle per hashed IP — this endpoint sends emails, so it's an
+  // email-bombing / enumeration vector if left open.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit('authLogin', `forgot:${hashIp(ip) ?? 'unknown'}`);
+  if (!rl.allowed) {
+    return redirectWithMessage(request.url, 'error', '요청이 많습니다. 잠시 후 다시 시도해주세요.');
+  }
+
   const supabase = await createClient();
-  const origin = new URL(request.url).origin;
 
   // Always return the success message — even if the email is not registered.
   // Disclosing whether an address exists in our user table would let an
   // attacker enumerate accounts via this form.
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback?next=/reset-password`
+    // Configured app URL, not the request host — the reset link must point
+    // at the real domain (an allowed Supabase redirect), never an
+    // attacker-set X-Forwarded-Host.
+    redirectTo: `${publicEnv.appUrl}/auth/callback?next=/reset-password`
   });
 
   return redirectWithMessage(

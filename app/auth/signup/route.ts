@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { normalizeEmail } from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { hashIp, normalizeEmail } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -30,6 +31,14 @@ export async function POST(request: Request) {
 
   if (password.length < 8) {
     return redirectWithMessage(request.url, 'error', '비밀번호는 8자 이상이어야 합니다.');
+  }
+
+  // Throttle per hashed IP — signup provisions accounts, so an open
+  // endpoint lets an attacker mass-create / squat accounts.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit('authLogin', `signup:${hashIp(ip) ?? 'unknown'}`);
+  if (!rl.allowed) {
+    return redirectWithMessage(request.url, 'error', '요청이 많습니다. 잠시 후 다시 시도해주세요.');
   }
 
   let createdNewUser = false;

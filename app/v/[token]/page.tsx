@@ -53,6 +53,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     'password_required',
     'file_missing',
     'access_not_granted',
+    'too_many_attempts',
     'unknown'
   ]);
 

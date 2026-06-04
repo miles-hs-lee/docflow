@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { parseBearerToken } from '@/lib/agent-auth';
+import { processPendingStorageDeletions } from '@/lib/data';
 import { signWebhookPayload, timingSafeEqualString } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertSafePublicUrl, SAFE_FETCH_TIMEOUT_MS } from '@/lib/url-safety';
@@ -329,7 +330,15 @@ async function handler(request: NextRequest) {
 
   try {
     const result = await runDispatch(Number.isNaN(limit) ? 20 : limit);
-    return NextResponse.json({ ok: true, ...result });
+    // Drain the storage-deletion queue on the same cron tick. Best-effort:
+    // never let a storage-sweep failure fail the webhook dispatch response.
+    let storage = { processed: 0, failed: 0 };
+    try {
+      storage = await processPendingStorageDeletions();
+    } catch {
+      // swallow — retried next tick
+    }
+    return NextResponse.json({ ok: true, ...result, storage });
   } catch (error) {
     return NextResponse.json(
       {

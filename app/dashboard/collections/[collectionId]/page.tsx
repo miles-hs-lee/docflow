@@ -17,7 +17,6 @@ import {
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { ExpiryDateField } from '@/components/expiry-date-field';
@@ -40,7 +39,6 @@ type CollectionLinksPageProps = {
 
 export default async function CollectionLinksPage({ params }: CollectionLinksPageProps) {
   const { collectionId } = await params;
-  const headerStore = await headers();
 
   const { supabase } = await requireOwner();
   const [collection, files, links] = await Promise.all([
@@ -53,9 +51,9 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
     notFound();
   }
 
-  const host = headerStore.get('x-forwarded-host') ?? headerStore.get('host');
-  const protocol = headerStore.get('x-forwarded-proto') ?? 'https';
-  const appOrigin = host ? `${protocol}://${host}` : publicEnv.appUrl;
+  // Configured app URL, not the request host (avoids X-Forwarded-Host
+  // spoofing → phishing share URLs, and proxy/preview host leakage).
+  const appOrigin = publicEnv.appUrl;
   const redirectPath = `/dashboard/collections/${collection.id}`;
 
   return (
