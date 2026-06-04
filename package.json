@@ -16,6 +16,7 @@
     "@polaris/ui": "https://github.com/PolarisOffice/PolarisDesign/releases/download/v0.8.0-rc.8/polaris-ui-0.8.0-rc.8.tgz",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.0",
+    "@upstash/qstash": "^2.11.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "bcryptjs": "^2.4.3",

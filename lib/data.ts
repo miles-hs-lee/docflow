@@ -1,3 +1,4 @@
+import { kickWebhookDispatch } from '@/lib/qstash';
 import { getRedis, isRedisConfigured } from '@/lib/redis';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { createClient as createOwnerClient } from '@/lib/supabase/server';
@@ -475,6 +476,9 @@ export async function claimViewCached(input: {
       // Marker write failure is harmless — the next request just re-hits
       // claim_view, which dedups to already_viewed → allowed.
     }
+    // Cache-miss + allowed = a fresh 'view' row was inserted by claim_view,
+    // so the outbox trigger may have queued a webhook. Kick the dispatcher.
+    await kickWebhookDispatch();
   }
 
   return result;
@@ -512,6 +516,11 @@ export async function recordLinkEvent(input: {
   if (error) {
     throw error;
   }
+
+  // download / denied / email_submitted / password_failed are all
+  // webhook-eligible (page_view goes through recordPageViewBatch and is
+  // not). Kick the near-real-time dispatcher; coalesced + best-effort.
+  await kickWebhookDispatch();
 }
 
 // Batched page_view ingest: one multi-row INSERT instead of N single-row
