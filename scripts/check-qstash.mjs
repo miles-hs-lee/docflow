@@ -12,7 +12,9 @@ if (!token) {
   process.exit(1);
 }
 
-const client = new Client({ token });
+// US region (separate infra from the EU default qstash.upstash.io).
+const baseUrl = process.env.QSTASH_URL || 'https://qstash-us-east-1.upstash.io';
+const client = new Client({ token, baseUrl });
 
 try {
   const res = await client.publishJSON({

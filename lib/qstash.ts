@@ -20,6 +20,16 @@ import { getRedis, isRedisConfigured } from '@/lib/redis';
 
 const token = process.env.QSTASH_TOKEN;
 
+// QStash runs two INDEPENDENT regions (separate infra + tokens), not a
+// single anycast endpoint:
+//   EU  → https://qstash.upstash.io  (the SDK default)
+//   US  → https://qstash-us-east-1.upstash.io
+// Our account + tokens are in US-east-1 (co-located with the Vercel
+// functions and the Upstash Redis DB), so we must target the US base
+// URL — the EU default returns "user not found in region". Override via
+// QSTASH_URL if the account ever moves.
+const baseUrl = process.env.QSTASH_URL || 'https://qstash-us-east-1.upstash.io';
+
 let client: Client | null = null;
 
 export function isQstashConfigured(): boolean {
@@ -28,7 +38,7 @@ export function isQstashConfigured(): boolean {
 
 function getClient(): Client {
   if (!token) throw new Error('Missing QSTASH_TOKEN');
-  if (!client) client = new Client({ token });
+  if (!client) client = new Client({ token, baseUrl });
   return client;
 }
 
