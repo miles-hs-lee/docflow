@@ -61,8 +61,15 @@ export function UserMenu({ email }: { email: string }) {
           {email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild icon={<SettingsIcon size={16} />}>
-          <Link href="/dashboard/settings">계정 설정</Link>
+        {/* icon goes INSIDE the Link, not via the `icon` prop: with asChild
+            the item renders into a Radix Slot, and Slot requires a single
+            child — `icon` would add a second and crash React.Children.only.
+            itemBase already applies flex + gap so [icon, text] align. */}
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/settings">
+            <SettingsIcon size={16} aria-hidden />
+            계정 설정
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuCheckboxItem checked={isDark} onCheckedChange={handleThemeChange}>
           다크 모드

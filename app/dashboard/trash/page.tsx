@@ -27,8 +27,11 @@ export default async function TrashPage() {
           title="휴지통"
           description="소프트 삭제된 링크는 여기서 복구하거나 영구 삭제할 수 있습니다."
           actions={
-            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
-              <Link href="/dashboard">파일 목록</Link>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard">
+                <ChevronLeftIcon size={14} aria-hidden />
+                파일 목록
+              </Link>
             </Button>
           }
         />

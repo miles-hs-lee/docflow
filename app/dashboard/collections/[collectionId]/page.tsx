@@ -71,8 +71,11 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           title={collection.name}
           description={collection.description ?? undefined}
           actions={
-            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
-              <Link href="/dashboard">대시보드</Link>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/dashboard">
+                <ChevronLeftIcon size={14} aria-hidden />
+                대시보드
+              </Link>
             </Button>
           }
         />

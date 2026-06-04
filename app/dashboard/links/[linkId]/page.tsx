@@ -81,8 +81,11 @@ export default async function LinkDetailPage({ params }: LinkDetailPageProps) {
           }
           title={link.label}
           actions={
-            <Button asChild variant="secondary" size="sm" iconLeft={<ChevronLeftIcon size={14} />}>
-              <Link href={backPath}>링크 목록</Link>
+            <Button asChild variant="secondary" size="sm">
+              <Link href={backPath}>
+                <ChevronLeftIcon size={14} aria-hidden />
+                링크 목록
+              </Link>
             </Button>
           }
         />
