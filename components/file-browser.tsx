@@ -21,7 +21,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useTransition, type MouseEvent } from 'react';
 
 import { HiddenInput } from '@/components/hidden-input';
-import { formatBytes, formatDateTime } from '@/lib/format';
+import { LocalDate } from '@/components/local-date';
+import { formatBytes } from '@/lib/format';
 import type { FileRow } from '@/lib/types';
 
 type SortKey = 'created_at' | 'original_name' | 'size_bytes';
@@ -198,10 +199,16 @@ export function FileBrowser({
                     <FileCard
                       type="pdf"
                       name={file.original_name}
-                      meta={`${formatBytes(file.size_bytes)} · ${formatDateTime(file.created_at)}`}
+                      meta={
+                        <>
+                          {formatBytes(file.size_bytes)} · <LocalDate value={file.created_at} />
+                        </>
+                      }
                     />
                   </TableCell>
-                  <TableCell>{formatDateTime(file.created_at)}</TableCell>
+                  <TableCell>
+                    <LocalDate value={file.created_at} />
+                  </TableCell>
                   <TableCell>{formatBytes(file.size_bytes)}</TableCell>
                   <TableCell>
                     <Stack direction="row" align="center" gap={2} wrap>
