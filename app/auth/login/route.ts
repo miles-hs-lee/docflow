@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { normalizeEmail } from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { hashIp, normalizeEmail } from '@/lib/security';
 import { createClient } from '@/lib/supabase/server';
 
 function redirectWithMessage(requestUrl: string, type: 'error' | 'success', message: string) {
@@ -16,6 +17,13 @@ export async function POST(request: Request) {
 
   if (!email || !password) {
     return redirectWithMessage(request.url, 'error', '이메일과 비밀번호를 입력해주세요.');
+  }
+
+  // Throttle credential stuffing per hashed IP.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit('authLogin', hashIp(ip) ?? 'unknown');
+  if (!rl.allowed) {
+    return redirectWithMessage(request.url, 'error', '요청이 많습니다. 잠시 후 다시 시도해주세요.');
   }
 
   const supabase = await createClient();

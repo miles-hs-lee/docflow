@@ -27,6 +27,7 @@ export type DeniedReason =
   | 'password_required'
   | 'file_missing'
   | 'access_not_granted'
+  | 'too_many_attempts'
   | 'unknown';
 
 export type ShareLinkRow = {

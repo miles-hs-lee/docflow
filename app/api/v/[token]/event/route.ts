@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { recordPageViewBatch } from '@/lib/data';
 import { evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ShareLinkRow } from '@/lib/types';
@@ -33,6 +34,18 @@ const BatchPageEventsSchema = z.object({
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
+
+  // Rate limit early — page_view ingest is the cheapest endpoint to spam.
+  // Key by viewer session + hashed IP so one client can't flood the table.
+  const rlSession = normalizeViewerSessionId(request.cookies.get(VIEWER_SESSION_COOKIE)?.value);
+  const rlIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit('viewerEvent', `${token}:${rlSession}:${hashIp(rlIp)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
 
   let body: unknown;
   try {

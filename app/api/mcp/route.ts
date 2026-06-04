@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { authenticateMcpBearerToken, ensureScope, parseBearerToken } from '@/lib/agent-auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { publicEnv } from '@/lib/env-public';
 import { generateShareToken, hashPassword, parseAllowedDomains } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -788,6 +789,13 @@ export async function POST(request: NextRequest) {
   const principal = await authenticateMcpBearerToken(token);
   if (!principal) {
     return rpcError(payload.id, -32001, 'Unauthorized', 'Invalid API key', 401);
+  }
+
+  // Rate limit per API key (post-auth so an invalid key can't consume a
+  // real key's budget, and the key id is non-sensitive).
+  const rl = await checkRateLimit('mcp', principal.keyId);
+  if (!rl.allowed) {
+    return rpcError(payload.id, -32002, 'Rate limited', `Retry after ${rl.retryAfterSeconds}s`, 429);
   }
 
   if (payload.method === 'initialize') {

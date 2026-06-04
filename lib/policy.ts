@@ -73,6 +73,8 @@ export function deniedMessage(reason: DeniedReason) {
       return '현재 이 링크로는 접근할 수 없습니다.';
     case 'max_views_reached':
       return '접근 가능한 조회 횟수를 초과했습니다.';
+    case 'too_many_attempts':
+      return '시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
     case 'domain_not_allowed':
     case 'wrong_password':
     case 'email_required':

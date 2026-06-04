@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import { evaluateBasePolicy } from '@/lib/policy';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   getEmailDomain,
   hashIp,
@@ -145,6 +146,24 @@ export async function submitViewerAccessAction(token: string, formData: FormData
   }
 
   if (bundle.password_hash) {
+    // Brute-force guard: cap password submissions per link + hashed IP.
+    // Keyed on the hashed IP (not session) so an attacker can't reset the
+    // counter by rotating the viewer-session cookie.
+    const pwLimit = await checkRateLimit('viewerPassword', `${bundle.id}:${ctx.ipHash ?? 'unknown'}`);
+    if (!pwLimit.allowed) {
+      await recordDeniedEvent({
+        reason: 'too_many_attempts',
+        linkId: bundle.id,
+        fileId: eventFileId,
+        ownerId: bundle.owner_id,
+        sessionId: ctx.sessionId,
+        viewerEmail: normalizedEmail,
+        ipHash: ctx.ipHash,
+        userAgent: ctx.userAgent
+      });
+      redirect(`/v/${token}?denied=too_many_attempts`);
+    }
+
     if (!rawPassword) {
       await recordDeniedEvent({
         reason: 'password_required',
