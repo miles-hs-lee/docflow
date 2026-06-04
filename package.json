@@ -10,6 +10,7 @@
     "lint:polaris": "eslint app components --config eslint.polaris.config.mjs --max-warnings=0",
     "check:supabase-auth": "node scripts/check-supabase-auth.mjs",
     "check:redis": "node scripts/check-redis.mjs",
+    "check:qstash": "node scripts/check-qstash.mjs",
     "postinstall": "node -e \"const path=require('node:path');const reactPdfDir=path.dirname(require.resolve('react-pdf/package.json'));const worker=require.resolve('pdfjs-dist/build/pdf.worker.min.mjs',{paths:[reactPdfDir]});require('node:fs').copyFileSync(worker,'public/pdf.worker.min.mjs')\""
   },
   "dependencies": {
