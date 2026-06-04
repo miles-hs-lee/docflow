@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
-import { getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
+import { claimView, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -184,6 +184,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
       userAgent
     });
     return buildDeniedResponse('file_missing', 404);
+  }
+
+  // A direct download bypasses the viewer, so it must consume a view
+  // slot just like /document does — otherwise a one_time / max_views
+  // link could be downloaded directly (and repeatedly) without ever
+  // being counted. claim_view is session-deduped, so a viewer who
+  // already loaded the doc and then downloads it in the same session is
+  // not double-counted. Claim after confirming the bytes exist upstream
+  // so a missing storage object doesn't burn a slot.
+  let claim;
+  try {
+    claim = await claimView({
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+  } catch {
+    upstream.body?.cancel().catch(() => {});
+    return buildDeniedResponse('file_missing', 500);
+  }
+  if (!claim.allowed) {
+    upstream.body?.cancel().catch(() => {});
+    const reason = (claim.reason as DeniedReason) ?? 'file_missing';
+    await safeLogDenied({
+      reason,
+      linkId: bundle.id,
+      fileId: targetFile.id,
+      ownerId: bundle.owner_id,
+      sessionId,
+      viewerEmail: grant?.email,
+      ipHash,
+      userAgent
+    });
+    return buildDeniedResponse(reason);
   }
 
   try {

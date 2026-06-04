@@ -194,6 +194,22 @@ function rpcError(id: RpcRequest['id'], code: number, message: string, data?: un
   );
 }
 
+// Strip write-only secrets before returning rows over the MCP boundary.
+// password_hash is the bcrypt verifier for a link's password gate;
+// signing_secret is the HMAC key used to sign outbound webhooks. Neither
+// should ever cross the JSON-RPC boundary — an MCP client (even
+// owner-scoped) could take password hashes offline or forge signed
+// webhook payloads. We omit the field entirely.
+function redactShareLink<T extends Record<string, unknown>>(row: T): Omit<T, 'password_hash'> & { has_password: boolean } {
+  const { password_hash, ...rest } = row;
+  return { ...rest, has_password: password_hash != null };
+}
+
+function redactSubscription<T extends Record<string, unknown>>(row: T): Omit<T, 'signing_secret'> & { has_signing_secret: boolean } {
+  const { signing_secret, ...rest } = row;
+  return { ...rest, has_signing_secret: signing_secret != null };
+}
+
 function toToolResult(data: unknown) {
   return {
     content: [
@@ -424,7 +440,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
 
     return {
       links: (data ?? []).map((link) => ({
-        ...link,
+        ...redactShareLink(link),
         url: `${publicEnv.appUrl}/v/${link.token}`
       }))
     };
@@ -506,7 +522,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
 
     return {
       link: {
-        ...created,
+        ...redactShareLink(created),
         url: `${publicEnv.appUrl}/v/${created.token}`
       }
     };
@@ -583,7 +599,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
 
     return {
       link: {
-        ...updated,
+        ...redactShareLink(updated),
         url: `${publicEnv.appUrl}/v/${updated.token}`
       }
     };
@@ -695,7 +711,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
     }
 
     return {
-      subscription: created
+      subscription: redactSubscription(created)
     };
   }
 
@@ -715,7 +731,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
     const { data, error } = await query;
     if (error) throw error;
     return {
-      subscriptions: data ?? []
+      subscriptions: (data ?? []).map(redactSubscription)
     };
   }
 

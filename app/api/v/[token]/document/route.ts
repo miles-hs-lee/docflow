@@ -147,12 +147,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const rangeHeader = request.headers.get('range');
-  // Treat anything other than "no header" or the trivial "from byte 0"
-  // form as a follow-up partial fetch. Initial loads either omit Range
-  // entirely or send `bytes=0-`; PDF.js's progressive trailer/page
-  // requests come in as `bytes=N-M` and shouldn't burn a max_views slot
-  // (the session was already claimed on the initial 200).
-  const isPartialFollowUp = !!rangeHeader && rangeHeader.trim() !== 'bytes=0-';
 
   let upstream: Response;
   try {
@@ -188,12 +182,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return buildDeniedResponse('file_missing', 404);
   }
 
-  // Atomically claim the view only on the initial fetch. claim_view
-  // (migration 007) takes a SELECT … FOR UPDATE row lock, so doing it
-  // on every Range follow-up would serialize all viewers and add a
-  // round trip per byte chunk. Range requests reuse the cookie that
-  // already passed policy above.
-  if (!isPartialFollowUp) {
+  // Claim the view on EVERY byte-serving request, including Range
+  // follow-ups. claim_view (migration 007) is session-deduped: the first
+  // claim for this viewer session counts it, and subsequent calls (the
+  // chunk-by-chunk Range requests PDF.js makes) return allowed=true with
+  // no counter bump and no new event. Claiming only on a non-Range
+  // "initial" request let an attacker send `Range: bytes=0-N` as the very
+  // first request to read the whole document without ever consuming a
+  // max_views / one_time slot — a policy bypass. The dedup makes the
+  // per-chunk lock cheap (lock + one indexed existence check, no write)
+  // for an already-claimed session.
+  {
     let claim;
     try {
       claim = await claimView({
