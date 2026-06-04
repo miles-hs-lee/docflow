@@ -1,3 +1,4 @@
+import { getRedis, isRedisConfigured } from '@/lib/redis';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { createClient as createOwnerClient } from '@/lib/supabase/server';
 import type {
@@ -417,6 +418,66 @@ export async function claimView(input: {
     allowed: Boolean(row?.allowed),
     reason: (row?.reason as DeniedReason | null) ?? null
   };
+}
+
+// Redis-cached fast path over claimView. After the security fix that
+// claims on EVERY byte-serving request (including PDF.js Range bursts),
+// the Postgres claim_view RPC — a SELECT … FOR UPDATE row lock on
+// share_links — runs per chunk. claim_view is already session-deduped
+// (an already-viewed session returns allowed with no counter bump), so
+// once a session has successfully claimed, every later request is a
+// pure "already viewed?" check. This moves that check from Postgres
+// (lock + SELECT) to a Redis GET.
+//
+// Correctness: Redis is a CACHE, never the source of truth. The marker
+// is set ONLY after a successful Postgres claim, so the fast path can
+// only ever SKIP work for a session that already legitimately consumed
+// its slot — exactly what claim_view itself would allow. Every failure
+// mode (Redis down, marker missing/expired, read/write error) degrades
+// to calling Postgres claim_view, which remains the atomic enforcer of
+// max_views / one_time. The cache can never grant access that
+// claim_view would deny.
+const VIEW_CLAIM_MARKER_TTL_SECONDS = 60 * 60 * 6; // matches grant cookie window
+
+function viewClaimMarkerKey(linkId: string, sessionId: string) {
+  return `claim:${linkId}:${sessionId}`;
+}
+
+export async function claimViewCached(input: {
+  linkId: string;
+  fileId: string;
+  sessionId?: string;
+  viewerEmail?: string;
+  ipHash?: string | null;
+  userAgent?: string | null;
+}): Promise<{ allowed: boolean; reason: DeniedReason | null }> {
+  const canCache = isRedisConfigured() && Boolean(input.sessionId);
+  const key = input.sessionId ? viewClaimMarkerKey(input.linkId, input.sessionId) : null;
+
+  if (canCache && key) {
+    try {
+      const marked = await getRedis().get(key);
+      if (marked) {
+        // Session already claimed this link — skip the Postgres row lock.
+        return { allowed: true, reason: null };
+      }
+    } catch {
+      // Redis read failure → fall through to the authoritative Postgres path.
+    }
+  }
+
+  const result = await claimView(input);
+
+  if (canCache && key && result.allowed) {
+    try {
+      await getRedis().set(key, '1', { ex: VIEW_CLAIM_MARKER_TTL_SECONDS });
+    } catch {
+      // Marker write failure is harmless — the next request just re-hits
+      // claim_view, which dedups to already_viewed → allowed.
+    }
+  }
+
+  return result;
 }
 
 export async function recordLinkEvent(input: {

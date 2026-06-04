@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
-import { claimView, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
+import { claimViewCached, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
 import { checkRateLimit } from '@/lib/rate-limit';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   {
     let claim;
     try {
-      claim = await claimView({
+      claim = await claimViewCached({
         linkId: bundle.id,
         fileId: targetFile.id,
         sessionId,
