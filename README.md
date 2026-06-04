@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 016까지 순서대로** 실행합니다.
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 017까지 순서대로** 실행합니다.
 
 | 번호 | 내용 |
 |---|---|
@@ -99,6 +99,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 016까지
 | 014 | `files(owner_id, created_at desc)` index |
 | 015 | 파일 검색(pg_trgm)·정렬·이벤트피드 index |
 | 016 | 링크별 워터마크 토글 컬럼 (`share_links.watermark`) |
+| 017 | 열람 분석 보강: `share_links.open_count`(총 열람), 페이지별 열람자수(`get_per_page_stats.viewers`), 일별 추세(`get_link_daily_views`) |
 
 ### 4) Supabase Auth
 

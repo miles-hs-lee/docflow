@@ -9,6 +9,7 @@ import type {
   DeniedReason,
   DeniedReasonCount,
   FileRow,
+  LinkDailyView,
   LinkEventRow,
   LinkEventType,
   LinkMetrics,
@@ -276,7 +277,10 @@ export async function getMetricsForLink(_ownerClient: OwnerClient, link: ShareLi
 
   return {
     link_id: link.id,
-    views: link.view_count,
+    // "조회수" = total opens (open_count), distinct from unique sessions.
+    // Falls back to view_count for the brief window before migration 017 is
+    // applied (column absent → open_count is undefined).
+    views: link.open_count ?? link.view_count,
     unique_viewers: typeof unique === 'number' ? unique : Number(unique ?? 0),
     downloads: link.download_count,
     denied: link.denied_count
@@ -599,18 +603,64 @@ export async function listPerPageStats(args: {
     p_link_id: args.linkId ?? undefined
   });
   if (!error && data) {
-    return (data as Array<{ page_number: number; views: number | string; total_dwell_ms: number | string }>).map(
-      (row) => ({
-        page_number: row.page_number,
-        views: Number(row.views),
-        total_dwell_ms: Number(row.total_dwell_ms)
-      })
-    );
+    return (
+      data as Array<{
+        page_number: number;
+        views: number | string;
+        viewers?: number | string;
+        total_dwell_ms: number | string;
+      }>
+    ).map((row) => ({
+      page_number: row.page_number,
+      views: Number(row.views),
+      // Pre-017 envs don't return `viewers`; fall back to the row count so
+      // the UI still renders (over-counts until migration 017 is applied).
+      viewers: Number(row.viewers ?? row.views),
+      total_dwell_ms: Number(row.total_dwell_ms)
+    }));
   }
   if (error) {
     console.error('[listPerPageStats] degraded to empty', error);
   }
   return [];
+}
+
+// Per-day engagement series for a link (migration 017). Used by the link
+// detail "열람 추세" card. Service-role RPC; falls back to [] on error so
+// the card renders an empty state instead of throwing.
+export async function listLinkDailyViews(args: {
+  ownerId: string;
+  linkId: string;
+  days?: number;
+}): Promise<LinkDailyView[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_daily_views', {
+    p_owner_id: args.ownerId,
+    p_link_id: args.linkId,
+    p_days: args.days ?? 30
+  });
+  if (error || !data) {
+    if (error) console.error('[listLinkDailyViews] degraded to empty', error);
+    return [];
+  }
+  return (data as Array<{ day: string; sessions: number | string; new_viewers: number | string }>).map((row) => ({
+    day: row.day,
+    sessions: Number(row.sessions),
+    new_viewers: Number(row.new_viewers)
+  }));
+}
+
+// #1: bump the total-opens counter for a link. Called once per viewer-page
+// render (not per byte-range request), so it counts opens — including
+// repeat opens by the same session — without inflating on PDF.js Range
+// bursts. Best-effort: never block the viewer on an analytics write.
+export async function bumpOpenCount(linkId: string): Promise<void> {
+  const admin = createAdminClient();
+  try {
+    await admin.rpc('increment_link_open_count', { p_link_id: linkId });
+  } catch {
+    // Swallow — opens analytics must never break document rendering.
+  }
 }
 
 export async function uploadPdfObject(args: {

@@ -5,7 +5,7 @@ import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
-import { getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
+import { bumpOpenCount, getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
@@ -152,6 +152,13 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     : `/api/v/${token}/download`;
   const eventEndpoint = `/api/v/${token}/event`;
   const watermarkLabel = grant?.email || 'DocFlow Viewer';
+
+  // #1: count this open. Bumped once per granted viewer-page render — NOT
+  // per PDF.js byte-range request (those hit the /document route, not this
+  // page) — so open_count tracks real opens (incl. repeat opens by the same
+  // session) and stays distinct from the session-deduped unique count.
+  // Best-effort + non-blocking; bumpOpenCount swallows its own errors.
+  await bumpOpenCount(link.id);
 
   return (
     <main className="viewer-app">

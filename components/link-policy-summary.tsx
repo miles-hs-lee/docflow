@@ -1,6 +1,6 @@
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@polaris/ui';
 
-import { formatDateOnly, formatDateTime } from '@/lib/format';
+import { LocalDate } from '@/components/local-date';
 
 type LinkPolicySummaryProps = {
   link: {
@@ -23,10 +23,12 @@ export function LinkPolicySummary({ link }: LinkPolicySummaryProps) {
   return (
     <DescriptionList layout="inline" className="link-policy-summary">
       <DescriptionTerm>생성일</DescriptionTerm>
-      <DescriptionDetails>{formatDateOnly(link.created_at)}</DescriptionDetails>
+      <DescriptionDetails>
+        <LocalDate value={link.created_at} mode="date" />
+      </DescriptionDetails>
 
       <DescriptionTerm>만료</DescriptionTerm>
-      <DescriptionDetails>{link.expires_at ? formatDateTime(link.expires_at) : '없음'}</DescriptionDetails>
+      <DescriptionDetails>{link.expires_at ? <LocalDate value={link.expires_at} /> : '없음'}</DescriptionDetails>
 
       <DescriptionTerm>다운로드</DescriptionTerm>
       <DescriptionDetails>{link.allow_download ? '허용' : '차단'}</DescriptionDetails>

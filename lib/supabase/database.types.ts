@@ -301,6 +301,7 @@ export type Database = {
           watermark: boolean;
           deleted_at: string | null;
           view_count: number;
+          open_count: number;
           download_count: number;
           denied_count: number;
           policy_version: number;
@@ -325,6 +326,7 @@ export type Database = {
           watermark?: boolean;
           deleted_at?: string | null;
           view_count?: number;
+          open_count?: number;
           download_count?: number;
           denied_count?: number;
           policy_version?: number;
@@ -349,6 +351,7 @@ export type Database = {
           watermark?: boolean;
           deleted_at?: string | null;
           view_count?: number;
+          open_count?: number;
           download_count?: number;
           denied_count?: number;
           policy_version?: number;
@@ -550,6 +553,7 @@ export type Database = {
         Returns: {
           page_number: number;
           views: number;
+          viewers: number;
           total_dwell_ms: number;
         }[];
       };
@@ -560,11 +564,29 @@ export type Database = {
         };
         Returns: number;
       };
+      get_link_daily_views: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+          p_days?: number;
+        };
+        Returns: {
+          day: string;
+          sessions: number;
+          new_viewers: number;
+        }[];
+      };
       get_viewer_link_bundle: {
         Args: {
           p_token: string;
         };
         Returns: Json;
+      };
+      increment_link_open_count: {
+        Args: {
+          p_link_id: string;
+        };
+        Returns: undefined;
       };
     };
     Enums: {

@@ -22,15 +22,15 @@ import { notFound } from 'next/navigation';
 import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
+import { LocalDate } from '@/components/local-date';
 import {
   createCollectionShareLinkAction,
   softDeleteLinkAction,
   updateShareLinkAction
 } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
-import { getCollection, listFilesForCollection, listLinksForCollection } from '@/lib/data';
+import { getCollection, getMetricsForLink, listFilesForCollection, listLinksForCollection } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
-import { formatDateOnly } from '@/lib/format';
 import { linkStatus, statusVariant } from '@/lib/link-status';
 
 type CollectionLinksPageProps = {
@@ -50,6 +50,12 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   if (!collection) {
     notFound();
   }
+
+  // #5: collection link cards previously showed only raw counters (no
+  // unique). getMetricsForLink works for collection links (link_id-scoped),
+  // so fetch per-link metrics to surface 유니크 consistently with file cards.
+  const metricsList = await Promise.all(links.map((linkRow) => getMetricsForLink(supabase, linkRow)));
+  const metricsMap = new Map(metricsList.map((metric) => [metric.link_id, metric]));
 
   // Configured app URL, not the request host (avoids X-Forwarded-Host
   // spoofing → phishing share URLs, and proxy/preview host leakage).
@@ -140,6 +146,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               <Stack gap={3}>
                 {links.map((link) => {
                   const status = linkStatus(link);
+                  const metrics = metricsMap.get(link.id);
                   const url = `${appOrigin}/v/${link.token}`;
 
                   return (
@@ -168,17 +175,20 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                       </div>
 
                       <StatGroup cols={4} unwrapped>
-                        <Stat label="조회수" value={link.view_count} />
-                        <Stat label="다운로드" value={link.download_count} />
+                        <Stat label="조회수" value={metrics?.views ?? link.open_count} helper="총 열람" />
+                        <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
+                        <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
                         <Stat
                           label="거부"
-                          value={link.denied_count}
-                          {...(link.denied_count > 0
+                          value={metrics?.denied ?? link.denied_count}
+                          {...((metrics?.denied ?? link.denied_count) > 0
                             ? { delta: '주의', deltaVariant: 'negative' as const }
                             : {})}
                         />
-                        <Stat label="생성일" value={formatDateOnly(link.created_at)} />
                       </StatGroup>
+                      <p className="muted small">
+                        생성일 <LocalDate value={link.created_at} mode="date" />
+                      </p>
 
                       <details className="link-edit-toggle">
                         <summary>정책 수정</summary>

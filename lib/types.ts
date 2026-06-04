@@ -47,7 +47,11 @@ export type ShareLinkRow = {
   one_time: boolean;
   watermark: boolean;
   deleted_at: string | null;
+  // Session-deduped view claims — drives max_views / one_time enforcement.
   view_count: number;
+  // Total viewer-page opens (repeat-inclusive). Surfaced as "조회수"; pairs
+  // with unique_viewers ("유니크") so the two tiles are no longer identical.
+  open_count: number;
   download_count: number;
   denied_count: number;
   policy_version: number;
@@ -135,8 +139,19 @@ export type LinkEventRow = {
 
 export type PerPageStat = {
   page_number: number;
+  // Raw page_view row count (one per dwell segment) — internal use.
   views: number;
+  // Distinct sessions that read this page — what the UI surfaces ("N명").
+  viewers: number;
   total_dwell_ms: number;
+};
+
+export type LinkDailyView = {
+  day: string;
+  // Distinct sessions with any view/page_view activity that day.
+  sessions: number;
+  // First-time 'view' events that day (new unique viewers).
+  new_viewers: number;
 };
 
 export type OutboxPayload = {
@@ -159,6 +174,7 @@ export type ViewerLinkBundle = ShareLinkRow & {
 
 export type LinkMetrics = {
   link_id: string;
+  // Total opens (open_count) — repeat-inclusive, distinct from unique_viewers.
   views: number;
   unique_viewers: number;
   downloads: number;

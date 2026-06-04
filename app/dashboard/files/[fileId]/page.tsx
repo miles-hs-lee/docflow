@@ -22,6 +22,8 @@ import { notFound } from 'next/navigation';
 import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
+import { LocalDate } from '@/components/local-date';
+import { PageHeatmap } from '@/components/page-heatmap';
 import {
   createShareLinkAction,
   softDeleteLinkAction,
@@ -30,7 +32,6 @@ import {
 import { publicEnv } from '@/lib/env-public';
 import { requireOwner } from '@/lib/auth';
 import { getFile, getMetricsForFile, listLinksForFile, listPerPageStats } from '@/lib/data';
-import { formatDateTime } from '@/lib/format';
 import { linkStatus, statusVariant } from '@/lib/link-status';
 
 type FileLinksPageProps = {
@@ -64,7 +65,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
           eyebrow={
             <Stack direction="row" align="center" gap={2}>
               <FileIcon type="pdf" size={20} />
-              <span className="muted small">PDF · 업로드 {formatDateTime(file.created_at)}</span>
+              <span className="muted small">PDF · 업로드 <LocalDate value={file.created_at} /></span>
             </Stack>
           }
           title={file.original_name}
@@ -83,34 +84,8 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
             <CardTitle>페이지별 열람 통계</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">상대가 어느 페이지에서 가장 오래 머물렀는지를 누적 dwell 시간으로 보여줍니다. 0.8초 미만 짧은 노출은 제외됩니다.</p>
-            {pageStats.length === 0 ? (
-              <EmptyState
-                title="아직 페이지 단위 신호가 없습니다"
-                description="공유 링크를 통해 PDF를 열람하면 페이지별 누적 시간이 여기 표시됩니다."
-              />
-            ) : (
-              <div className="page-heatmap">
-                {(() => {
-                  const max = Math.max(...pageStats.map((p) => p.total_dwell_ms), 1);
-                  return pageStats.map((p) => {
-                    const seconds = Math.round(p.total_dwell_ms / 1000);
-                    const widthPct = Math.max(2, Math.round((p.total_dwell_ms / max) * 100));
-                    return (
-                      <div key={p.page_number} className="page-heatmap-row">
-                        <span className="page-heatmap-page">p.{p.page_number}</span>
-                        <div className="page-heatmap-bar">
-                          <div className="page-heatmap-bar-fill" style={{ width: `${widthPct}%` }} />
-                        </div>
-                        <span className="page-heatmap-dwell">
-                          {seconds}s · {p.views}회
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            )}
+            <p className="muted">상대가 어느 페이지에서 가장 오래 머물렀는지를 누적 dwell 시간과 열람자 수로 보여줍니다. 이 파일의 모든 링크를 합산하며, 0.8초 미만 짧은 노출은 제외됩니다.</p>
+            <PageHeatmap stats={pageStats} />
           </CardBody>
         </Card>
 

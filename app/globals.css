@@ -1111,10 +1111,15 @@ svg {
 
 .page-heatmap-row {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr) 4.5rem;
+  grid-template-columns: 3rem minmax(0, 1fr) 5.5rem;
   align-items: center;
   gap: var(--polaris-spacing-xs);
   font-size: 0.85rem;
+}
+
+.heatmap-reach {
+  margin: 0 0 var(--polaris-spacing-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .page-heatmap-page {
@@ -1142,6 +1147,44 @@ svg {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.event-log-pager {
+  margin-top: var(--polaris-spacing-sm);
+  justify-content: flex-end;
+}
+
+/* Daily engagement sparkline (review finding #7). */
+.daily-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 88px;
+  width: 100%;
+}
+
+.daily-chart-col {
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.daily-chart-track {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: var(--surface-soft);
+  border-radius: var(--polaris-radius-sm);
+  overflow: hidden;
+}
+
+.daily-chart-bar {
+  width: 100%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ai) 70%, var(--primary)), var(--primary));
+  border-radius: var(--polaris-radius-sm) var(--polaris-radius-sm) 0 0;
+  min-height: 0;
 }
 
 @media (max-width: 980px) {
