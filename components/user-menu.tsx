@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@polaris/ui';
 import { ExpandIcon, SettingsIcon } from '@polaris/ui/icons';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const THEME_STORAGE_KEY = 'docflow-theme';
@@ -34,6 +34,7 @@ function applyTheme(next: 'light' | 'dark') {
 }
 
 export function UserMenu({ email }: { email: string }) {
+  const router = useRouter();
   const initial = (email.trim()[0] ?? '?').toUpperCase();
   const [isDark, setIsDark] = useState(false);
 
@@ -61,15 +62,17 @@ export function UserMenu({ email }: { email: string }) {
           {email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* icon goes INSIDE the Link, not via the `icon` prop: with asChild
-            the item renders into a Radix Slot, and Slot requires a single
-            child — `icon` would add a second and crash React.Children.only.
-            itemBase already applies flex + gap so [icon, text] align. */}
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/settings">
-            <SettingsIcon size={16} aria-hidden />
-            계정 설정
-          </Link>
+        {/* Do NOT use `asChild` here. v0.8 DropdownMenuItem always renders
+            children as a 2-element array `[icon, children]`; under asChild
+            that array is handed to a Radix Slot whose React.Children.only
+            requires exactly one child → crash, even when no icon is passed.
+            So we navigate via onSelect + router instead of wrapping a Link,
+            which also lets the `icon` slot work normally. */}
+        <DropdownMenuItem
+          icon={<SettingsIcon size={16} />}
+          onSelect={() => router.push('/dashboard/settings')}
+        >
+          계정 설정
         </DropdownMenuItem>
         <DropdownMenuCheckboxItem checked={isDark} onCheckedChange={handleThemeChange}>
           다크 모드
