@@ -459,6 +459,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
       requireEmail: z.boolean().optional(),
       allowDownload: z.boolean().optional(),
       oneTime: z.boolean().optional(),
+      watermark: z.boolean().optional(),
       password: z.string().optional()
     });
     const parsed = schema.safeParse(args);
@@ -512,7 +513,8 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
         allowed_domains: allowedDomains,
         password_hash: passwordHash,
         allow_download: payload.allowDownload ?? false,
-        one_time: payload.oneTime ?? false
+        one_time: payload.oneTime ?? false,
+        watermark: payload.watermark ?? true
       })
       .select('*')
       .maybeSingle();
@@ -576,6 +578,9 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
     }
     if (typeof args.oneTime === 'boolean') {
       updatePayload.one_time = args.oneTime;
+    }
+    if (typeof args.watermark === 'boolean') {
+      updatePayload.watermark = args.watermark;
     }
 
     if (args.clearPassword === true) {

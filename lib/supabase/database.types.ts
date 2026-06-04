@@ -298,6 +298,7 @@ export type Database = {
           password_hash: string | null;
           allow_download: boolean;
           one_time: boolean;
+          watermark: boolean;
           deleted_at: string | null;
           view_count: number;
           download_count: number;
@@ -321,6 +322,7 @@ export type Database = {
           password_hash?: string | null;
           allow_download?: boolean;
           one_time?: boolean;
+          watermark?: boolean;
           deleted_at?: string | null;
           view_count?: number;
           download_count?: number;
@@ -344,6 +346,7 @@ export type Database = {
           password_hash?: string | null;
           allow_download?: boolean;
           one_time?: boolean;
+          watermark?: boolean;
           deleted_at?: string | null;
           view_count?: number;
           download_count?: number;

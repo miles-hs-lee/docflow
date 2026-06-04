@@ -194,6 +194,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
           eventEndpoint={eventEndpoint}
           fileId={link.collection_id ? activeFile.id : undefined}
           watermarkLabel={watermarkLabel}
+          watermark={link.watermark}
         />
       </section>
     </main>

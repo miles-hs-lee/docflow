@@ -119,6 +119,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                 <Checkbox name="requireEmail" label="이메일 요구" containerClassName="check-item" />
                 <Checkbox name="allowDownload" label="다운로드 허용" containerClassName="check-item" />
                 <Checkbox name="oneTime" label="1회성 링크" containerClassName="check-item" />
+                <Checkbox name="watermark" defaultChecked label="워터마크" containerClassName="check-item" />
               </div>
               <Button type="submit">링크 생성</Button>
             </form>
@@ -194,6 +195,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                             <Checkbox name="requireEmail" defaultChecked={link.require_email} label="이메일 요구" containerClassName="check-item" />
                             <Checkbox name="allowDownload" defaultChecked={link.allow_download} label="다운로드 허용" containerClassName="check-item" />
                             <Checkbox name="oneTime" defaultChecked={link.one_time} label="1회성" containerClassName="check-item" />
+                            <Checkbox name="watermark" defaultChecked={link.watermark} label="워터마크" containerClassName="check-item" />
                             <Checkbox name="clearPassword" label="비밀번호 제거" containerClassName="check-item" />
                           </div>
                           <Button type="submit">수정 저장</Button>

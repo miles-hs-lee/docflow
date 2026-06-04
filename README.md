@@ -16,7 +16,7 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 - **링크 정책** (링크별):
   - 활성/비활성, 만료일, 최대 조회수, 1회성
   - 이메일 입력 요구, 허용 도메인 화이트리스트, 비밀번호
-  - 다운로드 허용/차단
+  - 다운로드 허용/차단, 워터마크 표시/숨김
 - **링크 라이프사이클**: 수정 / 소프트 삭제 / 휴지통 복구 / 영구 삭제
 - **분석**:
   - 링크별 view / unique(세션 기준) / download / denied
@@ -31,7 +31,7 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 ### Viewer (비로그인)
 
 - 공유 링크 접근 → 정책 평가 → PDF 열람
-- **페이지 단위 watermark** (이메일/시간/페이지 번호) — 캡처 추적용
+- **페이지 단위 watermark** (이메일/시간/페이지 번호) — 캡처 추적용, 링크별 표시/숨김 토글
 - 진행형 로딩 — PDF.js Range 요청 + 페이지 가상화 (±2 페이지만 렌더)
 - **페이지별 dwell 추적** (스크롤/이탈 시점 batched POST)
 - 다운로드 허용 링크에서만 다운로드 가능
@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 015까지 순서대로** 실행합니다.
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 016까지 순서대로** 실행합니다.
 
 | 번호 | 내용 |
 |---|---|
@@ -98,6 +98,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 015까지
 | 013 | 성능 RPC (페이지 통계, 뷰어 번들, 이벤트 verify) + composite indexes |
 | 014 | `files(owner_id, created_at desc)` index |
 | 015 | 파일 검색(pg_trgm)·정렬·이벤트피드 index |
+| 016 | 링크별 워터마크 토글 컬럼 (`share_links.watermark`) |
 
 ### 4) Supabase Auth
 

@@ -11,6 +11,7 @@ type LinkPolicySummaryProps = {
     require_email: boolean;
     allowed_domains: string[];
     one_time: boolean;
+    watermark: boolean;
   };
 };
 
@@ -29,6 +30,9 @@ export function LinkPolicySummary({ link }: LinkPolicySummaryProps) {
 
       <DescriptionTerm>다운로드</DescriptionTerm>
       <DescriptionDetails>{link.allow_download ? '허용' : '차단'}</DescriptionDetails>
+
+      <DescriptionTerm>워터마크</DescriptionTerm>
+      <DescriptionDetails>{link.watermark ? '표시' : '없음'}</DescriptionDetails>
 
       <DescriptionTerm>최대 조회수</DescriptionTerm>
       <DescriptionDetails>{link.max_views ?? '제한 없음'}</DescriptionDetails>

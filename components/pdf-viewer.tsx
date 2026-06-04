@@ -38,6 +38,8 @@ type PdfViewerProps = {
   eventEndpoint: string;
   fileId?: string;
   watermarkLabel: string;
+  /** Whether to tile the dynamic watermark over each page. Default: true. */
+  watermark?: boolean;
 };
 
 type PageRecord = {
@@ -45,7 +47,13 @@ type PageRecord = {
   el: HTMLDivElement | null;
 };
 
-export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }: PdfViewerProps) {
+export function PdfViewer({
+  documentSrc,
+  eventEndpoint,
+  fileId,
+  watermarkLabel,
+  watermark = true
+}: PdfViewerProps) {
   const [numPages, setNumPages] = useState(0);
   const [width, setWidth] = useState(0);
   const [activePage, setActivePage] = useState(1);
@@ -262,7 +270,7 @@ export function PdfViewer({ documentSrc, eventEndpoint, fileId, watermarkLabel }
                     renderAnnotationLayer={false}
                     onLoadSuccess={(p) => recordPageSize(pageNumber, p.height)}
                   />
-                  <Watermark label={watermarkLabel} pageNumber={pageNumber} />
+                  {watermark ? <Watermark label={watermarkLabel} pageNumber={pageNumber} /> : null}
                 </div>
               ) : null}
             </div>

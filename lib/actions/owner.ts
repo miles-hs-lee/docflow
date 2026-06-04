@@ -405,7 +405,8 @@ export async function createShareLinkAction(formData: FormData) {
     allowed_domains: allowedDomains,
     password_hash: passwordHash,
     allow_download: parseBoolean(formData, 'allowDownload'),
-    one_time: parseBoolean(formData, 'oneTime')
+    one_time: parseBoolean(formData, 'oneTime'),
+    watermark: parseBoolean(formData, 'watermark')
   });
 
   if (error) {
@@ -459,7 +460,8 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     allowed_domains: allowedDomains,
     password_hash: passwordHash,
     allow_download: parseBoolean(formData, 'allowDownload'),
-    one_time: parseBoolean(formData, 'oneTime')
+    one_time: parseBoolean(formData, 'oneTime'),
+    watermark: parseBoolean(formData, 'watermark')
   });
 
   if (error) {
@@ -522,7 +524,8 @@ export async function updateShareLinkAction(formData: FormData) {
       allowed_domains: allowedDomains,
       password_hash: passwordHash,
       allow_download: parseBoolean(formData, 'allowDownload'),
-      one_time: parseBoolean(formData, 'oneTime')
+      one_time: parseBoolean(formData, 'oneTime'),
+      watermark: parseBoolean(formData, 'watermark')
     })
     .eq('id', linkId)
     .eq('owner_id', user.id);
