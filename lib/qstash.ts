@@ -1,7 +1,7 @@
 import { Client } from '@upstash/qstash';
 
 import { publicEnv } from '@/lib/env-public';
-import { getRedis, isRedisConfigured } from '@/lib/redis';
+import { getRedis, isRedisConfigured, withRedisTimeout } from '@/lib/redis';
 
 // Near-real-time webhook delivery trigger.
 //
@@ -38,18 +38,32 @@ export function isQstashConfigured(): boolean {
 
 function getClient(): Client {
   if (!token) throw new Error('Missing QSTASH_TOKEN');
-  if (!client) client = new Client({ token, baseUrl });
+  // retries: 1 (not the SDK default of 5) so a publish failure trips fast
+  // instead of stalling the viewer request path; the daily cron backstop
+  // covers anything that doesn't get published.
+  if (!client) client = new Client({ token, baseUrl, retry: { retries: 1 } });
   return client;
 }
 
-const COALESCE_KEY = 'qstash:dispatch:pending';
 const COALESCE_TTL_SECONDS = 20;
 // Small delay so a burst of events accumulates in the outbox before the
 // single coalesced dispatch run.
 const DISPATCH_DELAY = '5s';
+// Hard ceiling — this runs awaited in the viewer request path, so a hung
+// Redis/QStash socket must not stall the response. On timeout we just
+// skip; the daily cron backstop still drains the outbox.
+const KICK_TIMEOUT_MS = 1500;
 
-export async function kickWebhookDispatch(): Promise<void> {
-  if (!isQstashConfigured() || !isRedisConfigured()) return;
+// Per-owner coalesce key: a burst from one owner produces at most one
+// QStash message per window, but a different owner's event in the same
+// window still schedules its own near-real-time run (a single global key
+// would suppress it until the next event or the daily cron).
+function coalesceKey(ownerId: string) {
+  return `qstash:dispatch:pending:${ownerId}`;
+}
+
+export async function kickWebhookDispatch(ownerId: string): Promise<void> {
+  if (!isQstashConfigured() || !isRedisConfigured() || !ownerId) return;
 
   // QStash calls us from its own servers, so the callback must be a
   // publicly reachable URL — skip localhost (dev).
@@ -61,9 +75,18 @@ export async function kickWebhookDispatch(): Promise<void> {
   const cronSecret = process.env.AUTOMATION_CRON_SECRET || process.env.CRON_SECRET;
   if (!cronSecret) return;
 
+  await withRedisTimeout(doKick(ownerId, appUrl, cronSecret), KICK_TIMEOUT_MS, undefined).catch(() => {
+    // Best-effort — daily cron backstop still delivers.
+  });
+}
+
+async function doKick(ownerId: string, appUrl: string, cronSecret: string): Promise<void> {
   try {
     // NX coalesce — only the first event in the window schedules a run.
-    const acquired = await getRedis().set(COALESCE_KEY, '1', { nx: true, ex: COALESCE_TTL_SECONDS });
+    const acquired = await getRedis().set(coalesceKey(ownerId), '1', {
+      nx: true,
+      ex: COALESCE_TTL_SECONDS
+    });
     if (!acquired) return;
   } catch {
     return; // Redis hiccup — daily cron backstop still delivers.
@@ -76,7 +99,7 @@ export async function kickWebhookDispatch(): Promise<void> {
       headers: { Authorization: `Bearer ${cronSecret}` },
       delay: DISPATCH_DELAY,
       body: { trigger: 'event' },
-      retries: 3
+      retries: 1
     });
   } catch {
     // Publish failed — daily cron backstop still drains the outbox.

@@ -446,6 +446,8 @@ function viewClaimMarkerKey(linkId: string, sessionId: string) {
 
 export async function claimViewCached(input: {
   linkId: string;
+  /** Link owner — only used to key the per-owner webhook dispatch kick. */
+  ownerId: string;
   fileId: string;
   sessionId?: string;
   viewerEmail?: string;
@@ -478,7 +480,7 @@ export async function claimViewCached(input: {
     }
     // Cache-miss + allowed = a fresh 'view' row was inserted by claim_view,
     // so the outbox trigger may have queued a webhook. Kick the dispatcher.
-    await kickWebhookDispatch();
+    await kickWebhookDispatch(input.ownerId);
   }
 
   return result;
@@ -520,7 +522,7 @@ export async function recordLinkEvent(input: {
   // download / denied / email_submitted / password_failed are all
   // webhook-eligible (page_view goes through recordPageViewBatch and is
   // not). Kick the near-real-time dispatcher; coalesced + best-effort.
-  await kickWebhookDispatch();
+  await kickWebhookDispatch(input.ownerId);
 }
 
 // Batched page_view ingest: one multi-row INSERT instead of N single-row

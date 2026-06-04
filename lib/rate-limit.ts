@@ -1,6 +1,6 @@
 import { Ratelimit } from '@upstash/ratelimit';
 
-import { getRedis, isRedisConfigured } from '@/lib/redis';
+import { getRedis, isRedisConfigured, withRedisTimeout } from '@/lib/redis';
 
 // Centralized sliding-window rate limiting on Upstash Redis.
 //
@@ -13,7 +13,15 @@ import { getRedis, isRedisConfigured } from '@/lib/redis';
 //   - A transient Redis error at request time also fails OPEN — a rate
 //     limiter outage must not take the whole service down — but is the
 //     only path that bypasses limits once configured.
-if (process.env.NODE_ENV === 'production' && !isRedisConfigured()) {
+// Skip the guard during `next build` (NEXT_PHASE === 'phase-production-build'),
+// which evaluates route modules with NODE_ENV=production but without
+// runtime secrets in CI/Docker. The guard still fires at runtime module
+// load in production, so a misconfigured deploy fails loudly on first hit.
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
+  !isRedisConfigured()
+) {
   throw new Error(
     'Rate limiting requires UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN in production.'
   );
@@ -67,6 +75,10 @@ export type RateLimitResult = {
 
 const ALLOW: RateLimitResult = { allowed: true, remaining: -1, retryAfterSeconds: 0 };
 
+// Hard ceiling so a hung Redis socket can't stall the request before the
+// retry/error path fires. On timeout we fail open (availability > limiting).
+const LIMIT_TIMEOUT_MS = 1500;
+
 /**
  * Consume one token for `identifier` under the given limit kind.
  * Returns `allowed: false` when the caller is over the limit.
@@ -77,7 +89,9 @@ export async function checkRateLimit(kind: RateLimitKind, identifier: string): P
   const limiter = getLimiter(kind);
   if (!limiter) return ALLOW; // dev fail-open (prod is guarded at boot)
   try {
-    const { success, remaining, reset } = await limiter.limit(identifier);
+    const outcome = await withRedisTimeout(limiter.limit(identifier), LIMIT_TIMEOUT_MS, null);
+    if (!outcome) return ALLOW; // timed out → fail open fast
+    const { success, remaining, reset } = outcome;
     return {
       allowed: success,
       remaining,

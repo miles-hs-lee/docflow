@@ -30,7 +30,26 @@ export function getRedis(): Redis {
     );
   }
   if (!client) {
-    client = new Redis({ url, token });
+    // retries: 1 (not the SDK default of 5 ≈ 4.3s backoff) so that during
+    // a Redis brownout the rate limiter / claim cache fail open FAST
+    // instead of stalling each request for seconds before the catch trips.
+    client = new Redis({ url, token, retry: { retries: 1 } });
   }
   return client;
+}
+
+// Run a Redis-backed op with a hard latency ceiling. Redis is on the
+// viewer request hot path (rate limit, claim cache); a hung socket isn't
+// bounded by retry config, so callers wrap with this and fall back to
+// `onTimeout` (fail-open / skip) rather than block the response.
+export async function withRedisTimeout<T, F>(op: Promise<T>, ms: number, onTimeout: F): Promise<T | F> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<F>((resolve) => {
+    timer = setTimeout(() => resolve(onTimeout), ms);
+  });
+  try {
+    return await Promise.race([op, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

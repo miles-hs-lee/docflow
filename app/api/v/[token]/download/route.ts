@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { claimView, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
+import { checkRateLimit } from '@/lib/rate-limit';
 import type { DeniedReason } from '@/lib/types';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
@@ -66,6 +67,18 @@ async function safeLogDenied(args: {
 export async function GET(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
   const requestedFileId = request.nextUrl.searchParams.get('fileId');
+
+  // Rate limit full-PDF downloads (shares the document-route budget). A
+  // client rotating/omitting the session cookie re-claims per request, so
+  // the hashed IP is the authoritative cap here.
+  const rlIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rl = await checkRateLimit('viewerDocument', `dl:${token}:${hashIp(rlIp)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
 
   const bundle = await getViewerLinkByToken(token);
   if (!bundle) {

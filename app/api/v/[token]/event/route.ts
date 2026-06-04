@@ -36,10 +36,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
 
   // Rate limit early — page_view ingest is the cheapest endpoint to spam.
-  // Key by viewer session + hashed IP so one client can't flood the table.
-  const rlSession = normalizeViewerSessionId(request.cookies.get(VIEWER_SESSION_COOKIE)?.value);
+  // Key on token + hashed IP only (NOT the session cookie, which is
+  // attacker-rotatable — including it would let a flooder mint a fresh
+  // bucket per request). IP is the authoritative cap for this spam vector.
   const rlIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const rl = await checkRateLimit('viewerEvent', `${token}:${rlSession}:${hashIp(rlIp)}`);
+  const rl = await checkRateLimit('viewerEvent', `${token}:${hashIp(rlIp)}`);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'rate_limited' },

@@ -210,6 +210,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     try {
       claim = await claimViewCached({
         linkId: bundle.id,
+        ownerId: bundle.owner_id,
         fileId: targetFile.id,
         sessionId,
         viewerEmail: grant?.email,
