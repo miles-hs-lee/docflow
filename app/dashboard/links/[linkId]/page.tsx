@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation';
 import { DailyViewsChart } from '@/components/daily-views-chart';
 import { LocalDate } from '@/components/local-date';
 import { PageHeatmap } from '@/components/page-heatmap';
+import { VisitorList } from '@/components/visitor-list';
 import { requireOwner } from '@/lib/auth';
 import {
   getDeniedBreakdown,
@@ -30,6 +31,7 @@ import {
   getMetricsForLink,
   listFilesForCollection,
   listLinkDailyViews,
+  listLinkVisitors,
   listPerPageStats
 } from '@/lib/data';
 import type { PerPageStat } from '@/lib/types';
@@ -77,7 +79,7 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
     eventsQuery = eventsQuery.lt('id', beforeId);
   }
 
-  const [fileResult, collectionResult, deniedBreakdown, eventsResult, metrics, dailyViews, collectionFiles] =
+  const [fileResult, collectionResult, deniedBreakdown, eventsResult, metrics, dailyViews, collectionFiles, visitors] =
     await Promise.all([
       link.file_id
         ? supabase.from('files').select('id, original_name').eq('id', link.file_id).maybeSingle()
@@ -89,7 +91,8 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
       eventsQuery,
       getMetricsForLink(supabase, link),
       listLinkDailyViews({ ownerId: link.owner_id, linkId: link.id, days: 30 }),
-      link.collection_id ? listFilesForCollection(supabase, link.collection_id) : Promise.resolve([])
+      link.collection_id ? listFilesForCollection(supabase, link.collection_id) : Promise.resolve([]),
+      listLinkVisitors({ ownerId: link.owner_id, linkId: link.id })
     ]);
 
   const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || null;
@@ -163,6 +166,16 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
                   : {})}
               />
             </StatGroup>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>방문자</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">이 링크를 열람한 방문자별 활동입니다. 이메일을 수집한 경우 같은 사람의 여러 방문이 한 행으로 합쳐집니다.</p>
+            <VisitorList visitors={visitors} />
           </CardBody>
         </Card>
 

@@ -167,11 +167,34 @@ export default async function AutomationsPage() {
             <CardTitle>이벤트 자동화 구독</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">지정한 이벤트가 발생하면 웹훅으로 payload를 전달합니다.</p>
+            <p className="muted">지정한 이벤트가 발생하면 거의 실시간(QStash)으로 웹훅 또는 Microsoft Teams 채널에 알림을 전달합니다.</p>
             <form action={createAutomationSubscriptionAction} className="form-grid">
-              <Input name="name" required label="구독 이름" placeholder="예: 영업팀 Slack 알림" />
+              <Input name="name" required label="구독 이름" placeholder="예: 영업팀 열람 알림" />
+              <label className="field-block">
+                <span className="muted small">전달 대상</span>
+                <select
+                  name="destinationType"
+                  defaultValue="webhook"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.625rem',
+                    borderRadius: 8,
+                    border: '1px solid #d0d5dd',
+                    background: '#fff',
+                    color: 'inherit',
+                    font: 'inherit'
+                  }}
+                >
+                  <option value="webhook">웹훅 (Generic JSON)</option>
+                  <option value="teams">Microsoft Teams</option>
+                </select>
+              </label>
               <Input type="url" name="webhookUrl" required label="Webhook URL" placeholder="https://example.com/webhooks/docflow" />
-              <Input name="signingSecret" label="서명 시크릿 (선택)" placeholder="HMAC 검증용 비밀값" />
+              <Input name="signingSecret" label="서명 시크릿 (선택)" placeholder="HMAC 검증용 비밀값 · Teams에는 사용 안 함" />
+              <p className="muted small">
+                Microsoft Teams를 선택하면 Power Automate에서 <strong>&quot;When a Teams webhook request is received&quot;</strong> →{' '}
+                <strong>&quot;Post card in a channel&quot;</strong> 흐름을 만들고, 생성된 URL을 위 Webhook URL에 붙여넣으세요. DocFlow가 Adaptive Card를 전송합니다.
+              </p>
               <Checkbox name="isActive" defaultChecked label="즉시 활성화" containerClassName="check-inline" />
               <fieldset className="form-fieldset">
                 <legend>구독 이벤트</legend>
@@ -201,6 +224,7 @@ export default async function AutomationsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>이름</TableHead>
+                    <TableHead nowrap>대상</TableHead>
                     <TableHead>Webhook</TableHead>
                     <TableHead>이벤트</TableHead>
                     <TableHead nowrap>최근 전달</TableHead>
@@ -213,6 +237,11 @@ export default async function AutomationsPage() {
                   {subscriptions.map((subscription) => (
                     <TableRow key={subscription.id}>
                       <TableCell>{subscription.name}</TableCell>
+                      <TableCell nowrap>
+                        <Badge variant={subscription.destination_type === 'teams' ? 'secondary' : 'neutral'} tone="subtle">
+                          {subscription.destination_type === 'teams' ? 'Teams' : '웹훅'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="mono">{subscription.webhook_url}</TableCell>
                       <TableCell className="mono">{subscription.event_types.join(', ')}</TableCell>
                       <TableCell nowrap>{formatDateTime(subscription.last_delivery_at)}</TableCell>

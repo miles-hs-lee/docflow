@@ -104,6 +104,7 @@ export type Database = {
           webhook_url: string;
           signing_secret: string | null;
           event_types: string[];
+          destination_type: 'webhook' | 'teams';
           is_active: boolean;
           last_delivery_at: string | null;
           last_error: string | null;
@@ -117,6 +118,7 @@ export type Database = {
           webhook_url: string;
           signing_secret?: string | null;
           event_types: string[];
+          destination_type?: 'webhook' | 'teams';
           is_active?: boolean;
           last_delivery_at?: string | null;
           last_error?: string | null;
@@ -130,6 +132,7 @@ export type Database = {
           webhook_url?: string;
           signing_secret?: string | null;
           event_types?: string[];
+          destination_type?: 'webhook' | 'teams';
           is_active?: boolean;
           last_delivery_at?: string | null;
           last_error?: string | null;
@@ -299,6 +302,8 @@ export type Database = {
           allow_download: boolean;
           one_time: boolean;
           watermark: boolean;
+          require_agreement: boolean;
+          agreement_text: string | null;
           deleted_at: string | null;
           view_count: number;
           open_count: number;
@@ -324,6 +329,8 @@ export type Database = {
           allow_download?: boolean;
           one_time?: boolean;
           watermark?: boolean;
+          require_agreement?: boolean;
+          agreement_text?: string | null;
           deleted_at?: string | null;
           view_count?: number;
           open_count?: number;
@@ -349,6 +356,8 @@ export type Database = {
           allow_download?: boolean;
           one_time?: boolean;
           watermark?: boolean;
+          require_agreement?: boolean;
+          agreement_text?: string | null;
           deleted_at?: string | null;
           view_count?: number;
           open_count?: number;
@@ -366,7 +375,7 @@ export type Database = {
           link_id: string | null;
           file_id: string | null;
           owner_id: string;
-          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
+          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason: string | null;
           session_id: string | null;
           viewer_email: string | null;
@@ -374,6 +383,7 @@ export type Database = {
           user_agent: string | null;
           page_number: number | null;
           dwell_ms: number | null;
+          agreement_name: string | null;
           created_at: string;
         };
         Insert: {
@@ -381,7 +391,7 @@ export type Database = {
           link_id: string | null;
           file_id: string | null;
           owner_id: string;
-          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
+          event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason?: string | null;
           session_id?: string | null;
           viewer_email?: string | null;
@@ -389,6 +399,7 @@ export type Database = {
           user_agent?: string | null;
           page_number?: number | null;
           dwell_ms?: number | null;
+          agreement_name?: string | null;
           created_at?: string;
         };
         Update: {
@@ -396,7 +407,7 @@ export type Database = {
           link_id?: string | null;
           file_id?: string | null;
           owner_id?: string;
-          event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view';
+          event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason?: string | null;
           session_id?: string | null;
           viewer_email?: string | null;
@@ -404,6 +415,7 @@ export type Database = {
           user_agent?: string | null;
           page_number?: number | null;
           dwell_ms?: number | null;
+          agreement_name?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -587,6 +599,24 @@ export type Database = {
           p_link_id: string;
         };
         Returns: undefined;
+      };
+      get_link_visitors: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          visitor_key: string;
+          viewer_email: string | null;
+          sessions: number;
+          first_seen: string;
+          last_seen: string;
+          pages_viewed: number;
+          total_dwell_ms: number;
+          downloads: number;
+          agreed: boolean;
+        }[];
       };
     };
     Enums: {

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, Button, Card, Input } from '@polaris/ui';
+import { Alert, AlertDescription, Badge, Button, Card, Checkbox, Input } from '@polaris/ui';
 import { PolarisLogo } from '@polaris/ui/logos';
 
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
@@ -51,6 +51,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     'wrong_password',
     'email_required',
     'password_required',
+    'agreement_required',
     'file_missing',
     'access_not_granted',
     'too_many_attempts',
@@ -64,7 +65,8 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
   const requiresEmail = link.require_email || link.allowed_domains.length > 0;
   const requiresPassword = Boolean(link.password_hash);
-  const needsForm = Boolean(grantDenied && (requiresEmail || requiresPassword));
+  const requiresAgreement = link.require_agreement;
+  const needsForm = Boolean(grantDenied && (requiresEmail || requiresPassword || requiresAgreement));
 
   if (baseDenied) {
     const headersList = await headers();
@@ -120,6 +122,30 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
             {requiresPassword ? (
               <Input type="password" name="password" required label="비밀번호" />
+            ) : null}
+
+            {requiresAgreement ? (
+              <>
+                <div
+                  className="nda-text"
+                  style={{
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    border: '1px solid #d0d5dd',
+                    borderRadius: 8,
+                    padding: '0.75rem',
+                    background: '#f9fafb',
+                    fontSize: '0.85rem',
+                    lineHeight: 1.5
+                  }}
+                >
+                  {link.agreement_text?.trim() ||
+                    '본 문서를 열람함으로써 본인은 문서에 포함된 정보를 기밀로 유지하며, 사전 서면 동의 없이 제3자에게 공개하지 않을 것에 동의합니다.'}
+                </div>
+                <Input name="agreementName" required label="이름(서명)" placeholder="실명을 입력하세요" />
+                <Checkbox name="agree" value="on" required label="위 내용을 읽었으며 이에 동의합니다." />
+              </>
             ) : null}
 
             <Button type="submit">접근 조건 제출</Button>

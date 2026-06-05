@@ -272,6 +272,8 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
   const signingSecret = ((formData.get('signingSecret') as string | null) || '').trim() || null;
   const eventTypes = readEventTypes(formData);
   const isActive = parseBoolean(formData, 'isActive');
+  const destinationType =
+    ((formData.get('destinationType') as string | null) || '').trim() === 'teams' ? 'teams' : 'webhook';
 
   if (!name || !webhookUrl) {
     redirectWithError('/dashboard/automations', '구독 이름과 웹훅 URL은 필수입니다.');
@@ -301,6 +303,7 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
     webhook_url: parsedUrl.toString(),
     signing_secret: signingSecret,
     event_types: eventTypes,
+    destination_type: destinationType,
     is_active: isActive
   });
 
@@ -391,6 +394,8 @@ export async function createShareLinkAction(formData: FormData) {
   const requireEmail = parseBoolean(formData, 'requireEmail') || allowedDomains.length > 0;
   const rawPassword = ((formData.get('password') as string | null) || '').trim();
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
+  const requireAgreement = parseBoolean(formData, 'requireAgreement');
+  const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
 
   const { error } = await admin.from('share_links').insert({
     file_id: fileId,
@@ -406,7 +411,9 @@ export async function createShareLinkAction(formData: FormData) {
     password_hash: passwordHash,
     allow_download: parseBoolean(formData, 'allowDownload'),
     one_time: parseBoolean(formData, 'oneTime'),
-    watermark: parseBoolean(formData, 'watermark')
+    watermark: parseBoolean(formData, 'watermark'),
+    require_agreement: requireAgreement,
+    agreement_text: agreementText
   });
 
   if (error) {
@@ -446,6 +453,8 @@ export async function createCollectionShareLinkAction(formData: FormData) {
   const requireEmail = parseBoolean(formData, 'requireEmail') || allowedDomains.length > 0;
   const rawPassword = ((formData.get('password') as string | null) || '').trim();
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
+  const requireAgreement = parseBoolean(formData, 'requireAgreement');
+  const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
 
   const { error } = await admin.from('share_links').insert({
     file_id: null,
@@ -461,7 +470,9 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     password_hash: passwordHash,
     allow_download: parseBoolean(formData, 'allowDownload'),
     one_time: parseBoolean(formData, 'oneTime'),
-    watermark: parseBoolean(formData, 'watermark')
+    watermark: parseBoolean(formData, 'watermark'),
+    require_agreement: requireAgreement,
+    agreement_text: agreementText
   });
 
   if (error) {
@@ -513,6 +524,9 @@ export async function updateShareLinkAction(formData: FormData) {
     passwordHash = await hashPassword(newPassword);
   }
 
+  const requireAgreement = parseBoolean(formData, 'requireAgreement');
+  const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
+
   const { error } = await admin
     .from('share_links')
     .update({
@@ -525,7 +539,9 @@ export async function updateShareLinkAction(formData: FormData) {
       password_hash: passwordHash,
       allow_download: parseBoolean(formData, 'allowDownload'),
       one_time: parseBoolean(formData, 'oneTime'),
-      watermark: parseBoolean(formData, 'watermark')
+      watermark: parseBoolean(formData, 'watermark'),
+      require_agreement: requireAgreement,
+      agreement_text: agreementText
     })
     .eq('id', linkId)
     .eq('owner_id', user.id);

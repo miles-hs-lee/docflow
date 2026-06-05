@@ -12,6 +12,7 @@ type LinkPolicySummaryProps = {
     allowed_domains: string[];
     one_time: boolean;
     watermark: boolean;
+    require_agreement: boolean;
   };
 };
 
@@ -41,6 +42,13 @@ export function LinkPolicySummary({ link }: LinkPolicySummaryProps) {
 
       <DescriptionTerm>이메일 요구</DescriptionTerm>
       <DescriptionDetails>{link.require_email ? '예' : '아니오'}</DescriptionDetails>
+
+      {link.require_agreement ? (
+        <>
+          <DescriptionTerm>NDA 동의</DescriptionTerm>
+          <DescriptionDetails>필요</DescriptionDetails>
+        </>
+      ) : null}
 
       {link.allowed_domains.length > 0 ? (
         <>

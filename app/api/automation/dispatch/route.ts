@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { parseBearerToken } from '@/lib/agent-auth';
 import { processPendingStorageDeletions } from '@/lib/data';
+import { publicEnv } from '@/lib/env-public';
+import { formatTeamsMessage } from '@/lib/notify/teams';
 import { signWebhookPayload, timingSafeEqualString } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertSafePublicUrl, SAFE_FETCH_TIMEOUT_MS } from '@/lib/url-safety';
@@ -23,6 +25,7 @@ type SubscriptionRow = {
   webhook_url: string;
   signing_secret: string | null;
   event_types: string[];
+  destination_type: string;
   is_active: boolean;
 };
 
@@ -79,7 +82,7 @@ async function runDispatch(limit: number) {
   const ownerIds = Array.from(new Set(jobs.map((job) => job.owner_id)));
   const { data: subscriptionsData, error: subscriptionsError } = await admin
     .from('automation_subscriptions')
-    .select('id, owner_id, webhook_url, signing_secret, event_types, is_active')
+    .select('id, owner_id, webhook_url, signing_secret, event_types, destination_type, is_active')
     .in('owner_id', ownerIds)
     .eq('is_active', true);
 
@@ -149,11 +152,17 @@ async function runDispatch(limit: number) {
       let failureMessage = '';
 
       for (const subscription of pendingSubscriptions) {
-        const body = JSON.stringify({
-          ownerId: job.owner_id,
-          subscriptionId: subscription.id,
-          event: job.payload
-        });
+        const isTeams = subscription.destination_type === 'teams';
+        // Teams/Power Automate expect an Adaptive Card envelope (not our
+        // native JSON) and authenticate via the secret URL, so they get no
+        // HMAC signature header.
+        const body = isTeams
+          ? JSON.stringify(formatTeamsMessage(job.event_type, job.payload, publicEnv.appUrl))
+          : JSON.stringify({
+              ownerId: job.owner_id,
+              subscriptionId: subscription.id,
+              event: job.payload
+            });
 
         const timestamp = new Date().toISOString();
         const headers: Record<string, string> = {
@@ -163,7 +172,7 @@ async function runDispatch(limit: number) {
           'x-docflow-timestamp': timestamp
         };
 
-        if (subscription.signing_secret) {
+        if (!isTeams && subscription.signing_secret) {
           headers['x-docflow-signature'] = signWebhookPayload(body, subscription.signing_secret, timestamp);
         }
 

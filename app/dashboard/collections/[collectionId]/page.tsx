@@ -13,7 +13,8 @@ import {
   PageHeader,
   Stack,
   Stat,
-  StatGroup
+  StatGroup,
+  Textarea
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
@@ -120,12 +121,14 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               <Input type="number" name="maxViews" min={1} label="최대 조회수" placeholder="미설정" />
               <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
               <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
+              <Textarea name="agreementText" label="NDA/동의 문구 (선택)" placeholder="동의 요구 시 열람 전에 표시할 약관 문구" rows={3} />
               <div className="check-grid">
                 <Checkbox name="isActive" defaultChecked label="활성" containerClassName="check-item" />
                 <Checkbox name="requireEmail" label="이메일 요구" containerClassName="check-item" />
                 <Checkbox name="allowDownload" label="다운로드 허용" containerClassName="check-item" />
                 <Checkbox name="oneTime" label="1회성 링크" containerClassName="check-item" />
                 <Checkbox name="watermark" defaultChecked label="워터마크" containerClassName="check-item" />
+                <Checkbox name="requireAgreement" label="NDA 동의 요구" containerClassName="check-item" />
               </div>
               <Button type="submit">링크 생성</Button>
             </form>
@@ -200,12 +203,14 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                           <Input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} label="최대 조회수" />
                           <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
                           <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />
+                          <Textarea name="agreementText" defaultValue={link.agreement_text ?? ''} label="NDA/동의 문구" placeholder="동의 요구 시 표시할 약관 문구" rows={3} />
                           <div className="check-grid">
                             <Checkbox name="isActive" defaultChecked={link.is_active} label="활성" containerClassName="check-item" />
                             <Checkbox name="requireEmail" defaultChecked={link.require_email} label="이메일 요구" containerClassName="check-item" />
                             <Checkbox name="allowDownload" defaultChecked={link.allow_download} label="다운로드 허용" containerClassName="check-item" />
                             <Checkbox name="oneTime" defaultChecked={link.one_time} label="1회성" containerClassName="check-item" />
                             <Checkbox name="watermark" defaultChecked={link.watermark} label="워터마크" containerClassName="check-item" />
+                            <Checkbox name="requireAgreement" defaultChecked={link.require_agreement} label="NDA 동의 요구" containerClassName="check-item" />
                             <Checkbox name="clearPassword" label="비밀번호 제거" containerClassName="check-item" />
                           </div>
                           <Button type="submit">수정 저장</Button>

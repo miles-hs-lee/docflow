@@ -13,6 +13,7 @@ import type {
   LinkEventRow,
   LinkEventType,
   LinkMetrics,
+  LinkVisitor,
   McpApiKeyRow,
   PerPageStat,
   ShareLinkRow,
@@ -523,6 +524,7 @@ export async function recordLinkEvent(input: {
   userAgent?: string | null;
   pageNumber?: number | null;
   dwellMs?: number | null;
+  agreementName?: string | null;
 }) {
   const admin = createAdminClient();
 
@@ -537,7 +539,8 @@ export async function recordLinkEvent(input: {
     ip_hash: input.ipHash,
     user_agent: input.userAgent,
     page_number: input.pageNumber ?? null,
-    dwell_ms: input.dwellMs ?? null
+    dwell_ms: input.dwellMs ?? null,
+    agreement_name: input.agreementName ?? null
   });
 
   if (error) {
@@ -647,6 +650,50 @@ export async function listLinkDailyViews(args: {
     day: row.day,
     sessions: Number(row.sessions),
     new_viewers: Number(row.new_viewers)
+  }));
+}
+
+// Visitor-centric rollup for the link detail "방문자" table (migration
+// 018). One row per visitor (keyed by email when collected, else session),
+// newest activity first. Service-role RPC; falls back to [] on error so the
+// card renders an empty state instead of throwing.
+export async function listLinkVisitors(args: {
+  ownerId: string;
+  linkId: string;
+  limit?: number;
+}): Promise<LinkVisitor[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_visitors', {
+    p_owner_id: args.ownerId,
+    p_link_id: args.linkId,
+    p_limit: args.limit ?? 100
+  });
+  if (error || !data) {
+    if (error) console.error('[listLinkVisitors] degraded to empty', error);
+    return [];
+  }
+  return (
+    data as Array<{
+      visitor_key: string;
+      viewer_email: string | null;
+      sessions: number | string;
+      first_seen: string;
+      last_seen: string;
+      pages_viewed: number | string;
+      total_dwell_ms: number | string;
+      downloads: number | string;
+      agreed: boolean;
+    }>
+  ).map((row) => ({
+    visitor_key: row.visitor_key,
+    viewer_email: row.viewer_email,
+    sessions: Number(row.sessions),
+    first_seen: row.first_seen,
+    last_seen: row.last_seen,
+    pages_viewed: Number(row.pages_viewed),
+    total_dwell_ms: Number(row.total_dwell_ms),
+    downloads: Number(row.downloads),
+    agreed: Boolean(row.agreed)
   }));
 }
 

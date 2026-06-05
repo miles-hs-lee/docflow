@@ -4,8 +4,14 @@ export type LinkEventType =
   | 'email_submitted'
   | 'password_failed'
   | 'download'
-  | 'page_view';
+  | 'page_view'
+  | 'agreement';
 export type AutomationEventType = LinkEventType;
+
+// Where a subscription delivers. 'webhook' POSTs DocFlow's native JSON
+// (optionally HMAC-signed); 'teams' POSTs an Adaptive Card envelope to a
+// Teams/Power Automate incoming webhook (no HMAC — the secret URL is auth).
+export type AutomationDestinationType = 'webhook' | 'teams';
 
 export type McpScope =
   | 'files:read'
@@ -25,6 +31,7 @@ export type DeniedReason =
   | 'wrong_password'
   | 'email_required'
   | 'password_required'
+  | 'agreement_required'
   | 'file_missing'
   | 'access_not_granted'
   | 'too_many_attempts'
@@ -46,6 +53,11 @@ export type ShareLinkRow = {
   allow_download: boolean;
   one_time: boolean;
   watermark: boolean;
+  // Clickwrap NDA gate: when true the viewer must accept agreement_text
+  // (and type their name) before the grant is issued. Captured as an
+  // 'agreement' link_event for audit.
+  require_agreement: boolean;
+  agreement_text: string | null;
   deleted_at: string | null;
   // Session-deduped view claims — drives max_views / one_time enforcement.
   view_count: number;
@@ -112,6 +124,7 @@ export type AutomationSubscriptionRow = {
   webhook_url: string;
   signing_secret: string | null;
   event_types: AutomationEventType[];
+  destination_type: AutomationDestinationType;
   is_active: boolean;
   last_delivery_at: string | null;
   last_error: string | null;
@@ -134,6 +147,8 @@ export type LinkEventRow = {
   user_agent: string | null;
   page_number: number | null;
   dwell_ms: number | null;
+  // Signer name captured on 'agreement' events; NULL for every other type.
+  agreement_name: string | null;
   created_at: string;
 };
 
@@ -152,6 +167,23 @@ export type LinkDailyView = {
   sessions: number;
   // First-time 'view' events that day (new unique viewers).
   new_viewers: number;
+};
+
+// One row per visitor for the link-detail "방문자" table. Keyed by email
+// when the link collected one, else by session_id (see get_link_visitors).
+export type LinkVisitor = {
+  visitor_key: string;
+  viewer_email: string | null;
+  // Distinct sessions this visitor used.
+  sessions: number;
+  first_seen: string;
+  last_seen: string;
+  // Distinct pages read across all of this visitor's sessions.
+  pages_viewed: number;
+  total_dwell_ms: number;
+  downloads: number;
+  // Whether this visitor accepted the clickwrap NDA on this link.
+  agreed: boolean;
 };
 
 export type OutboxPayload = {
@@ -191,4 +223,9 @@ export type ViewerGrantPayload = {
   policyVersion: number;
   email?: string;
   grantedAt: number;
+  // Set when the viewer accepted a clickwrap NDA gate. agreedAt is the
+  // assent timestamp; agreementName is the name they typed as their
+  // signature. Absent on links without require_agreement.
+  agreedAt?: number;
+  agreementName?: string;
 };

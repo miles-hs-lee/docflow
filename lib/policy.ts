@@ -30,8 +30,9 @@ export function evaluateBasePolicy({ link }: PolicyInput): DeniedReason | null {
 
 export function evaluateGrantPolicy({ link, grant }: PolicyInput): DeniedReason | null {
   const requiresEmail = link.require_email || link.allowed_domains.length > 0;
+  const requiresAgreement = link.require_agreement;
 
-  if (!requiresEmail && !link.password_hash) {
+  if (!requiresEmail && !link.password_hash && !requiresAgreement) {
     return null;
   }
 
@@ -61,6 +62,13 @@ export function evaluateGrantPolicy({ link, grant }: PolicyInput): DeniedReason 
     return 'password_required';
   }
 
+  // Clickwrap NDA gate. A grant issued before the owner enabled
+  // require_agreement (or one that simply hasn't accepted yet) has no
+  // agreedAt, so the viewer is re-gated until they accept.
+  if (requiresAgreement && !grant.agreedAt) {
+    return 'agreement_required';
+  }
+
   return null;
 }
 
@@ -75,6 +83,8 @@ export function deniedMessage(reason: DeniedReason) {
       return '접근 가능한 조회 횟수를 초과했습니다.';
     case 'too_many_attempts':
       return '시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+    case 'agreement_required':
+      return '문서를 열람하려면 동의가 필요합니다. 약관을 확인하고 이름 입력 후 동의해주세요.';
     case 'domain_not_allowed':
     case 'wrong_password':
     case 'email_required':

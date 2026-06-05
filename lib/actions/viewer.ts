@@ -208,12 +208,55 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     }
   }
 
+  // Clickwrap NDA gate. Evaluated last so the agreement is only recorded
+  // once email + password checks pass and we're about to issue the grant.
+  let agreedAt: number | undefined;
+  let agreementName: string | undefined;
+  if (bundle.require_agreement) {
+    const rawAgree = ((formData.get('agree') as string | null) || '').trim();
+    const agreed = rawAgree === 'on' || rawAgree === 'true' || rawAgree === '1';
+    const rawName = ((formData.get('agreementName') as string | null) || '').trim();
+
+    if (!agreed || !rawName) {
+      await recordDeniedEvent({
+        reason: 'agreement_required',
+        linkId: bundle.id,
+        fileId: eventFileId,
+        ownerId: bundle.owner_id,
+        sessionId: ctx.sessionId,
+        viewerEmail: normalizedEmail,
+        ipHash: ctx.ipHash,
+        userAgent: ctx.userAgent
+      });
+
+      redirect(`/v/${token}?denied=agreement_required`);
+    }
+
+    agreementName = rawName.slice(0, 200);
+    agreedAt = Date.now();
+    // Durable assent record (the legally meaningful part of a clickwrap):
+    // who, when, what name they signed, from which hashed IP/session.
+    await recordLinkEvent({
+      linkId: bundle.id,
+      fileId: eventFileId,
+      ownerId: bundle.owner_id,
+      eventType: 'agreement',
+      sessionId: ctx.sessionId,
+      viewerEmail: normalizedEmail,
+      ipHash: ctx.ipHash,
+      userAgent: ctx.userAgent,
+      agreementName
+    });
+  }
+
   const cookieStore = await cookies();
   cookieStore.set(getGrantCookieName(bundle.id), encodeGrantCookie({
     linkId: bundle.id,
     policyVersion: bundle.policy_version,
     email: normalizedEmail,
-    grantedAt: Date.now()
+    grantedAt: Date.now(),
+    agreedAt,
+    agreementName
   }), {
     path: '/',
     httpOnly: true,
