@@ -101,15 +101,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } as unknown as ShareLinkRow;
 
   // Resolve target file: file-attached link uses link.file_id directly;
-  // collection-attached link checks membership via RPC (one cheap query).
+  // collection-attached link checks membership via link_can_view_file, which is
+  // viewer-group aware (Phase 3) — it rejects a file outside the link's group
+  // closure, matching the bundle filter the document/download routes rely on.
   let targetFileId: string | null = link.file_id;
   if (!targetFileId && link.collection_id && requestFileId) {
-    const { data: contained, error: containsError } = await admin.rpc('collection_contains_file', {
-      p_collection_id: link.collection_id,
-      p_file_id: requestFileId,
-      p_owner_id: link.owner_id
+    const { data: canView, error: canViewError } = await admin.rpc('link_can_view_file', {
+      p_link_id: link.id,
+      p_file_id: requestFileId
     });
-    if (containsError || !contained) {
+    if (canViewError || !canView) {
       return NextResponse.json({ error: 'file_missing' }, { status: 404 });
     }
     targetFileId = requestFileId;

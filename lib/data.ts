@@ -24,6 +24,8 @@ import type {
   ShareLinkTrashRow,
   SpaceFile,
   TopDocument,
+  ViewerGroupRow,
+  ViewerGroupWithFolders,
   ViewerLinkBundle
 } from '@/lib/types';
 
@@ -239,6 +241,71 @@ export async function listLinksForCollection(ownerClient: OwnerClient, collectio
   return (data ?? []) as ShareLinkRow[];
 }
 
+// Data room Phase 3: viewer groups for a collection, each with the ids of the
+// folders directly granted to it (descendants implied). Drives the owner-side
+// group editor and the per-link group <Select>.
+export async function listViewerGroups(
+  ownerClient: OwnerClient,
+  collectionId: string
+): Promise<ViewerGroupWithFolders[]> {
+  const { data: groupRows, error } = await ownerClient
+    .from('viewer_groups')
+    .select('*')
+    .eq('collection_id', collectionId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const groups = (groupRows ?? []) as ViewerGroupRow[];
+  if (groups.length === 0) return [];
+
+  const { data: grantRows, error: grantError } = await ownerClient
+    .from('viewer_group_folders')
+    .select('group_id, folder_id')
+    .in(
+      'group_id',
+      groups.map((group) => group.id)
+    );
+  if (grantError) throw grantError;
+
+  const grants = (grantRows ?? []) as Array<{ group_id: string; folder_id: string }>;
+  const byGroup = new Map<string, string[]>();
+  grants.forEach((row) => {
+    const list = byGroup.get(row.group_id) ?? [];
+    list.push(row.folder_id);
+    byGroup.set(row.group_id, list);
+  });
+
+  return groups.map((group) => ({ ...group, folder_ids: byGroup.get(group.id) ?? [] }));
+}
+
+// The set of folder ids a viewer may see, given the folders directly granted to
+// their group: every granted folder PLUS all of its descendants. Mirrors the
+// recursive CTE in get_viewer_link_bundle / link_can_view_file (migration 022)
+// so the SQL fast path and this JS fallback path stay behaviorally identical.
+export function computeVisibleFolderIds(
+  folders: Pick<FolderRow, 'id' | 'parent_folder_id'>[],
+  grantedIds: Iterable<string>
+): Set<string> {
+  const granted = new Set(grantedIds);
+  const visible = new Set<string>();
+  for (const folder of folders) {
+    if (granted.has(folder.id)) visible.add(folder.id);
+  }
+  // Iterate to a fixpoint: a folder is visible once its parent is visible.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of folders) {
+      if (!visible.has(folder.id) && folder.parent_folder_id && visible.has(folder.parent_folder_id)) {
+        visible.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  return visible;
+}
+
 export async function listTrashLinks(ownerClient: OwnerClient): Promise<ShareLinkTrashRow[]> {
   const { data, error } = await ownerClient
     .from('share_links')
@@ -449,6 +516,33 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
       .order('sort_order', { ascending: true });
     if (foldersError) throw foldersError;
     folders = (folderRows ?? []) as FolderRow[];
+
+    // Phase 3: a group-scoped link only exposes the group's permitted folders
+    // (+ descendants) and, optionally, root files. Mirrors get_viewer_link_bundle's
+    // SQL closure. The RPC fast path above already applies this; this keeps the
+    // legacy fallback path equally safe (never widens a grouped link's access).
+    if (link.viewer_group_id) {
+      const [groupResult, grantResult] = await Promise.all([
+        admin
+          .from('viewer_groups')
+          .select('include_root')
+          .eq('id', link.viewer_group_id)
+          .eq('owner_id', ownerScope)
+          .maybeSingle(),
+        admin
+          .from('viewer_group_folders')
+          .select('folder_id')
+          .eq('group_id', link.viewer_group_id)
+          .eq('owner_id', ownerScope)
+      ]);
+      const includeRoot = (groupResult.data?.include_root as boolean | undefined) ?? true;
+      const grantedIds = ((grantResult.data ?? []) as Array<{ folder_id: string }>).map((row) => row.folder_id);
+      const visible = computeVisibleFolderIds(folders, grantedIds);
+      folders = folders.filter((folder) => visible.has(folder.id));
+      collectionFiles = collectionFiles.filter((item) =>
+        item.folder_id ? visible.has(item.folder_id) : includeRoot
+      );
+    }
   }
 
   return {

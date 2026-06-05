@@ -58,6 +58,10 @@ export type ShareLinkRow = {
   // 'agreement' link_event for audit.
   require_agreement: boolean;
   agreement_text: string | null;
+  // Data room Phase 3: when set, the link is scoped to a viewer group and the
+  // viewer sees only that group's permitted folders (+ root files when the
+  // group allows). NULL = full access to the whole data room (default).
+  viewer_group_id: string | null;
   deleted_at: string | null;
   // Session-deduped view claims — drives max_views / one_time enforcement.
   view_count: number;
@@ -123,6 +127,35 @@ export type FolderRow = {
 // placement from collection_files (folder_id NULL = space root).
 export type SpaceFile = FileRow & {
   folder_id: string | null;
+};
+
+// Data room Phase 3: a named permission set inside a data room. A share link
+// assigned to a group exposes only the group's permitted folders to viewers.
+export type ViewerGroupRow = {
+  id: string;
+  collection_id: string;
+  owner_id: string;
+  name: string;
+  // Whether grouped viewers also see root-level (folder_id NULL) files.
+  include_root: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// A folder granted to a group. Granting a folder implicitly grants its whole
+// subtree (resolved at read time in get_viewer_link_bundle / link_can_view_file).
+export type ViewerGroupFolderRow = {
+  group_id: string;
+  folder_id: string;
+  owner_id: string;
+  created_at: string;
+};
+
+// A group plus the ids of the folders directly granted to it — what the owner
+// UI renders (each folder a checkbox, descendants implied).
+export type ViewerGroupWithFolders = ViewerGroupRow & {
+  folder_ids: string[];
 };
 
 export type McpApiKeyRow = {

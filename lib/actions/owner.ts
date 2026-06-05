@@ -455,6 +455,9 @@ export async function createCollectionShareLinkAction(formData: FormData) {
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
   const requireAgreement = parseBoolean(formData, 'requireAgreement');
   const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
+  // Phase 3: optionally scope this link to a viewer group (must belong to the
+  // same data room + owner). 'all'/empty = full access.
+  const viewerGroupId = await resolveViewerGroupId(admin, formData, collectionId, user.id);
 
   const { error } = await admin.from('share_links').insert({
     file_id: null,
@@ -472,7 +475,8 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     one_time: parseBoolean(formData, 'oneTime'),
     watermark: parseBoolean(formData, 'watermark'),
     require_agreement: requireAgreement,
-    agreement_text: agreementText
+    agreement_text: agreementText,
+    viewer_group_id: viewerGroupId
   });
 
   if (error) {
@@ -526,6 +530,12 @@ export async function updateShareLinkAction(formData: FormData) {
 
   const requireAgreement = parseBoolean(formData, 'requireAgreement');
   const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
+  // Phase 3: only collection links carry a viewer group; file links stay null.
+  // The collection-link edit form always submits the current group so this is a
+  // no-op unless the owner actually changed it (changing it bumps policy_version).
+  const viewerGroupId = existingLink.collection_id
+    ? await resolveViewerGroupId(admin, formData, existingLink.collection_id, user.id)
+    : null;
 
   const { error } = await admin
     .from('share_links')
@@ -541,7 +551,8 @@ export async function updateShareLinkAction(formData: FormData) {
       one_time: parseBoolean(formData, 'oneTime'),
       watermark: parseBoolean(formData, 'watermark'),
       require_agreement: requireAgreement,
-      agreement_text: agreementText
+      agreement_text: agreementText,
+      viewer_group_id: viewerGroupId
     })
     .eq('id', linkId)
     .eq('owner_id', user.id);
@@ -943,4 +954,196 @@ export async function moveFileToFolderAction(formData: FormData) {
 
   revalidatePath(redirectPath);
   redirectWithSuccess(redirectPath, '문서를 이동했습니다.');
+}
+
+// ───────────────────────────────────────────────────────────
+// Data room Phase 3: viewer groups + per-folder permissions.
+
+// Resolve a posted viewerGroupId to a validated group id (or null for full
+// access). 'all'/empty → null. A non-empty id must name a group in the same
+// data room owned by the caller, else it falls back to null (never widens to a
+// foreign group).
+async function resolveViewerGroupId(
+  admin: ReturnType<typeof createAdminClient>,
+  formData: FormData,
+  collectionId: string | null,
+  ownerId: string
+): Promise<string | null> {
+  const raw = ((formData.get('viewerGroupId') as string | null) || '').trim();
+  if (!raw || raw === 'all' || !collectionId) return null;
+  const { data } = await admin
+    .from('viewer_groups')
+    .select('id')
+    .eq('id', raw)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', ownerId)
+    .maybeSingle();
+  return data ? raw : null;
+}
+
+export async function createViewerGroupAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const name = ((formData.get('name') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+  if (!name) {
+    redirectWithError(redirectPath, '그룹 이름을 입력해주세요.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
+  }
+
+  const { error } = await admin.from('viewer_groups').insert({
+    collection_id: collectionId,
+    owner_id: user.id,
+    name: name.slice(0, 120)
+  });
+  if (error) {
+    redirectWithError(redirectPath, '그룹 생성에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '뷰어 그룹을 만들었습니다.');
+}
+
+export async function renameViewerGroupAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const groupId = ((formData.get('groupId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const name = ((formData.get('name') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!groupId || !collectionId) {
+    redirectWithError('/dashboard', '그룹 정보가 누락되었습니다.');
+  }
+  if (!name) {
+    redirectWithError(redirectPath, '그룹 이름을 입력해주세요.');
+  }
+
+  const { error } = await admin
+    .from('viewer_groups')
+    .update({ name: name.slice(0, 120) })
+    .eq('id', groupId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '그룹 이름 변경에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '그룹 이름을 변경했습니다.');
+}
+
+export async function deleteViewerGroupAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const groupId = ((formData.get('groupId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!groupId || !collectionId) {
+    redirectWithError('/dashboard', '그룹 정보가 누락되었습니다.');
+  }
+
+  // viewer_group_folders cascade; links assigned to this group revert to full
+  // access (share_links.viewer_group_id ON DELETE SET NULL).
+  const { error } = await admin
+    .from('viewer_groups')
+    .delete()
+    .eq('id', groupId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '그룹 삭제에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '그룹을 삭제했습니다. 연결된 링크는 전체 접근으로 돌아갑니다.');
+}
+
+// Reconcile a group's folder grants + include_root in one submit. The form posts
+// every checked folder as `folderIds`; unchecked boxes don't post, so the delete-
+// then-insert reconcile naturally drops them. Each folder must belong to the same
+// data room + owner.
+export async function setViewerGroupFoldersAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const groupId = ((formData.get('groupId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const includeRoot = parseBoolean(formData, 'includeRoot');
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!groupId || !collectionId) {
+    redirectWithError('/dashboard', '그룹 정보가 누락되었습니다.');
+  }
+
+  const { data: group } = await admin
+    .from('viewer_groups')
+    .select('id')
+    .eq('id', groupId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!group) {
+    redirectWithError(redirectPath, '그룹을 찾을 수 없습니다.');
+  }
+
+  const requested = formData
+    .getAll('folderIds')
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter((value, index, arr) => value.length > 0 && arr.indexOf(value) === index);
+
+  // Keep only folders that actually belong to this data room + owner.
+  let validIds: string[] = [];
+  if (requested.length > 0) {
+    const { data: folderRows } = await admin
+      .from('folders')
+      .select('id')
+      .eq('collection_id', collectionId)
+      .eq('owner_id', user.id)
+      .in('id', requested);
+    validIds = ((folderRows ?? []) as Array<{ id: string }>).map((row) => row.id);
+  }
+
+  // Reconcile: drop all current grants for the group, then insert the new set.
+  await admin.from('viewer_group_folders').delete().eq('group_id', groupId).eq('owner_id', user.id);
+
+  if (validIds.length > 0) {
+    const { error: insertError } = await admin
+      .from('viewer_group_folders')
+      .insert(validIds.map((folderId) => ({ group_id: groupId, folder_id: folderId, owner_id: user.id })));
+    if (insertError) {
+      redirectWithError(redirectPath, '폴더 권한 저장에 실패했습니다.');
+    }
+  }
+
+  const { error: updateError } = await admin
+    .from('viewer_groups')
+    .update({ include_root: includeRoot })
+    .eq('id', groupId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  if (updateError) {
+    redirectWithError(redirectPath, '폴더 권한 저장에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '폴더 권한을 저장했습니다.');
 }

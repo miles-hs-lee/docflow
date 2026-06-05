@@ -96,6 +96,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      viewer_groups: {
+        Row: {
+          id: string;
+          collection_id: string;
+          owner_id: string;
+          name: string;
+          include_root: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          collection_id: string;
+          owner_id: string;
+          name: string;
+          include_root?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          collection_id?: string;
+          owner_id?: string;
+          name?: string;
+          include_root?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      viewer_group_folders: {
+        Row: {
+          group_id: string;
+          folder_id: string;
+          owner_id: string;
+          created_at: string;
+        };
+        Insert: {
+          group_id: string;
+          folder_id: string;
+          owner_id: string;
+          created_at?: string;
+        };
+        Update: {
+          group_id?: string;
+          folder_id?: string;
+          owner_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       mcp_api_keys: {
         Row: {
           id: string;
@@ -340,6 +394,7 @@ export type Database = {
           watermark: boolean;
           require_agreement: boolean;
           agreement_text: string | null;
+          viewer_group_id: string | null;
           deleted_at: string | null;
           view_count: number;
           open_count: number;
@@ -367,6 +422,7 @@ export type Database = {
           watermark?: boolean;
           require_agreement?: boolean;
           agreement_text?: string | null;
+          viewer_group_id?: string | null;
           deleted_at?: string | null;
           view_count?: number;
           open_count?: number;
@@ -394,6 +450,7 @@ export type Database = {
           watermark?: boolean;
           require_agreement?: boolean;
           agreement_text?: string | null;
+          viewer_group_id?: string | null;
           deleted_at?: string | null;
           view_count?: number;
           open_count?: number;
@@ -589,6 +646,13 @@ export type Database = {
           p_collection_id: string;
           p_file_id: string;
           p_owner_id: string;
+        };
+        Returns: boolean;
+      };
+      link_can_view_file: {
+        Args: {
+          p_link_id: string;
+          p_file_id: string;
         };
         Returns: boolean;
       };

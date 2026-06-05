@@ -11,6 +11,8 @@ import {
   FileIcon,
   Input,
   PageHeader,
+  SelectField,
+  SelectItem,
   Stack,
   Stat,
   StatGroup,
@@ -25,6 +27,7 @@ import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
 import { SpaceStructure } from '@/components/space-structure';
+import { ViewerGroups } from '@/components/viewer-groups';
 import {
   createCollectionShareLinkAction,
   softDeleteLinkAction,
@@ -36,7 +39,8 @@ import {
   getCollectionUniqueViews,
   listCollectionLinkUniques,
   listLinksForCollection,
-  listSpaceContents
+  listSpaceContents,
+  listViewerGroups
 } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { linkStatus, statusVariant } from '@/lib/link-status';
@@ -49,10 +53,11 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   const { collectionId } = await params;
 
   const { supabase } = await requireOwner();
-  const [collection, space, links] = await Promise.all([
+  const [collection, space, links, viewerGroups] = await Promise.all([
     getCollection(supabase, collectionId),
     listSpaceContents(supabase, collectionId),
-    listLinksForCollection(supabase, collectionId)
+    listLinksForCollection(supabase, collectionId),
+    listViewerGroups(supabase, collectionId)
   ]);
   const { folders, files } = space;
 
@@ -152,6 +157,17 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           </CardBody>
         </Card>
 
+        {files.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>뷰어 그룹 · 폴더 권한</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <ViewerGroups collectionId={collection.id} folders={folders} groups={viewerGroups} />
+            </CardBody>
+          </Card>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 링크 생성</CardTitle>
@@ -166,6 +182,21 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
               <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
               <Textarea name="agreementText" label="NDA/동의 문구 (선택)" placeholder="동의 요구 시 열람 전에 표시할 약관 문구" rows={3} />
+              {viewerGroups.length > 0 ? (
+                <SelectField
+                  name="viewerGroupId"
+                  label="뷰어 그룹 (선택)"
+                  defaultValue="all"
+                  triggerClassName="form-select-trigger"
+                >
+                  <SelectItem value="all">전체 접근 (모든 폴더)</SelectItem>
+                  {viewerGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectField>
+              ) : null}
               <div className="check-grid">
                 <Checkbox name="isActive" defaultChecked label="활성" containerClassName="check-item" />
                 <Checkbox name="requireEmail" label="이메일 요구" containerClassName="check-item" />
@@ -248,6 +279,21 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                           <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
                           <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />
                           <Textarea name="agreementText" defaultValue={link.agreement_text ?? ''} label="NDA/동의 문구" placeholder="동의 요구 시 표시할 약관 문구" rows={3} />
+                          {viewerGroups.length > 0 ? (
+                            <SelectField
+                              name="viewerGroupId"
+                              label="뷰어 그룹"
+                              defaultValue={link.viewer_group_id ?? 'all'}
+                              triggerClassName="form-select-trigger"
+                            >
+                              <SelectItem value="all">전체 접근 (모든 폴더)</SelectItem>
+                              {viewerGroups.map((group) => (
+                                <SelectItem key={group.id} value={group.id}>
+                                  {group.name}
+                                </SelectItem>
+                              ))}
+                            </SelectField>
+                          ) : null}
                           <div className="check-grid">
                             <Checkbox name="isActive" defaultChecked={link.is_active} label="활성" containerClassName="check-item" />
                             <Checkbox name="requireEmail" defaultChecked={link.require_email} label="이메일 요구" containerClassName="check-item" />
