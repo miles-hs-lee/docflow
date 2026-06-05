@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
 import { requireOwner } from '@/lib/auth';
-import { removePdfObject } from '@/lib/data';
+import { removeLogoObject, removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
 import { assertSafePublicUrl } from '@/lib/url-safety';
 import {
@@ -1256,4 +1256,60 @@ export async function deleteFileRequestAction(formData: FormData) {
 
   revalidatePath('/dashboard/requests');
   redirectWithSuccess('/dashboard/requests', '파일 요청을 삭제했습니다.');
+}
+
+// ───────────────────────────────────────────────────────────
+// Custom branding (white-label). Logo upload is a separate multipart route
+// (app/dashboard/logo); these handle the text fields + logo removal.
+
+export async function saveBrandingAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const companyName = ((formData.get('companyName') as string | null) || '').trim().slice(0, 80) || null;
+
+  const rawColor = ((formData.get('brandColor') as string | null) || '').trim();
+  let brandColor: string | null = null;
+  if (rawColor) {
+    const normalized = (rawColor.startsWith('#') ? rawColor : `#${rawColor}`).toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(normalized)) {
+      redirectWithError('/dashboard/settings', '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
+    }
+    brandColor = normalized;
+  }
+
+  // Upsert only the text fields → an existing logo_path is preserved.
+  const { error } = await admin
+    .from('owner_branding')
+    .upsert({ owner_id: user.id, company_name: companyName, brand_color: brandColor }, { onConflict: 'owner_id' });
+  if (error) {
+    redirectWithError('/dashboard/settings', '브랜딩 저장에 실패했습니다.');
+  }
+
+  revalidatePath('/dashboard/settings');
+  redirectWithSuccess('/dashboard/settings', '브랜딩을 저장했습니다.');
+}
+
+export async function removeBrandingLogoAction() {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from('owner_branding')
+    .select('logo_path')
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
+
+  await admin.from('owner_branding').update({ logo_path: null }).eq('owner_id', user.id);
+  if (logoPath) {
+    try {
+      await removeLogoObject(logoPath);
+    } catch {
+      // best-effort — an orphaned logo object is cosmetic
+    }
+  }
+
+  revalidatePath('/dashboard/settings');
+  redirectWithSuccess('/dashboard/settings', '로고를 제거했습니다.');
 }

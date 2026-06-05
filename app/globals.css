@@ -1130,6 +1130,47 @@ svg {
   background: color-mix(in srgb, var(--polaris-label-inverse) 32%, transparent);
 }
 
+/* Custom-branding marks (BrandMark) on the public viewer + file-request pages. */
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-xs);
+}
+
+.brand-name {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.brand-name-onDark {
+  color: var(--polaris-label-inverse);
+}
+
+.brand-name-onLight {
+  color: var(--polaris-label-normal);
+}
+
+.brand-logo {
+  flex: none;
+  display: inline-block;
+  height: 24px;
+  min-width: 84px;
+  max-width: 40vw;
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
+}
+
+/* White chip so a dark logo stays visible on the dark viewer topbar. */
+.brand-logo-chip {
+  padding: 3px 8px;
+  border-radius: var(--polaris-radius-sm);
+  background-color: var(--polaris-static-white);
+  background-position: center;
+}
+
 .viewer-title {
   overflow: hidden;
   color: color-mix(in srgb, var(--polaris-label-inverse) 76%, transparent);

@@ -1,6 +1,7 @@
 import { OWNER_FEED_EVENT_TYPES } from '@/lib/event-labels';
 import { kickWebhookDispatch } from '@/lib/qstash';
 import { getRedis, isRedisConfigured } from '@/lib/redis';
+import { publicEnv } from '@/lib/env-public';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { createClient as createOwnerClient } from '@/lib/supabase/server';
 import type {
@@ -26,6 +27,7 @@ import type {
   ShareLinkTrashRow,
   SpaceFile,
   TopDocument,
+  ViewerBranding,
   ViewerGroupRow,
   ViewerGroupWithFolders,
   ViewerLinkBundle
@@ -1121,6 +1123,53 @@ export async function getRequestUpload(
     .maybeSingle();
   if (error) throw error;
   return (data as FileRequestUploadRow | null) ?? null;
+}
+
+// ── Custom branding (white-label) ───────────────────────────────────────────
+const OWNER_LOGO_BUCKET = 'owner-logos';
+
+// Public URL for a logo object (the bucket is public → no signing needed).
+export function ownerLogoPublicUrl(logoPath: string): string {
+  return `${publicEnv.supabaseUrl}/storage/v1/object/public/${OWNER_LOGO_BUCKET}/${logoPath}`;
+}
+
+// Resolve an owner's branding for the PUBLIC pages. Service-role read (the
+// viewer/request pages are anonymous). Degrades to null on any error (e.g. the
+// table not yet migrated) so the pages fall back to the default DocFlow mark.
+// Returns null when no branding fields are set.
+export async function getOwnerBranding(ownerId: string): Promise<ViewerBranding | null> {
+  const admin = createAdminClient();
+  try {
+    const { data, error } = await admin
+      .from('owner_branding')
+      .select('company_name, brand_color, logo_path')
+      .eq('owner_id', ownerId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { company_name: string | null; brand_color: string | null; logo_path: string | null };
+    if (!row.company_name && !row.brand_color && !row.logo_path) return null;
+    return {
+      company_name: row.company_name,
+      brand_color: row.brand_color,
+      logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadLogoObject(args: { path: string; file: File; contentType: string }) {
+  const admin = createAdminClient();
+  const { error } = await admin.storage.from(OWNER_LOGO_BUCKET).upload(args.path, args.file, {
+    contentType: args.contentType,
+    upsert: false
+  });
+  if (error) throw error;
+}
+
+export async function removeLogoObject(path: string) {
+  const admin = createAdminClient();
+  await admin.storage.from(OWNER_LOGO_BUCKET).remove([path]);
 }
 
 // Drain the pending_storage_deletions queue (rows enqueued when an inline

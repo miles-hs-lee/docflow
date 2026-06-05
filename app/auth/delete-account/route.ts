@@ -66,6 +66,7 @@ export async function POST(request: Request) {
   // paths since we'd no longer be able to recover them after cascade.
   let paths: string[] = [];
   let requestPaths: string[] = [];
+  let logoPaths: string[] = [];
   try {
     const { data: files, error: listError } = await admin
       .from('files')
@@ -86,6 +87,16 @@ export async function POST(request: Request) {
     requestPaths = (uploads ?? [])
       .map((u) => (u as { storage_path: string }).storage_path)
       .filter((p): p is string => Boolean(p));
+
+    // Branding logo lives in the public owner-logos bucket and cascades too.
+    const { data: brand, error: brandError } = await admin
+      .from('owner_branding')
+      .select('logo_path')
+      .eq('owner_id', user.id)
+      .maybeSingle();
+    if (brandError) throw brandError;
+    const logoPath = (brand as { logo_path: string | null } | null)?.logo_path ?? null;
+    logoPaths = logoPath ? [logoPath] : [];
   } catch (err) {
     console.error('[deleteAccount] storage listing failed — aborting', {
       ownerId: user.id,
@@ -166,6 +177,7 @@ export async function POST(request: Request) {
 
   await cleanupBucket('pdf-files', paths);
   await cleanupBucket('request-uploads', requestPaths);
+  await cleanupBucket('owner-logos', logoPaths);
 
   // 4) Wipe the local session cookies (the user is already gone server-side).
   await supabase.auth.signOut();

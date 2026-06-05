@@ -1,12 +1,13 @@
 import { Alert, AlertDescription, Badge, Button, Card, Checkbox, Input } from '@polaris/ui';
-import { PolarisLogo } from '@polaris/ui/logos';
 
+import { BrandMark } from '@/components/brand-mark';
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { SpaceViewerNav } from '@/components/space-viewer-nav';
 import { cookies, headers } from 'next/headers';
 
+import { brandAccentStyle } from '@/lib/branding';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
-import { bumpOpenCount, getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
+import { bumpOpenCount, getOwnerBranding, getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
@@ -165,7 +166,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
     : `/api/v/${token}/download`;
   const eventEndpoint = `/api/v/${token}/event`;
-  const watermarkLabel = grant?.email || 'DocFlow Viewer';
+  // White-label: when the owner has branding, the watermark falls back to their
+  // company name instead of "DocFlow Viewer". Degrades to null pre-migration.
+  const branding = await getOwnerBranding(link.owner_id);
+  const watermarkLabel = grant?.email || branding?.company_name || 'DocFlow Viewer';
 
   // #1: count this open. Bumped once per granted viewer-page render — NOT
   // per PDF.js byte-range request (those hit the /document route, not this
@@ -175,12 +179,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   await bumpOpenCount(link.id);
 
   return (
-    <main className="viewer-app">
+    <main className="viewer-app" style={brandAccentStyle(branding?.brand_color)}>
       <header className="viewer-topbar">
         <div className="viewer-brand">
-          <PolarisLogo variant="horizontal" tone="negative" size={20} aria-hidden />
-          <span className="viewer-divider" aria-hidden />
-          <strong>DocFlow</strong>
+          <BrandMark branding={branding} tone="onDark" />
           <span className="viewer-title">
             {link.label}
             {link.collection_id ? ` · ${activeFile.original_name}` : ''}

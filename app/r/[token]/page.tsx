@@ -1,8 +1,9 @@
 import { Card } from '@polaris/ui';
-import { PolarisLogo } from '@polaris/ui/logos';
 
+import { BrandMark } from '@/components/brand-mark';
 import { FileRequestUploader } from '@/components/file-request-uploader';
-import { getFileRequestByToken } from '@/lib/data';
+import { brandAccentStyle } from '@/lib/branding';
+import { getFileRequestByToken, getOwnerBranding } from '@/lib/data';
 
 // State (active/closed) can change at any time, so never serve a cached page.
 export const dynamic = 'force-dynamic';
@@ -29,14 +30,13 @@ export default async function FileRequestPage({ params }: FileRequestPageProps) 
   const expired = req.expires_at ? new Date(req.expires_at) < new Date() : false;
   const closed = !req.is_active || expired;
   const limitReached = req.max_uploads !== null && req.upload_count >= req.max_uploads;
+  const branding = await getOwnerBranding(req.owner_id);
 
   return (
-    <main className="viewer-layout">
+    <main className="viewer-layout" style={brandAccentStyle(branding?.brand_color)}>
       <Card className="viewer-card" variant="padded">
-        <div className="viewer-brand">
-          <PolarisLogo variant="horizontal" tone="negative" size={20} aria-hidden />
-          <span className="viewer-divider" aria-hidden />
-          <strong>DocFlow</strong>
+        <div className="brand-row">
+          <BrandMark branding={branding} tone="onLight" />
         </div>
 
         <h1>{req.title}</h1>

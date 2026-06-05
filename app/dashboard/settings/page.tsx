@@ -2,6 +2,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
+  Button,
   Card,
   CardBody,
   CardHeader,
@@ -12,10 +13,14 @@ import {
 } from '@polaris/ui';
 
 import { DeleteAccountConfirm } from '@/components/delete-account-confirm';
+import { LogoUploader } from '@/components/logo-uploader';
+import { removeBrandingLogoAction, saveBrandingAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
+import { getOwnerBranding } from '@/lib/data';
 
 export default async function SettingsPage() {
   const { user } = await requireOwner();
+  const branding = await getOwnerBranding(user.id);
 
   return (
     <Stack asChild gap={5}>
@@ -29,6 +34,56 @@ export default async function SettingsPage() {
             <p className="muted">
               현재 로그인된 계정: <strong>{user.email}</strong>
             </p>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>브랜딩 (화이트라벨)</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">
+              로고·브랜드 색상·회사명을 설정하면 공유 링크(/v)와 파일 요청(/r) 페이지에서 DocFlow 표기가
+              사라지고 회사 브랜드만 표시됩니다. 아무것도 설정하지 않으면 기본 DocFlow 브랜딩이 적용됩니다.
+            </p>
+            <form action={saveBrandingAction} className="form-grid">
+              <Input
+                name="companyName"
+                label="회사명"
+                placeholder="예: Acme Inc."
+                defaultValue={branding?.company_name ?? ''}
+                maxLength={80}
+              />
+              <Input
+                name="brandColor"
+                label="브랜드 색상 (HEX)"
+                placeholder="#RRGGBB"
+                defaultValue={branding?.brand_color ?? ''}
+              />
+              <Button type="submit">브랜딩 저장</Button>
+            </form>
+
+            <Stack gap={3}>
+              <p className="muted small">로고</p>
+              {branding?.logo_url ? (
+                <div
+                  className="brand-logo brand-logo-chip"
+                  role="img"
+                  aria-label="현재 로고"
+                  style={{ backgroundImage: `url("${branding.logo_url}")` }}
+                />
+              ) : (
+                <p className="muted small">아직 업로드된 로고가 없습니다.</p>
+              )}
+              <LogoUploader />
+              {branding?.logo_url ? (
+                <form action={removeBrandingLogoAction}>
+                  <Button type="submit" variant="ghost" size="sm">
+                    로고 제거
+                  </Button>
+                </form>
+              ) : null}
+            </Stack>
           </CardBody>
         </Card>
 

@@ -603,6 +603,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      owner_branding: {
+        Row: {
+          owner_id: string;
+          company_name: string | null;
+          brand_color: string | null;
+          logo_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          company_name?: string | null;
+          brand_color?: string | null;
+          logo_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          owner_id?: string;
+          company_name?: string | null;
+          brand_color?: string | null;
+          logo_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
