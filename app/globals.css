@@ -288,10 +288,10 @@ svg {
   border-top: 1px solid var(--border);
 }
 
-/* Bottom-align controls so a floating-label Input and an above-label
-   SelectField share the same baseline when they sit in the same row. */
-.form-grid-end {
-  align-items: end;
+/* Match a SelectField trigger to the Polaris Input height so the boxes in a
+   form-grid row line up (Input is ~3.25rem; the trigger defaults shorter). */
+.form-select-trigger {
+  min-height: 3.25rem;
 }
 
 /* .metric-grid / .metric-label / .metric-value removed

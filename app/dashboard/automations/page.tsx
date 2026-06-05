@@ -170,14 +170,9 @@ export default async function AutomationsPage() {
           </CardHeader>
           <CardBody>
             <p className="muted">지정한 이벤트가 발생하면 거의 실시간(QStash)으로 웹훅 또는 Microsoft Teams 채널에 알림을 전달합니다.</p>
-            <form action={createAutomationSubscriptionAction} className="form-grid form-grid-end">
+            <form action={createAutomationSubscriptionAction} className="form-grid">
               <Input name="name" required label="구독 이름" placeholder="예: 영업팀 열람 알림" />
-              <SelectField
-                name="destinationType"
-                defaultValue="webhook"
-                label="전달 대상"
-                placeholder="전달 대상 선택"
-              >
+              <SelectField name="destinationType" placeholder="전달 대상" triggerClassName="form-select-trigger">
                 <SelectItem value="webhook">웹훅 (Generic JSON)</SelectItem>
                 <SelectItem value="teams">Microsoft Teams</SelectItem>
               </SelectField>
