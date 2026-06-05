@@ -205,6 +205,33 @@ export type LinkVisitor = {
   agreed: boolean;
 };
 
+// Account-wide rollups for the overview dashboard + contacts (migration 020).
+export type OwnerOverview = {
+  opens: number;
+  unique_viewers: number;
+  downloads: number;
+  denied: number;
+};
+
+export type TopDocument = {
+  file_id: string;
+  original_name: string;
+  viewers: number;
+  views: number;
+};
+
+// One contact = everyone who submitted an email, rolled up across all links.
+export type OwnerContact = {
+  viewer_email: string;
+  documents: number;
+  sessions: number;
+  opens: number;
+  downloads: number;
+  agreed: boolean;
+  first_seen: string;
+  last_seen: string;
+};
+
 export type OutboxPayload = {
   eventId: number;
   eventType: LinkEventType;

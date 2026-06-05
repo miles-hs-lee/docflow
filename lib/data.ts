@@ -16,10 +16,13 @@ import type {
   LinkMetrics,
   LinkVisitor,
   McpApiKeyRow,
+  OwnerContact,
+  OwnerOverview,
   PerPageStat,
   ShareLinkRow,
   ShareLinkTrashRow,
   SpaceFile,
+  TopDocument,
   ViewerLinkBundle
 } from '@/lib/types';
 
@@ -757,6 +760,90 @@ export async function listLinkVisitors(args: {
     downloads: Number(row.downloads),
     agreed: Boolean(row.agreed)
   }));
+}
+
+// ── Account-level rollups for the overview dashboard + contacts (migration
+// 020). All degrade to empty/zero on error so the pages render before the
+// migration is applied (same pattern as listPerPageStats / listLinkVisitors).
+
+export async function getOwnerOverview(ownerId: string): Promise<OwnerOverview> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_owner_overview', { p_owner_id: ownerId });
+  if (error || !data) {
+    if (error) console.error('[getOwnerOverview] degraded to zero', error);
+    return { opens: 0, unique_viewers: 0, downloads: 0, denied: 0 };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { opens: number | string; unique_viewers: number | string; downloads: number | string; denied: number | string }
+    | undefined;
+  return {
+    opens: Number(row?.opens ?? 0),
+    unique_viewers: Number(row?.unique_viewers ?? 0),
+    downloads: Number(row?.downloads ?? 0),
+    denied: Number(row?.denied ?? 0)
+  };
+}
+
+export async function listTopDocuments(ownerId: string, limit = 5): Promise<TopDocument[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_owner_top_documents', { p_owner_id: ownerId, p_limit: limit });
+  if (error || !data) {
+    if (error) console.error('[listTopDocuments] degraded to empty', error);
+    return [];
+  }
+  return (
+    data as Array<{ file_id: string; original_name: string; viewers: number | string; views: number | string }>
+  ).map((row) => ({
+    file_id: row.file_id,
+    original_name: row.original_name,
+    viewers: Number(row.viewers),
+    views: Number(row.views)
+  }));
+}
+
+export async function listOwnerContacts(ownerId: string, limit = 200): Promise<OwnerContact[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_owner_contacts', { p_owner_id: ownerId, p_limit: limit });
+  if (error || !data) {
+    if (error) console.error('[listOwnerContacts] degraded to empty', error);
+    return [];
+  }
+  return (
+    data as Array<{
+      viewer_email: string;
+      documents: number | string;
+      sessions: number | string;
+      opens: number | string;
+      downloads: number | string;
+      agreed: boolean;
+      first_seen: string;
+      last_seen: string;
+    }>
+  ).map((row) => ({
+    viewer_email: row.viewer_email,
+    documents: Number(row.documents),
+    sessions: Number(row.sessions),
+    opens: Number(row.opens),
+    downloads: Number(row.downloads),
+    agreed: Boolean(row.agreed),
+    first_seen: row.first_seen,
+    last_seen: row.last_seen
+  }));
+}
+
+// Recent activity feed for the overview (page_view excluded — too noisy).
+export async function listRecentEvents(
+  ownerClient: OwnerClient,
+  limit = 12
+): Promise<Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>> {
+  const { data, error } = await ownerClient
+    .from('link_events')
+    .select('id, event_type, reason, viewer_email, created_at')
+    .in('event_type', ['view', 'download', 'denied', 'email_submitted', 'password_failed', 'agreement'])
+    .order('id', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>;
 }
 
 // #1: bump the total-opens counter for a link. Called once per viewer-page

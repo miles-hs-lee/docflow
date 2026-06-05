@@ -28,7 +28,7 @@ export default async function TrashPage() {
           description="소프트 삭제된 링크는 여기서 복구하거나 영구 삭제할 수 있습니다."
           actions={
             <Button asChild variant="secondary" size="sm">
-              <Link href="/dashboard">
+              <Link href="/dashboard/files">
                 <ChevronLeftIcon size={14} aria-hidden />
                 파일 목록
               </Link>
@@ -43,7 +43,7 @@ export default async function TrashPage() {
                 description="삭제한 공유 링크가 이곳에 표시됩니다."
                 action={
                   <Button asChild variant="secondary">
-                    <Link href="/dashboard">파일 목록으로</Link>
+                    <Link href="/dashboard/files">파일 목록으로</Link>
                   </Button>
                 }
               />

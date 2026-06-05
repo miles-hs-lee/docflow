@@ -17,7 +17,7 @@ function sanitizeFileName(name: string) {
 }
 
 function redirectToDashboard(requestUrl: string, key: 'error' | 'success', message: string) {
-  const url = new URL('/dashboard', requestUrl);
+  const url = new URL('/dashboard/files', requestUrl);
   url.searchParams.set(key, message);
   return NextResponse.redirect(url, { status: 303 });
 }

@@ -16,16 +16,14 @@ type NavItem = {
 };
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
+  { href: '/dashboard', label: '대시보드' },
   {
-    href: '/dashboard',
-    label: '파일',
-    activePrefixes: [
-      '/dashboard/files',
-      '/dashboard/collections',
-      '/dashboard/links',
-      '/dashboard/upload'
-    ]
+    href: '/dashboard/files',
+    label: '콘텐츠',
+    activePrefixes: ['/dashboard/files', '/dashboard/links', '/dashboard/upload']
   },
+  { href: '/dashboard/collections', label: '데이터룸', activePrefixes: ['/dashboard/collections'] },
+  { href: '/dashboard/contacts', label: '연락처' },
   { href: '/dashboard/automations', label: '자동화' },
   { href: '/dashboard/trash', label: '휴지통' }
 ];

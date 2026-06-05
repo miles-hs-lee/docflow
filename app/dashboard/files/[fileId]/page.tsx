@@ -72,7 +72,7 @@ export default async function FileLinksPage({ params }: FileLinksPageProps) {
           title={file.original_name}
           actions={
             <Button asChild variant="secondary" size="sm">
-              <Link href="/dashboard">
+              <Link href="/dashboard/files">
                 <ChevronLeftIcon size={14} aria-hidden />
                 파일 목록
               </Link>

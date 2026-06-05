@@ -1,12 +1,13 @@
 import {
-  Button,
   Card,
   CardBody,
   CardHeader,
   CardTitle,
   EmptyState,
-  FileIcon,
+  PageHeader,
   Stack,
+  Stat,
+  StatGroup,
   Table,
   TableBody,
   TableCell,
@@ -16,155 +17,116 @@ import {
 } from '@polaris/ui';
 import Link from 'next/link';
 
-import { CollectionBuilderLazy } from '@/components/collection-builder-lazy';
-import { FileBrowser } from '@/components/file-browser';
-import { HiddenInput } from '@/components/hidden-input';
-import { UploadForm } from '@/components/upload-form';
-import { createCollectionAction, deleteCollectionAction, deleteFileAction } from '@/lib/actions/owner';
+import { LocalDate } from '@/components/local-date';
 import { requireOwner } from '@/lib/auth';
-import {
-  FILES_PAGE_SIZE_DEFAULT,
-  FILES_PAGE_SIZE_MAX,
-  listCollections,
-  listFiles,
-  type FilesSortDir,
-  type FilesSortKey
-} from '@/lib/data';
-import { formatDateTime } from '@/lib/format';
+import { getOwnerOverview, listRecentEvents, listTopDocuments } from '@/lib/data';
 
-type DashboardPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+const EVENT_LABEL: Record<string, string> = {
+  view: '열람',
+  download: '다운로드',
+  denied: '접근 거부',
+  email_submitted: '이메일 제출',
+  password_failed: '비밀번호 실패',
+  agreement: 'NDA 동의'
 };
 
-const SORT_KEYS: ReadonlyArray<FilesSortKey> = ['created_at', 'original_name', 'size_bytes'];
-const SORT_DIRS: ReadonlyArray<FilesSortDir> = ['asc', 'desc'];
-
-function pickString(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const params = await searchParams;
-  const { supabase } = await requireOwner();
-
-  // URL contract for the file browser:
-  //   fp = page (1-based)   fz = page size       fq = search query
-  //   fs = sort key         fd = sort direction
-  const search = pickString(params.fq)?.trim() ?? '';
-  const sizeRaw = Number(pickString(params.fz) ?? '');
-  const pageSize = Number.isFinite(sizeRaw) && sizeRaw > 0
-    ? Math.min(sizeRaw, FILES_PAGE_SIZE_MAX)
-    : FILES_PAGE_SIZE_DEFAULT;
-  const pageRaw = Number(pickString(params.fp) ?? '1');
-  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
-  const sortKeyParam = pickString(params.fs) as FilesSortKey | undefined;
-  const sortDirParam = pickString(params.fd) as FilesSortDir | undefined;
-  const sortKey: FilesSortKey = sortKeyParam && SORT_KEYS.includes(sortKeyParam) ? sortKeyParam : 'created_at';
-  const sortDir: FilesSortDir = sortDirParam && SORT_DIRS.includes(sortDirParam)
-    ? sortDirParam
-    : sortKey === 'original_name'
-      ? 'asc'
-      : 'desc';
-
-  const [filesResult, collections] = await Promise.all([
-    listFiles(supabase, {
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-      search,
-      sortKey,
-      sortDir
-    }),
-    listCollections(supabase)
+export default async function OverviewPage() {
+  const { supabase, user } = await requireOwner();
+  const [overview, topDocs, recent] = await Promise.all([
+    getOwnerOverview(user.id),
+    listTopDocuments(user.id, 5),
+    listRecentEvents(supabase, 12)
   ]);
-  const { rows: files, total: filesTotal } = filesResult;
 
   return (
     <Stack asChild gap={5}>
       <section>
+        <PageHeader title="대시보드" description="계정 전체의 문서 열람 현황을 한눈에 봅니다." />
+
         <Card>
           <CardHeader>
-            <Stack direction="row" justify="between" align="start" gap={4}>
-              <Stack gap={2}>
-                <CardTitle>PDF 업로드</CardTitle>
-                <p className="muted">PDF 파일만 허용됩니다 (최대 50MB). 업로드 후 파일별로 여러 공유 링크를 만들 수 있습니다.</p>
-              </Stack>
-              <FileIcon type="pdf" size={42} />
-            </Stack>
+            <CardTitle>전체 통계</CardTitle>
           </CardHeader>
           <CardBody>
-            <UploadForm />
+            <p className="muted">활성 공유 링크 전체를 합산한 지표입니다.</p>
+            <StatGroup cols={4} unwrapped>
+              <Stat label="총 조회수" value={overview.opens} helper="총 열람" />
+              <Stat label="유니크 방문자" value={overview.unique_viewers} helper="계정 전체" />
+              <Stat label="다운로드" value={overview.downloads} />
+              <Stat
+                label="거부"
+                value={overview.denied}
+                {...(overview.denied > 0 ? { delta: '주의', deltaVariant: 'negative' as const } : {})}
+              />
+            </StatGroup>
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>내 파일</CardTitle>
+            <CardTitle>인기 문서</CardTitle>
           </CardHeader>
           <CardBody>
-            <FileBrowser
-              files={files}
-              totalCount={filesTotal}
-              page={page}
-              pageSize={pageSize}
-              search={search}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              deleteFileAction={deleteFileAction}
-            />
-          </CardBody>
-        </Card>
-
-        <Card className="collapsible">
-          <CollectionBuilderLazy createCollectionAction={createCollectionAction} />
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>데이터룸 목록</CardTitle>
-          </CardHeader>
-          <CardBody>
-            {collections.length === 0 ? (
+            {topDocs.length === 0 ? (
               <EmptyState
-                title="생성된 데이터룸이 없습니다"
-                description="여러 PDF를 하나의 공유 경험으로 묶을 수 있습니다."
+                title="아직 열람된 문서가 없습니다"
+                description="문서를 공유하고 열람되면 가장 많이 본 문서가 여기 표시됩니다."
               />
             ) : (
               <Table density="compact">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>데이터룸명</TableHead>
-                    <TableHead>포함 문서 수</TableHead>
-                    <TableHead>생성일</TableHead>
-                    <TableHead>작업</TableHead>
+                    <TableHead>문서</TableHead>
+                    <TableHead nowrap>열람자</TableHead>
+                    <TableHead nowrap>열람 수</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {collections.map((collection) => (
-                    <TableRow key={collection.id}>
+                  {topDocs.map((doc) => (
+                    <TableRow key={doc.file_id}>
                       <TableCell>
-                        <Stack direction="row" asChild align="center" gap={2}>
-                          <span>
-                            <FileIcon type="folder" size={24} />
-                            <strong>{collection.name}</strong>
-                          </span>
-                        </Stack>
+                        <Link href={`/dashboard/files/${doc.file_id}`}>{doc.original_name}</Link>
                       </TableCell>
-                      <TableCell>{collection.file_count}</TableCell>
-                      <TableCell>{formatDateTime(collection.created_at)}</TableCell>
+                      <TableCell nowrap>{doc.viewers}</TableCell>
+                      <TableCell nowrap>{doc.views}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>최근 활동</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {recent.length === 0 ? (
+              <EmptyState
+                title="최근 활동이 없습니다"
+                description="열람·다운로드·거부 등 이벤트가 발생하면 여기 표시됩니다."
+              />
+            ) : (
+              <Table density="compact">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead nowrap>시간</TableHead>
+                    <TableHead>이벤트</TableHead>
+                    <TableHead>방문자</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recent.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell nowrap>
+                        <LocalDate value={event.created_at} />
+                      </TableCell>
                       <TableCell>
-                        <Stack direction="row" align="center" gap={2} wrap>
-                          <Button asChild variant="secondary" size="sm">
-                            <Link href={`/dashboard/collections/${collection.id}`}>링크 관리</Link>
-                          </Button>
-                          <form action={deleteCollectionAction}>
-                            <HiddenInput name="collectionId" value={collection.id} />
-                            <Button type="submit" variant="danger" size="sm">
-                              데이터룸 삭제
-                            </Button>
-                          </form>
-                        </Stack>
+                        {EVENT_LABEL[event.event_type] ?? event.event_type}
+                        {event.reason ? ` · ${event.reason}` : ''}
                       </TableCell>
+                      <TableCell>{event.viewer_email ?? '익명'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

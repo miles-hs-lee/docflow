@@ -654,6 +654,45 @@ export type Database = {
           agreed: boolean;
         }[];
       };
+      get_owner_overview: {
+        Args: {
+          p_owner_id: string;
+        };
+        Returns: {
+          opens: number;
+          unique_viewers: number;
+          downloads: number;
+          denied: number;
+        }[];
+      };
+      get_owner_top_documents: {
+        Args: {
+          p_owner_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          file_id: string;
+          original_name: string;
+          viewers: number;
+          views: number;
+        }[];
+      };
+      get_owner_contacts: {
+        Args: {
+          p_owner_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          viewer_email: string;
+          documents: number;
+          sessions: number;
+          opens: number;
+          downloads: number;
+          agreed: boolean;
+          first_seen: string;
+          last_seen: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

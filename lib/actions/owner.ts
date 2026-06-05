@@ -104,11 +104,11 @@ export async function createCollectionAction(formData: FormData) {
   const selectedFileIds = readSelectedFileIds(formData);
 
   if (!name) {
-    redirectWithError('/dashboard', '데이터룸 이름을 입력해주세요.');
+    redirectWithError('/dashboard/collections', '데이터룸 이름을 입력해주세요.');
   }
 
   if (selectedFileIds.length < 2) {
-    redirectWithError('/dashboard', '데이터룸에는 최소 2개 파일을 선택해주세요.');
+    redirectWithError('/dashboard/collections', '데이터룸에는 최소 2개 파일을 선택해주세요.');
   }
 
   const { data: ownedFiles, error: filesError } = await admin
@@ -118,7 +118,7 @@ export async function createCollectionAction(formData: FormData) {
     .eq('owner_id', user.id);
 
   if (filesError || (ownedFiles?.length ?? 0) !== selectedFileIds.length) {
-    redirectWithError('/dashboard', '선택한 파일 중 접근할 수 없는 항목이 있습니다.');
+    redirectWithError('/dashboard/collections', '선택한 파일 중 접근할 수 없는 항목이 있습니다.');
   }
 
   const { data: createdCollection, error: createError } = await admin
@@ -132,7 +132,7 @@ export async function createCollectionAction(formData: FormData) {
     .maybeSingle();
 
   if (createError || !createdCollection) {
-    redirectWithError('/dashboard', '데이터룸을 생성하지 못했습니다.');
+    redirectWithError('/dashboard/collections', '데이터룸을 생성하지 못했습니다.');
   }
 
   const mappingRows = selectedFileIds.map((fileId, index) => ({
@@ -145,7 +145,7 @@ export async function createCollectionAction(formData: FormData) {
   const { error: mappingError } = await admin.from('collection_files').insert(mappingRows);
   if (mappingError) {
     await admin.from('collections').delete().eq('id', createdCollection.id).eq('owner_id', user.id);
-    redirectWithError('/dashboard', '데이터룸 파일 연결에 실패했습니다.');
+    redirectWithError('/dashboard/collections', '데이터룸 파일 연결에 실패했습니다.');
   }
 
   revalidatePath('/dashboard');
@@ -158,7 +158,7 @@ export async function deleteCollectionAction(formData: FormData) {
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
   if (!collectionId) {
-    redirectWithError('/dashboard', '삭제할 데이터룸을 확인할 수 없습니다.');
+    redirectWithError('/dashboard/collections', '삭제할 데이터룸을 확인할 수 없습니다.');
   }
 
   // delete_collection_cascade (migration 009) wraps the active-link gate,
@@ -171,10 +171,10 @@ export async function deleteCollectionAction(formData: FormData) {
 
   const status = Array.isArray(data) ? data[0]?.status : null;
   if (rpcError || status == null) {
-    redirectWithError('/dashboard', '데이터룸 삭제에 실패했습니다.');
+    redirectWithError('/dashboard/collections', '데이터룸 삭제에 실패했습니다.');
   }
   if (status === 'not_found') {
-    redirectWithError('/dashboard', '삭제할 데이터룸을 확인할 수 없습니다.');
+    redirectWithError('/dashboard/collections', '삭제할 데이터룸을 확인할 수 없습니다.');
   }
   if (status === 'active_links_exist') {
     redirectWithError(
@@ -185,7 +185,7 @@ export async function deleteCollectionAction(formData: FormData) {
 
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/trash');
-  redirectWithSuccess('/dashboard', '데이터룸을 삭제했습니다.');
+  redirectWithSuccess('/dashboard/collections', '데이터룸을 삭제했습니다.');
 }
 
 export async function createMcpApiKeyAction(formData: FormData) {
@@ -726,13 +726,13 @@ export async function deleteFileAction(formData: FormData) {
   }
   if (status === 'active_links_exist') {
     redirectWithError(
-      '/dashboard',
+      '/dashboard/files',
       '활성 링크가 남아있어 파일을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
   }
   if (status === 'active_collection_links_exist') {
     redirectWithError(
-      '/dashboard',
+      '/dashboard/files',
       '이 파일이 포함된 데이터룸에 활성 공유 링크가 있어 삭제할 수 없습니다. 데이터룸 링크를 먼저 휴지통으로 옮긴 뒤 다시 시도하세요.'
     );
   }
@@ -771,7 +771,7 @@ export async function deleteFileAction(formData: FormData) {
   }
 
   revalidatePath('/dashboard');
-  redirectWithSuccess('/dashboard', '파일과 연결된 링크를 삭제했습니다.');
+  redirectWithSuccess('/dashboard/files', '파일과 연결된 링크를 삭제했습니다.');
 }
 
 // ── Space folders (Phase 1) ───────────────────────────────────────────────
