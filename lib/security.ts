@@ -46,6 +46,13 @@ export function parseAllowedDomains(input: string) {
     .filter((value, index, arr) => value.length > 0 && arr.indexOf(value) === index);
 }
 
+// Storage-safe object name: collapse anything outside [A-Za-z0-9._-] to '_'.
+// Shared by every upload path (owner PDF, MCP, file-request inbound) so the
+// sanitization rule can't drift across endpoints.
+export function sanitizeFileName(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 export function hashIp(ip: string | null | undefined) {
   if (!ip) return null;
   // HMAC with a server-side salt — IPv4 has only ~4G addresses, so an

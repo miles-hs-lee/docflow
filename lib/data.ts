@@ -1137,7 +1137,7 @@ export async function processPendingStorageDeletions(): Promise<{ processed: num
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('pending_storage_deletions')
-    .select('id, storage_path, attempts')
+    .select('id, storage_path, attempts, bucket')
     .is('processed_at', null)
     .lt('attempts', STORAGE_SWEEP_MAX_ATTEMPTS)
     .order('created_at', { ascending: true })
@@ -1149,8 +1149,10 @@ export async function processPendingStorageDeletions(): Promise<{ processed: num
 
   let processed = 0;
   let failed = 0;
-  for (const row of data as { id: number; storage_path: string; attempts: number }[]) {
-    const { error: removeError } = await admin.storage.from('pdf-files').remove([row.storage_path]);
+  for (const row of data as { id: number; storage_path: string; attempts: number; bucket: string | null }[]) {
+    // Remove from the row's own bucket (pdf-files or request-uploads); default
+    // pdf-files keeps pre-024 rows valid.
+    const { error: removeError } = await admin.storage.from(row.bucket ?? 'pdf-files').remove([row.storage_path]);
     if (removeError) {
       failed += 1;
       await admin

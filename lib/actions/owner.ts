@@ -456,8 +456,14 @@ export async function createCollectionShareLinkAction(formData: FormData) {
   const requireAgreement = parseBoolean(formData, 'requireAgreement');
   const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
   // Phase 3: optionally scope this link to a viewer group (must belong to the
-  // same data room + owner). 'all'/empty = full access.
-  const viewerGroupId = await resolveViewerGroupId(admin, formData, collectionId, user.id);
+  // same data room + owner). 'all'/empty = full access; an invalid id errors.
+  const viewerGroupId = await resolveViewerGroupId(
+    admin,
+    formData,
+    collectionId,
+    user.id,
+    `/dashboard/collections/${collectionId}`
+  );
 
   const { error } = await admin.from('share_links').insert({
     file_id: null,
@@ -534,7 +540,7 @@ export async function updateShareLinkAction(formData: FormData) {
   // The collection-link edit form always submits the current group so this is a
   // no-op unless the owner actually changed it (changing it bumps policy_version).
   const viewerGroupId = existingLink.collection_id
-    ? await resolveViewerGroupId(admin, formData, existingLink.collection_id, user.id)
+    ? await resolveViewerGroupId(admin, formData, existingLink.collection_id, user.id, redirectPath)
     : null;
 
   const { error } = await admin
@@ -967,7 +973,8 @@ async function resolveViewerGroupId(
   admin: ReturnType<typeof createAdminClient>,
   formData: FormData,
   collectionId: string | null,
-  ownerId: string
+  ownerId: string,
+  redirectPath: string
 ): Promise<string | null> {
   const raw = ((formData.get('viewerGroupId') as string | null) || '').trim();
   if (!raw || raw === 'all' || !collectionId) return null;
@@ -978,7 +985,13 @@ async function resolveViewerGroupId(
     .eq('collection_id', collectionId)
     .eq('owner_id', ownerId)
     .maybeSingle();
-  return data ? raw : null;
+  // A non-empty, non-'all' group id that doesn't resolve to one of THIS
+  // collection's groups is rejected — never silently coerced to null, which
+  // would widen a restricted link to full access (stale form / tampered post).
+  if (!data) {
+    redirectWithError(redirectPath, '유효하지 않은 뷰어 그룹입니다.');
+  }
+  return raw;
 }
 
 export async function createViewerGroupAction(formData: FormData) {
@@ -1161,6 +1174,14 @@ export async function createFileRequestAction(formData: FormData) {
   }
   const instructions = ((formData.get('instructions') as string | null) || '').trim().slice(0, 2000) || null;
 
+  // Empty = unlimited. A provided value must be a positive integer — reject 0 /
+  // negatives / non-numerics instead of silently coercing them to "unlimited".
+  const rawMaxUploads = ((formData.get('maxUploads') as string | null) || '').trim();
+  if (rawMaxUploads && (!/^\d+$/.test(rawMaxUploads) || Number.parseInt(rawMaxUploads, 10) < 1)) {
+    redirectWithError('/dashboard/requests', '최대 업로드 수는 1 이상의 숫자여야 합니다.');
+  }
+  const maxUploads = rawMaxUploads ? Number.parseInt(rawMaxUploads, 10) : null;
+
   const { error } = await admin.from('file_requests').insert({
     owner_id: user.id,
     token: generateShareToken(),
@@ -1169,7 +1190,7 @@ export async function createFileRequestAction(formData: FormData) {
     require_email: parseBoolean(formData, 'requireEmail'),
     is_active: parseBoolean(formData, 'isActive'),
     expires_at: parseOptionalDate(formData, 'expiresAt'),
-    max_uploads: parseOptionalInt(formData, 'maxUploads')
+    max_uploads: maxUploads
   });
   if (error) {
     redirectWithError('/dashboard/requests', '파일 요청 생성에 실패했습니다.');

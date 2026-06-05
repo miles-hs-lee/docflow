@@ -239,6 +239,7 @@ export type Database = {
           created_at: string;
           processed_at: string | null;
           attempts: number;
+          bucket: string;
         };
         Insert: {
           id?: number;
@@ -247,6 +248,7 @@ export type Database = {
           created_at?: string;
           processed_at?: string | null;
           attempts?: number;
+          bucket?: string;
         };
         Update: {
           id?: number;
@@ -255,6 +257,7 @@ export type Database = {
           created_at?: string;
           processed_at?: string | null;
           attempts?: number;
+          bucket?: string;
         };
         Relationships: [];
       };
@@ -742,6 +745,27 @@ export type Database = {
           p_file_id: string;
         };
         Returns: boolean;
+      };
+      viewer_group_folder_closure: {
+        Args: {
+          p_group_id: string;
+          p_collection_id: string;
+          p_owner_id: string;
+        };
+        Returns: string[];
+      };
+      claim_file_request_upload: {
+        Args: {
+          p_request_id: string;
+          p_upload_id: string;
+          p_uploader_email: string | null;
+          p_original_name: string;
+          p_storage_path: string;
+          p_mime_type: string;
+          p_size_bytes: number;
+          p_ip_hash: string | null;
+        };
+        Returns: string;
       };
       get_per_page_stats: {
         Args: {

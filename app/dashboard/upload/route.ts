@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { uploadPdfObject } from '@/lib/data';
+import { sanitizeFileName } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -11,10 +12,6 @@ import { createClient } from '@/lib/supabase/server';
 export const maxDuration = 60;
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
 
 function redirectToDashboard(requestUrl: string, key: 'error' | 'success', message: string) {
   const url = new URL('/dashboard/files', requestUrl);

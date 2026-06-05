@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { authenticateMcpBearerToken, ensureScope, parseBearerToken } from '@/lib/agent-auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { publicEnv } from '@/lib/env-public';
-import { generateShareToken, hashPassword, parseAllowedDomains } from '@/lib/security';
+import { generateShareToken, hashPassword, parseAllowedDomains, sanitizeFileName } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertSafePublicUrl } from '@/lib/url-safety';
 
@@ -279,9 +279,6 @@ function parseEventTypes(value: unknown) {
   return Array.from(new Set(parsed));
 }
 
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
 
 function parsePdfBase64(raw: string) {
   const trimmed = raw.trim();

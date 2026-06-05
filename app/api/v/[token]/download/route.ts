@@ -84,11 +84,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!bundle) {
     return buildDeniedResponse('file_missing', 404);
   }
-  const targetFile =
-    bundle.file ??
-    (requestedFileId ? bundle.collection_files.find((item) => item.id === requestedFileId) : null) ??
-    bundle.collection_files[0] ??
-    null;
+  // A specific fileId must resolve within the (group-filtered) bundle. Do NOT
+  // fall back to collection_files[0] when a requested fileId is absent — that
+  // would serve a different document and silently mask an out-of-group request.
+  // Only default to the first file when no fileId was requested at all.
+  let targetFile = bundle.file ?? null;
+  if (!targetFile) {
+    targetFile = requestedFileId
+      ? (bundle.collection_files.find((item) => item.id === requestedFileId) ?? null)
+      : (bundle.collection_files[0] ?? null);
+  }
   if (!targetFile) {
     return buildDeniedResponse('file_missing', 404);
   }

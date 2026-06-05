@@ -65,6 +65,7 @@ export async function POST(request: Request) {
   // listing itself fails we abort — proceeding would leak the orphan
   // paths since we'd no longer be able to recover them after cascade.
   let paths: string[] = [];
+  let requestPaths: string[] = [];
   try {
     const { data: files, error: listError } = await admin
       .from('files')
@@ -73,6 +74,17 @@ export async function POST(request: Request) {
     if (listError) throw listError;
     paths = (files ?? [])
       .map((f) => (f as { storage_path: string }).storage_path)
+      .filter((p): p is string => Boolean(p));
+
+    // File-request uploads live in the request-uploads bucket and cascade-delete
+    // with the user, so snapshot their paths now or they orphan after deleteUser.
+    const { data: uploads, error: uploadsError } = await admin
+      .from('file_request_uploads')
+      .select('storage_path')
+      .eq('owner_id', user.id);
+    if (uploadsError) throw uploadsError;
+    requestPaths = (uploads ?? [])
+      .map((u) => (u as { storage_path: string }).storage_path)
       .filter((p): p is string => Boolean(p));
   } catch (err) {
     console.error('[deleteAccount] storage listing failed — aborting', {
@@ -104,30 +116,38 @@ export async function POST(request: Request) {
   // Both branches must queue, otherwise an unexpected throw would
   // leave untracked PDF orphans in the bucket after the account is
   // already gone.
-  if (paths.length > 0) {
+  // Clean each bucket; failures (error OR throw) queue into
+  // pending_storage_deletions WITH their bucket so the sweep job can target the
+  // right bucket. Untracked orphans must never survive a completed account delete.
+  const cleanupBucket = async (bucket: string, objectPaths: string[]) => {
+    if (objectPaths.length === 0) return;
+
     const queueOrphans = async (reason: string) => {
       try {
         await admin.from('pending_storage_deletions').insert(
-          paths.map((p) => ({
+          objectPaths.map((p) => ({
             storage_path: p,
+            bucket,
             reason: `account_delete: ${reason}`
           }))
         );
       } catch (queueErr) {
         console.error('[deleteAccount] failed to queue storage cleanup', {
           ownerId: user.id,
-          count: paths.length,
+          bucket,
+          count: objectPaths.length,
           queueErr: queueErr instanceof Error ? queueErr.message : 'unknown_error'
         });
       }
     };
 
     try {
-      const { error: storageError } = await admin.storage.from('pdf-files').remove(paths);
+      const { error: storageError } = await admin.storage.from(bucket).remove(objectPaths);
       if (storageError) {
         console.error('[deleteAccount] storage bulk remove failed', {
           ownerId: user.id,
-          count: paths.length,
+          bucket,
+          count: objectPaths.length,
           reason: storageError.message
         });
         await queueOrphans(storageError.message);
@@ -136,12 +156,16 @@ export async function POST(request: Request) {
       const reason = err instanceof Error ? err.message : 'unknown_throw';
       console.error('[deleteAccount] storage cleanup threw', {
         ownerId: user.id,
-        count: paths.length,
+        bucket,
+        count: objectPaths.length,
         reason
       });
       await queueOrphans(reason);
     }
-  }
+  };
+
+  await cleanupBucket('pdf-files', paths);
+  await cleanupBucket('request-uploads', requestPaths);
 
   // 4) Wipe the local session cookies (the user is already gone server-side).
   await supabase.auth.signOut();

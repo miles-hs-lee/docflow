@@ -1,11 +1,11 @@
 import crypto from 'node:crypto';
 
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { getFileRequestByToken, uploadRequestObject } from '@/lib/data';
 import { notifyFileUpload } from '@/lib/notify/file-upload';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { hashIp, normalizeEmail } from '@/lib/security';
+import { hashIp, normalizeEmail, sanitizeFileName } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // 50MB uploads over slow links can exceed the default function budget.
@@ -34,9 +34,13 @@ const EXT_TO_MIME: Record<string, string> = {
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 };
 
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
+// claim_file_request_upload status → HTTP. 'ok' proceeds.
+const CLAIM_STATUS: Record<string, { status: number; error: string }> = {
+  not_found: { status: 404, error: 'not_found' },
+  closed: { status: 403, error: 'closed' },
+  expired: { status: 403, error: 'expired' },
+  limit_reached: { status: 403, error: 'limit_reached' }
+};
 
 function bad(status: number, error: string) {
   return NextResponse.json({ error }, { status });
@@ -45,6 +49,8 @@ function bad(status: number, error: string) {
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
+  // Fast-fail before buffering the file. The atomic claim below re-checks
+  // active/expiry/limit under a row lock — this is just a cheap early reject.
   const req = await getFileRequestByToken(token);
   if (!req) return bad(404, 'not_found');
   if (!req.is_active) return bad(403, 'closed');
@@ -56,11 +62,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const ipHash = hashIp(ip);
   const rl = await checkRateLimit('fileRequestUpload', `${req.id}:${ipHash ?? 'unknown'}`);
   if (!rl.allowed) return bad(429, 'too_many');
-
-  // Soft cap (best-effort; a tiny TOCTOU window under concurrency is acceptable).
-  if (req.max_uploads !== null && req.upload_count >= req.max_uploads) {
-    return bad(403, 'limit_reached');
-  }
 
   const formData = await request.formData();
   const uploaded = formData.get('file');
@@ -91,38 +92,46 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const safeName = sanitizeFileName(file.name || uploadId);
   const storagePath = `${req.id}/${uploadId}/${safeName}`;
 
-  // Row first, then object; compensating delete if storage fails (the delete
-  // trigger keeps upload_count accurate).
-  const { error: insertError } = await admin.from('file_request_uploads').insert({
-    id: uploadId,
-    request_id: req.id,
-    owner_id: req.owner_id,
-    uploader_email: uploaderEmail,
-    original_name: file.name.slice(0, 300),
-    storage_path: storagePath,
-    mime_type: contentType,
-    size_bytes: file.size,
-    ip_hash: ipHash
+  // Atomic claim: locks the request row, re-checks active/expiry/max_uploads,
+  // and inserts the upload row in one txn — so concurrent uploads cannot exceed
+  // the limit (the after-insert trigger bumps upload_count within the same txn).
+  const { data: claim, error: claimError } = await admin.rpc('claim_file_request_upload', {
+    p_request_id: req.id,
+    p_upload_id: uploadId,
+    p_uploader_email: uploaderEmail,
+    p_original_name: file.name.slice(0, 300),
+    p_storage_path: storagePath,
+    p_mime_type: contentType,
+    p_size_bytes: file.size,
+    p_ip_hash: ipHash
   });
-  if (insertError) return bad(500, 'save_failed');
+  if (claimError) return bad(500, 'save_failed');
+  if (claim !== 'ok') {
+    const mapped = CLAIM_STATUS[claim as string] ?? { status: 403, error: 'closed' };
+    return bad(mapped.status, mapped.error);
+  }
 
   try {
     await uploadRequestObject({ path: storagePath, file, contentType });
   } catch {
+    // Compensating delete; the after-delete trigger decrements upload_count.
     await admin.from('file_request_uploads').delete().eq('id', uploadId).eq('owner_id', req.owner_id);
     return bad(500, 'storage_failed');
   }
 
-  // Best-effort owner notification; bounded + swallowed, never blocks success.
-  await notifyFileUpload({
-    ownerId: req.owner_id,
-    requestId: req.id,
-    requestTitle: req.title,
-    uploadId,
-    fileName: file.name,
-    uploaderEmail,
-    createdAt: new Date().toISOString()
-  });
+  // Owner notification runs AFTER the response is flushed (Next `after`), so a
+  // slow/broken owner webhook never blocks the visitor. Still best-effort.
+  after(() =>
+    notifyFileUpload({
+      ownerId: req.owner_id,
+      requestId: req.id,
+      requestTitle: req.title,
+      uploadId,
+      fileName: file.name,
+      uploaderEmail,
+      createdAt: new Date().toISOString()
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }

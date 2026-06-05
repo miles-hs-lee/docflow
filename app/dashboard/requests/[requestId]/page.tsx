@@ -22,12 +22,7 @@ import { LocalDate } from '@/components/local-date';
 import { requireOwner } from '@/lib/auth';
 import { getFileRequest, listRequestUploads } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { formatBytes } from '@/lib/format';
 
 type RequestDetailPageProps = {
   params: Promise<{ requestId: string }>;
