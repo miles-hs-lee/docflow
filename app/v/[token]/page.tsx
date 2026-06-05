@@ -2,6 +2,7 @@ import { Alert, AlertDescription, Badge, Button, Card, Checkbox, Input } from '@
 
 import type { Metadata } from 'next';
 
+import { BrandCover } from '@/components/brand-cover';
 import { BrandMark } from '@/components/brand-mark';
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { SpaceViewerNav } from '@/components/space-viewer-nav';
@@ -50,7 +51,10 @@ export async function generateMetadata({ params }: ViewerPageProps): Promise<Met
     ...base,
     title: branding.company_name ? `${meta.label} · ${branding.company_name}` : meta.label,
     description: null,
-    icons: branding.logo_url ? { icon: branding.logo_url } : null
+    icons: branding.logo_url ? { icon: branding.logo_url } : null,
+    // Branded link-preview image (Slack/Teams/iMessage unfurls). noindex still
+    // applies; OG images render in chat unfurls regardless.
+    openGraph: branding.cover_image_url ? { images: [branding.cover_image_url] } : undefined
   };
 }
 
@@ -71,6 +75,17 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
       </main>
     );
   }
+
+  // White-label branding, resolved once for EVERY screen below (access gate,
+  // denied/empty cards, and the main viewer): a data-room link field-merges room
+  // over account branding; otherwise account branding. Read both in parallel;
+  // cache()d + degrades to null pre-migration. The cover image surfaces on the
+  // landing cards (gate/denied/empty) via <BrandCover>.
+  const [roomBranding, accountBranding] = await Promise.all([
+    link.collection_id ? getCollectionBranding(link.collection_id) : Promise.resolve(null),
+    getOwnerBranding(link.owner_id)
+  ]);
+  const branding = mergeBranding(roomBranding, accountBranding);
 
   const cookieStore = await cookies();
   const rawGrant = cookieStore.get(getGrantCookieName(link.id))?.value;
@@ -135,6 +150,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     return (
       <main className="viewer-layout">
         <Card className="viewer-card" variant="padded">
+          <BrandCover branding={branding} />
           <h1>접근할 수 없습니다.</h1>
           <p>{deniedMessage(baseDenied)}</p>
         </Card>
@@ -146,6 +162,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     return (
       <main className="viewer-layout">
         <Card className="viewer-card" variant="padded">
+          <BrandCover branding={branding} />
           <h1>{link.label}</h1>
           <p>문서를 열람하려면 접근 조건을 입력해주세요.</p>
           {deniedReasonFromQuery ? (
@@ -192,6 +209,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     return (
       <main className="viewer-layout">
         <Card className="viewer-card" variant="padded">
+          <BrandCover branding={branding} />
           <h1>{emptyRoom ? '아직 공유된 문서가 없습니다.' : '문서에 접근할 수 없습니다.'}</h1>
           <p>
             {emptyRoom
@@ -210,14 +228,8 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
     : `/api/v/${token}/download`;
   const eventEndpoint = `/api/v/${token}/event`;
-  // White-label: data-room link → room branding field-merges over account
-  // branding; otherwise account branding. Read both in parallel. Falls back to
-  // the company name for the watermark. Degrades to null pre-migration.
-  const [roomBranding, accountBranding] = await Promise.all([
-    link.collection_id ? getCollectionBranding(link.collection_id) : Promise.resolve(null),
-    getOwnerBranding(link.owner_id)
-  ]);
-  const branding = mergeBranding(roomBranding, accountBranding);
+  // Branding was resolved once above; the watermark falls back to the company
+  // name when no viewer email was collected.
   const watermarkLabel = grant?.email || branding?.company_name || 'DocFlow Viewer';
 
   // #1: count this open. Bumped once per granted viewer-page render — NOT

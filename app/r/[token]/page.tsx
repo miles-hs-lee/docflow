@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { Card } from '@polaris/ui';
 
+import { BrandCover } from '@/components/brand-cover';
 import { BrandMark } from '@/components/brand-mark';
 import { FileRequestUploader } from '@/components/file-request-uploader';
 import { brandAccentStyle } from '@/lib/branding';
@@ -29,7 +30,9 @@ export async function generateMetadata({ params }: FileRequestPageProps): Promis
     ...base,
     title: branding.company_name ? `${req.title} · ${branding.company_name}` : req.title,
     description: null,
-    icons: branding.logo_url ? { icon: branding.logo_url } : null
+    icons: branding.logo_url ? { icon: branding.logo_url } : null,
+    // Branded link-preview image for chat unfurls (noindex still applies).
+    openGraph: branding.cover_image_url ? { images: [branding.cover_image_url] } : undefined
   };
 }
 
@@ -56,6 +59,7 @@ export default async function FileRequestPage({ params }: FileRequestPageProps) 
   return (
     <main className="viewer-layout" style={brandAccentStyle(branding?.brand_color)}>
       <Card className="viewer-card" variant="padded">
+        <BrandCover branding={branding} />
         <div className="brand-row">
           <BrandMark branding={branding} tone="onLight" />
         </div>

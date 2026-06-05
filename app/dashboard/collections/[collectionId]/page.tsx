@@ -33,6 +33,7 @@ import { ViewerGroups } from '@/components/viewer-groups';
 import {
   addFilesToCollectionAction,
   createCollectionShareLinkAction,
+  removeCollectionBrandingCoverAction,
   removeCollectionBrandingLogoAction,
   saveCollectionBrandingAction,
   softDeleteLinkAction,
@@ -201,9 +202,12 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               branding={roomBranding}
               saveAction={saveCollectionBrandingAction}
               removeLogoAction={removeCollectionBrandingLogoAction}
+              removeCoverAction={removeCollectionBrandingCoverAction}
               logoEndpoint={`/dashboard/collections/${collection.id}/logo`}
+              coverEndpoint={`/dashboard/collections/${collection.id}/cover`}
               hiddenFields={[{ name: 'collectionId', value: collection.id }]}
               noLogoLabel="데이터룸 전용 로고가 없습니다. (계정 로고 상속)"
+              noCoverLabel="데이터룸 전용 커버 이미지가 없습니다. (계정 커버 상속)"
             />
           </CardBody>
         </Card>

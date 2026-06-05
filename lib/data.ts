@@ -1143,15 +1143,21 @@ export function ownerLogoPublicUrl(logoPath: string): string {
 // Shared mapping for both branding scopes (account + per-room): a row with no
 // fields set → null; otherwise resolve logo_path → public URL. Adding a future
 // branding field (e.g. a cover image) is a one-line change here + the select.
-type BrandingFields = { company_name: string | null; brand_color: string | null; logo_path: string | null };
+type BrandingFields = {
+  company_name: string | null;
+  brand_color: string | null;
+  logo_path: string | null;
+  cover_image_path: string | null;
+};
 
 function toViewerBranding(row: BrandingFields | null): ViewerBranding | null {
   if (!row) return null;
-  if (!row.company_name && !row.brand_color && !row.logo_path) return null;
+  if (!row.company_name && !row.brand_color && !row.logo_path && !row.cover_image_path) return null;
   return {
     company_name: row.company_name,
     brand_color: row.brand_color,
-    logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
+    logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null,
+    cover_image_url: row.cover_image_path ? ownerLogoPublicUrl(row.cover_image_path) : null
   };
 }
 
@@ -1162,7 +1168,7 @@ export const getOwnerBranding = cache(async (ownerId: string): Promise<ViewerBra
   try {
     const { data, error } = await admin
       .from('owner_branding')
-      .select('company_name, brand_color, logo_path')
+      .select('company_name, brand_color, logo_path, cover_image_path')
       .eq('owner_id', ownerId)
       .maybeSingle();
     if (error) return null;
@@ -1178,7 +1184,7 @@ export const getCollectionBranding = cache(async (collectionId: string): Promise
   try {
     const { data, error } = await admin
       .from('collection_branding')
-      .select('company_name, brand_color, logo_path')
+      .select('company_name, brand_color, logo_path, cover_image_path')
       .eq('collection_id', collectionId)
       .maybeSingle();
     if (error) return null;

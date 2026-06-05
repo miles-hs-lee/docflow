@@ -609,6 +609,7 @@ export type Database = {
           company_name: string | null;
           brand_color: string | null;
           logo_path: string | null;
+          cover_image_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -617,6 +618,7 @@ export type Database = {
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
+          cover_image_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -625,6 +627,7 @@ export type Database = {
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
+          cover_image_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -637,6 +640,7 @@ export type Database = {
           company_name: string | null;
           brand_color: string | null;
           logo_path: string | null;
+          cover_image_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -646,6 +650,7 @@ export type Database = {
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
+          cover_image_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -655,6 +660,7 @@ export type Database = {
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
+          cover_image_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };

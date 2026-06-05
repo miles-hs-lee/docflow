@@ -13,7 +13,7 @@ import {
 
 import { BrandingEditor } from '@/components/branding-editor';
 import { DeleteAccountConfirm } from '@/components/delete-account-confirm';
-import { removeBrandingLogoAction, saveBrandingAction } from '@/lib/actions/owner';
+import { removeBrandingCoverAction, removeBrandingLogoAction, saveBrandingAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
 import { getOwnerBranding } from '@/lib/data';
 
@@ -49,7 +49,9 @@ export default async function SettingsPage() {
               branding={branding}
               saveAction={saveBrandingAction}
               removeLogoAction={removeBrandingLogoAction}
+              removeCoverAction={removeBrandingCoverAction}
               logoEndpoint="/dashboard/logo"
+              coverEndpoint="/dashboard/cover"
             />
           </CardBody>
         </Card>

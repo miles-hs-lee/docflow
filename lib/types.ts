@@ -198,6 +198,7 @@ export type OwnerBrandingRow = {
   company_name: string | null;
   brand_color: string | null;
   logo_path: string | null;
+  cover_image_path: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -209,16 +210,21 @@ export type CollectionBrandingRow = {
   company_name: string | null;
   brand_color: string | null;
   logo_path: string | null;
+  cover_image_path: string | null;
   created_at: string;
   updated_at: string;
 };
 
-// Resolved branding handed to the public pages: logo_path → an absolute public
-// URL. null = no branding configured (pages show the default DocFlow mark).
+// Resolved branding handed to the public pages: logo_path / cover_image_path →
+// absolute public URLs. null = no branding configured (pages show the default
+// DocFlow mark).
 export type ViewerBranding = {
   company_name: string | null;
   brand_color: string | null;
   logo_url: string | null;
+  // Wide hero/cover banner shown on the branded landing surfaces (access gate,
+  // empty data room, file request). null = no cover set.
+  cover_image_url: string | null;
 };
 
 export type McpApiKeyRow = {

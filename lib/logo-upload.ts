@@ -19,20 +19,23 @@ function bad(status: number, error: string) {
   return NextResponse.json({ error }, { status });
 }
 
-// Shared core for owner-authorized image-upload routes (account logo, per-room
-// logo, and any future branding image like a cover). The caller authenticates +
-// authorizes its scope, then provides the storage path prefix and how to read /
-// persist the path for that scope. This validates (ext + size + magic bytes),
-// uploads to the owner-logos bucket, persists, compensates on failure, and
-// cleans up the replaced object. Returns a JSON NextResponse.
+// Shared core for owner-authorized branding-image upload routes (account logo,
+// per-room logo, account/room cover image). The caller authenticates +
+// authorizes its scope, then provides the multipart field name, the storage
+// path prefix, and how to read / persist the path for that scope. This
+// validates (ext + size + magic bytes), uploads to the owner-logos bucket,
+// persists, compensates on failure, and cleans up the replaced object. Returns
+// a JSON NextResponse.
 export async function handleLogoUpload(opts: {
   request: Request;
+  /** Multipart field the image arrives under (e.g. 'logo' or 'cover'). */
+  field?: string;
   pathPrefix: string;
   loadOldPath: () => Promise<string | null>;
   persist: (path: string) => Promise<{ error: unknown }>;
 }): Promise<NextResponse> {
   const formData = await opts.request.formData();
-  const uploaded = formData.get('logo');
+  const uploaded = formData.get(opts.field ?? 'logo');
   if (!(uploaded instanceof File) || uploaded.size === 0) return bad(400, 'no_file');
   const file = uploaded as File;
   if (file.size > MAX_LOGO_BYTES) return bad(413, 'too_large');

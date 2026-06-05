@@ -1398,6 +1398,38 @@ export async function removeBrandingLogoAction() {
   redirectWithSuccess('/dashboard/settings', '로고를 제거했습니다.');
 }
 
+export async function removeBrandingCoverAction() {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from('owner_branding')
+    .select('cover_image_path')
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  const coverPath = (data as { cover_image_path: string | null } | null)?.cover_image_path ?? null;
+
+  // Clear the DB reference FIRST, then delete the object — never leave
+  // cover_image_path pointing at a removed file (a broken cover on the pages).
+  const { error: updateError } = await admin
+    .from('owner_branding')
+    .update({ cover_image_path: null })
+    .eq('owner_id', user.id);
+  if (updateError) {
+    redirectWithError('/dashboard/settings', '커버 이미지 제거에 실패했습니다.');
+  }
+  if (coverPath) {
+    try {
+      await removeLogoObject(coverPath);
+    } catch {
+      // best-effort — an orphaned cover object is cosmetic
+    }
+  }
+
+  revalidatePath('/dashboard/settings');
+  redirectWithSuccess('/dashboard/settings', '커버 이미지를 제거했습니다.');
+}
+
 // ───────────────────────────────────────────────────────────
 // Per-data-room branding (mirrors account branding, scoped to a collection).
 
@@ -1489,4 +1521,52 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
 
   revalidatePath(redirectPath);
   redirectWithSuccess(redirectPath, '데이터룸 로고를 제거했습니다.');
+}
+
+export async function removeCollectionBrandingCoverAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
+  }
+
+  const { data } = await admin
+    .from('collection_branding')
+    .select('cover_image_path')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  const coverPath = (data as { cover_image_path: string | null } | null)?.cover_image_path ?? null;
+
+  const { error: updateError } = await admin
+    .from('collection_branding')
+    .update({ cover_image_path: null })
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  if (updateError) {
+    redirectWithError(redirectPath, '커버 이미지 제거에 실패했습니다.');
+  }
+  if (coverPath) {
+    try {
+      await removeLogoObject(coverPath);
+    } catch {
+      // best-effort
+    }
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '데이터룸 커버 이미지를 제거했습니다.');
 }

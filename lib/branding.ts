@@ -24,9 +24,10 @@ export function mergeBranding(
   const merged: ViewerBranding = {
     company_name: room.company_name ?? account.company_name,
     brand_color: room.brand_color ?? account.brand_color,
-    logo_url: room.logo_url ?? account.logo_url
+    logo_url: room.logo_url ?? account.logo_url,
+    cover_image_url: room.cover_image_url ?? account.cover_image_url
   };
-  if (!merged.company_name && !merged.brand_color && !merged.logo_url) return null;
+  if (!merged.company_name && !merged.brand_color && !merged.logo_url && !merged.cover_image_url) return null;
   return merged;
 }
 
