@@ -17,10 +17,10 @@ const ERRORS: Record<string, string> = {
   save_failed: '저장에 실패했습니다. 다시 시도해주세요.'
 };
 
-export function LogoUploader() {
+export function LogoUploader({ endpoint = '/dashboard/logo' }: { endpoint?: string } = {}) {
   const router = useRouter();
   const { setFiles, phase, message, formRef, submit, busy } = useFileUpload({
-    endpoint: '/dashboard/logo',
+    endpoint,
     fieldName: 'logo',
     maxBytes: MAX_BYTES,
     errorMap: ERRORS,

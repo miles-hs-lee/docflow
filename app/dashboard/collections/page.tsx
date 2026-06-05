@@ -6,6 +6,7 @@ import {
   CardTitle,
   EmptyState,
   FileIcon,
+  Input,
   PageHeader,
   Stack,
   Table,
@@ -17,7 +18,6 @@ import {
 } from '@polaris/ui';
 import Link from 'next/link';
 
-import { CollectionBuilderLazy } from '@/components/collection-builder-lazy';
 import { HiddenInput } from '@/components/hidden-input';
 import { createCollectionAction, deleteCollectionAction } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
@@ -36,8 +36,18 @@ export default async function DataRoomsPage() {
           description="여러 PDF를 폴더 구조의 한 공간으로 묶어 공유하고, 룸 단위로 통계를 봅니다."
         />
 
-        <Card className="collapsible">
-          <CollectionBuilderLazy createCollectionAction={createCollectionAction} />
+        <Card>
+          <CardHeader>
+            <CardTitle>새 데이터룸</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">빈 데이터룸을 만든 뒤, 룸 페이지에서 파일과 폴더를 추가해 구성합니다.</p>
+            <form action={createCollectionAction} className="form-grid">
+              <Input name="name" required label="데이터룸 이름" placeholder="예: 2026 제안서 세트" />
+              <Input name="description" label="설명 (선택)" placeholder="예: 투자자용 실사 자료" />
+              <Button type="submit">데이터룸 만들기</Button>
+            </form>
+          </CardBody>
         </Card>
 
         <Card>

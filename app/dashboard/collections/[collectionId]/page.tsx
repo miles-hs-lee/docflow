@@ -22,20 +22,26 @@ import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { CollectionFilePicker } from '@/components/collection-file-picker';
 import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
+import { LogoUploader } from '@/components/logo-uploader';
 import { SpaceStructure } from '@/components/space-structure';
 import { ViewerGroups } from '@/components/viewer-groups';
 import {
+  addFilesToCollectionAction,
   createCollectionShareLinkAction,
+  removeCollectionBrandingLogoAction,
+  saveCollectionBrandingAction,
   softDeleteLinkAction,
   updateShareLinkAction
 } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
 import {
   getCollection,
+  getCollectionBranding,
   getCollectionUniqueViews,
   listCollectionLinkUniques,
   listLinksForCollection,
@@ -53,11 +59,12 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   const { collectionId } = await params;
 
   const { supabase } = await requireOwner();
-  const [collection, space, links, viewerGroups] = await Promise.all([
+  const [collection, space, links, viewerGroups, roomBranding] = await Promise.all([
     getCollection(supabase, collectionId),
     listSpaceContents(supabase, collectionId),
     listLinksForCollection(supabase, collectionId),
-    listViewerGroups(supabase, collectionId)
+    listViewerGroups(supabase, collectionId),
+    getCollectionBranding(collectionId)
   ]);
   const { folders, files } = space;
 
@@ -145,15 +152,29 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             <CardTitle>데이터룸 구성</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">폴더로 문서를 정리하세요. 폴더를 만들고 각 문서를 폴더로 옮길 수 있으며, 이 구조는 공유 링크 뷰어에 그대로 표시됩니다.</p>
+            <p className="muted">아래 “파일 추가”로 문서를 담고, 폴더를 만들어 정리하세요. 각 문서는 폴더로 옮기거나 룸에서 제거할 수 있으며, 이 구조는 공유 링크 뷰어에 그대로 표시됩니다.</p>
             {files.length === 0 ? (
               <EmptyState
-                title="데이터룸에 포함된 문서가 없습니다"
-                description="데이터룸을 다시 구성해주세요."
+                title="아직 추가된 문서가 없습니다"
+                description="아래 “파일 추가”에서 콘텐츠를 선택해 데이터룸을 구성하세요."
               />
             ) : (
               <SpaceStructure collectionId={collection.id} folders={folders} files={files} />
             )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>파일 추가</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">콘텐츠 라이브러리의 PDF를 이 데이터룸에 추가합니다. 이미 포함된 파일은 “포함됨”으로 표시됩니다. (룸에서 제거해도 라이브러리 원본은 유지됩니다.)</p>
+            <CollectionFilePicker
+              collectionId={collection.id}
+              action={addFilesToCollectionAction}
+              existingFileIds={files.map((file) => file.id)}
+            />
           </CardBody>
         </Card>
 
@@ -167,6 +188,57 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             </CardBody>
           </Card>
         ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>데이터룸 브랜딩</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">
+              이 데이터룸의 공유 링크 뷰어에만 적용됩니다. 비워둔 항목은 계정 브랜딩(설정)을 상속합니다.
+            </p>
+            <form action={saveCollectionBrandingAction} className="form-grid">
+              <HiddenInput name="collectionId" value={collection.id} />
+              <Input
+                name="companyName"
+                label="회사명"
+                placeholder="예: Acme Inc."
+                defaultValue={roomBranding?.company_name ?? ''}
+                maxLength={80}
+              />
+              <Input
+                name="brandColor"
+                label="브랜드 색상 (HEX)"
+                placeholder="#RRGGBB"
+                defaultValue={roomBranding?.brand_color ?? ''}
+              />
+              <Button type="submit">브랜딩 저장</Button>
+            </form>
+
+            <Stack gap={3}>
+              <p className="muted small">로고</p>
+              {roomBranding?.logo_url ? (
+                <div
+                  className="brand-logo brand-logo-chip"
+                  role="img"
+                  aria-label="현재 데이터룸 로고"
+                  style={{ backgroundImage: `url("${roomBranding.logo_url}")` }}
+                />
+              ) : (
+                <p className="muted small">데이터룸 전용 로고가 없습니다. (계정 로고 상속)</p>
+              )}
+              <LogoUploader endpoint={`/dashboard/collections/${collection.id}/logo`} />
+              {roomBranding?.logo_url ? (
+                <form action={removeCollectionBrandingLogoAction}>
+                  <HiddenInput name="collectionId" value={collection.id} />
+                  <Button type="submit" variant="ghost" size="sm">
+                    로고 제거
+                  </Button>
+                </form>
+              ) : null}
+            </Stack>
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader>

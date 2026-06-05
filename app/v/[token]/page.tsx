@@ -7,9 +7,16 @@ import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { SpaceViewerNav } from '@/components/space-viewer-nav';
 import { cookies, headers } from 'next/headers';
 
-import { brandAccentStyle } from '@/lib/branding';
+import { brandAccentStyle, mergeBranding } from '@/lib/branding';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
-import { bumpOpenCount, getOwnerBranding, getViewerLinkByToken, getViewerLinkMeta, recordLinkEvent } from '@/lib/data';
+import {
+  bumpOpenCount,
+  getCollectionBranding,
+  getOwnerBranding,
+  getViewerLinkByToken,
+  getViewerLinkMeta,
+  recordLinkEvent
+} from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
@@ -31,7 +38,9 @@ export async function generateMetadata({ params }: ViewerPageProps): Promise<Met
   const meta = await getViewerLinkMeta(token);
   if (!meta) return { ...base, title: '문서' };
 
-  const branding = await getOwnerBranding(meta.owner_id);
+  // Data-room links: room branding field-merges over account branding.
+  const room = meta.collection_id ? await getCollectionBranding(meta.collection_id) : null;
+  const branding = mergeBranding(room, await getOwnerBranding(meta.owner_id));
   if (!branding) return { ...base, title: meta.label };
 
   return {
@@ -190,9 +199,11 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
     : `/api/v/${token}/download`;
   const eventEndpoint = `/api/v/${token}/event`;
-  // White-label: when the owner has branding, the watermark falls back to their
-  // company name instead of "DocFlow Viewer". Degrades to null pre-migration.
-  const branding = await getOwnerBranding(link.owner_id);
+  // White-label: data-room link → room branding field-merges over account
+  // branding; otherwise account branding. Falls back to the company name for the
+  // watermark. Degrades to null pre-migration.
+  const roomBranding = link.collection_id ? await getCollectionBranding(link.collection_id) : null;
+  const branding = mergeBranding(roomBranding, await getOwnerBranding(link.owner_id));
   const watermarkLabel = grant?.email || branding?.company_name || 'DocFlow Viewer';
 
   // #1: count this open. Bumped once per granted viewer-page render — NOT

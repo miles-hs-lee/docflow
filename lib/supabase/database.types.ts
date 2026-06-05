@@ -630,6 +630,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      collection_branding: {
+        Row: {
+          collection_id: string;
+          owner_id: string;
+          company_name: string | null;
+          brand_color: string | null;
+          logo_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          collection_id: string;
+          owner_id: string;
+          company_name?: string | null;
+          brand_color?: string | null;
+          logo_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          collection_id?: string;
+          owner_id?: string;
+          company_name?: string | null;
+          brand_color?: string | null;
+          logo_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

@@ -1162,18 +1162,41 @@ export const getOwnerBranding = cache(async (ownerId: string): Promise<ViewerBra
   }
 });
 
-// Lightweight loader for the viewer page's generateMetadata: just the label +
-// owner_id (avoids loading the full bundle twice). cache()d per request.
+// Per-data-room branding (layered over getOwnerBranding via mergeBranding).
+// Same service-role read + degrade-to-null contract.
+export const getCollectionBranding = cache(async (collectionId: string): Promise<ViewerBranding | null> => {
+  const admin = createAdminClient();
+  try {
+    const { data, error } = await admin
+      .from('collection_branding')
+      .select('company_name, brand_color, logo_path')
+      .eq('collection_id', collectionId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { company_name: string | null; brand_color: string | null; logo_path: string | null };
+    if (!row.company_name && !row.brand_color && !row.logo_path) return null;
+    return {
+      company_name: row.company_name,
+      brand_color: row.brand_color,
+      logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
+    };
+  } catch {
+    return null;
+  }
+});
+
+// Lightweight loader for the viewer page's generateMetadata: label + owner_id +
+// collection_id (to pick room branding) — avoids loading the full bundle twice.
 export const getViewerLinkMeta = cache(
-  async (token: string): Promise<{ label: string; owner_id: string } | null> => {
+  async (token: string): Promise<{ label: string; owner_id: string; collection_id: string | null } | null> => {
     const admin = createAdminClient();
     const { data, error } = await admin
       .from('share_links')
-      .select('label, owner_id')
+      .select('label, owner_id, collection_id')
       .eq('token', token)
       .maybeSingle();
     if (error || !data) return null;
-    return data as { label: string; owner_id: string };
+    return data as { label: string; owner_id: string; collection_id: string | null };
   }
 );
 

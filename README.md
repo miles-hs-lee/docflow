@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 025까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩 기능에 018~025를 사용하므로 빠짐없이 적용해야 합니다. 022~025는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 026까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별) 기능에 018~026을 사용하므로 빠짐없이 적용해야 합니다. 022~026은 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
 
 | 번호 | 내용 |
 |---|---|
@@ -108,6 +108,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 025까지
 | 023 | 파일 요청(inbound 업로드): `file_requests`/`file_request_uploads` + owner RLS, `request-uploads` 비공개 버킷(문서 전반 MIME), `file_uploaded` 구독 이벤트, 업로드 카운트 트리거. 알림은 outbox가 아닌 직접 디스패치(`lib/notify/file-upload.ts`, 무재시도) |
 | 024 | 리뷰 하드닝: `pending_storage_deletions.bucket`(버킷별 스위퍼), 공유 closure 함수 `viewer_group_folder_closure`(get_viewer_link_bundle/link_can_view_file 재사용), 원자적 업로드 한도 `claim_file_request_upload`(`FOR UPDATE`) |
 | 025 | 커스텀 브랜딩(화이트라벨): `owner_branding`(company_name/brand_color/logo_path) + owner RLS, `owner-logos` **공개** 버킷(이미지 2MB). 공개 뷰어(/v)·파일요청(/r) 페이지가 소유자 로고·색상·회사명을 표시하고 브랜딩 설정 시 DocFlow 표기를 숨김 |
+| 026 | 데이터룸별 브랜딩: `collection_branding`(collection_id PK + owner RLS, owner-logos 버킷 재사용). 데이터룸 링크 뷰어는 룸 브랜딩이 계정 브랜딩 위에 **필드 단위 병합**(룸이 비운 항목은 계정 상속). 데이터룸 생성은 빈 룸(이름만) → 룸 페이지에서 파일·폴더 추가/제거 |
 
 ### 4) Supabase Auth
 

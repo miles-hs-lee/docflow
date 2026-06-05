@@ -95,39 +95,22 @@ function readEventTypes(formData: FormData) {
   return ['view', 'denied', 'email_submitted', 'password_failed', 'download', 'agreement'];
 }
 
+// Create an EMPTY data room (name + description only). Files and folders are
+// added afterward on the room page — no files are required at creation.
 export async function createCollectionAction(formData: FormData) {
   const { user } = await requireOwner();
   const admin = createAdminClient();
 
   const name = ((formData.get('name') as string | null) || '').trim();
   const description = ((formData.get('description') as string | null) || '').trim() || null;
-  const selectedFileIds = readSelectedFileIds(formData);
 
   if (!name) {
     redirectWithError('/dashboard/collections', '데이터룸 이름을 입력해주세요.');
   }
 
-  if (selectedFileIds.length < 2) {
-    redirectWithError('/dashboard/collections', '데이터룸에는 최소 2개 파일을 선택해주세요.');
-  }
-
-  const { data: ownedFiles, error: filesError } = await admin
-    .from('files')
-    .select('id')
-    .in('id', selectedFileIds)
-    .eq('owner_id', user.id);
-
-  if (filesError || (ownedFiles?.length ?? 0) !== selectedFileIds.length) {
-    redirectWithError('/dashboard/collections', '선택한 파일 중 접근할 수 없는 항목이 있습니다.');
-  }
-
   const { data: createdCollection, error: createError } = await admin
     .from('collections')
-    .insert({
-      owner_id: user.id,
-      name,
-      description
-    })
+    .insert({ owner_id: user.id, name, description })
     .select('id')
     .maybeSingle();
 
@@ -135,21 +118,105 @@ export async function createCollectionAction(formData: FormData) {
     redirectWithError('/dashboard/collections', '데이터룸을 생성하지 못했습니다.');
   }
 
-  const mappingRows = selectedFileIds.map((fileId, index) => ({
-    collection_id: createdCollection.id,
-    file_id: fileId,
-    owner_id: user.id,
-    sort_order: index
-  }));
+  revalidatePath('/dashboard/collections');
+  redirectWithSuccess(
+    `/dashboard/collections/${createdCollection.id}`,
+    '데이터룸을 만들었습니다. 파일을 추가해 구성하세요.'
+  );
+}
 
-  const { error: mappingError } = await admin.from('collection_files').insert(mappingRows);
-  if (mappingError) {
-    await admin.from('collections').delete().eq('id', createdCollection.id).eq('owner_id', user.id);
-    redirectWithError('/dashboard/collections', '데이터룸 파일 연결에 실패했습니다.');
+// Add existing library files to a data room. Skips files already in the room
+// and appends after the current max sort_order.
+export async function addFilesToCollectionAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const fileIds = readSelectedFileIds(formData);
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+  if (fileIds.length === 0) {
+    redirectWithError(redirectPath, '추가할 파일을 선택해주세요.');
   }
 
-  revalidatePath('/dashboard/collections');
-  redirectWithSuccess(`/dashboard/collections/${createdCollection.id}`, '데이터룸이 생성되었습니다.');
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
+  }
+
+  const { data: ownedFiles, error: filesError } = await admin
+    .from('files')
+    .select('id')
+    .in('id', fileIds)
+    .eq('owner_id', user.id);
+  if (filesError || (ownedFiles?.length ?? 0) !== fileIds.length) {
+    redirectWithError(redirectPath, '선택한 파일 중 접근할 수 없는 항목이 있습니다.');
+  }
+
+  const { data: existing } = await admin
+    .from('collection_files')
+    .select('file_id, sort_order')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  const existingRows = (existing ?? []) as Array<{ file_id: string; sort_order: number }>;
+  const existingIds = new Set(existingRows.map((row) => row.file_id));
+  const maxSort = existingRows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1);
+  const toAdd = fileIds.filter((id) => !existingIds.has(id));
+
+  if (toAdd.length > 0) {
+    const rows = toAdd.map((fileId, index) => ({
+      collection_id: collectionId,
+      file_id: fileId,
+      owner_id: user.id,
+      sort_order: maxSort + 1 + index
+    }));
+    const { error: insertError } = await admin.from('collection_files').insert(rows);
+    if (insertError) {
+      redirectWithError(redirectPath, '파일 추가에 실패했습니다.');
+    }
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(
+    redirectPath,
+    toAdd.length > 0 ? `파일 ${toAdd.length}개를 추가했습니다.` : '이미 데이터룸에 포함된 파일입니다.'
+  );
+}
+
+// Remove a file from a data room (unlink only — the file stays in the library
+// and any other rooms). Actual file deletion lives on the content page.
+export async function removeFileFromCollectionAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const fileId = ((formData.get('fileId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId || !fileId) {
+    redirectWithError('/dashboard', '정보가 누락되었습니다.');
+  }
+
+  const { error } = await admin
+    .from('collection_files')
+    .delete()
+    .eq('collection_id', collectionId)
+    .eq('file_id', fileId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '파일 제거에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '데이터룸에서 파일을 제거했습니다.');
 }
 
 export async function deleteCollectionAction(formData: FormData) {
@@ -1321,4 +1388,90 @@ export async function removeBrandingLogoAction() {
 
   revalidatePath('/dashboard/settings');
   redirectWithSuccess('/dashboard/settings', '로고를 제거했습니다.');
+}
+
+// ───────────────────────────────────────────────────────────
+// Per-data-room branding (mirrors account branding, scoped to a collection).
+
+export async function saveCollectionBrandingAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
+  }
+
+  const companyName = ((formData.get('companyName') as string | null) || '').trim().slice(0, 80) || null;
+
+  const rawColor = ((formData.get('brandColor') as string | null) || '').trim();
+  let brandColor: string | null = null;
+  if (rawColor) {
+    const normalized = (rawColor.startsWith('#') ? rawColor : `#${rawColor}`).toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(normalized)) {
+      redirectWithError(redirectPath, '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
+    }
+    brandColor = normalized;
+  }
+
+  // Upsert only the text fields → an existing logo_path is preserved.
+  const { error } = await admin.from('collection_branding').upsert(
+    { collection_id: collectionId, owner_id: user.id, company_name: companyName, brand_color: brandColor },
+    { onConflict: 'collection_id' }
+  );
+  if (error) {
+    redirectWithError(redirectPath, '브랜딩 저장에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '데이터룸 브랜딩을 저장했습니다.');
+}
+
+export async function removeCollectionBrandingLogoAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+
+  const { data } = await admin
+    .from('collection_branding')
+    .select('logo_path')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
+
+  const { error: updateError } = await admin
+    .from('collection_branding')
+    .update({ logo_path: null })
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  if (updateError) {
+    redirectWithError(redirectPath, '로고 제거에 실패했습니다.');
+  }
+  if (logoPath) {
+    try {
+      await removeLogoObject(logoPath);
+    } catch {
+      // best-effort
+    }
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '데이터룸 로고를 제거했습니다.');
 }

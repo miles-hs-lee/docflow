@@ -1,5 +1,24 @@
 import type { CSSProperties } from 'react';
 
+import type { ViewerBranding } from '@/lib/types';
+
+// Field-level merge: a data room's branding overrides the account's PER FIELD,
+// inheriting any field the room left unset. Returns null when neither has any.
+export function mergeBranding(
+  room: ViewerBranding | null,
+  account: ViewerBranding | null
+): ViewerBranding | null {
+  if (!room) return account;
+  if (!account) return room;
+  const merged: ViewerBranding = {
+    company_name: room.company_name ?? account.company_name,
+    brand_color: room.brand_color ?? account.brand_color,
+    logo_url: room.logo_url ?? account.logo_url
+  };
+  if (!merged.company_name && !merged.brand_color && !merged.logo_url) return null;
+  return merged;
+}
+
 // Override the Polaris accent tokens (and our --primary alias) with the owner's
 // brand color so primary buttons / focus rings on the public pages adopt it.
 // Returns undefined when no color is set, so the page keeps the default accent.

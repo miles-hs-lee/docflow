@@ -202,6 +202,17 @@ export type OwnerBrandingRow = {
   updated_at: string;
 };
 
+// Per-data-room branding — layered over OwnerBrandingRow (field-level merge).
+export type CollectionBrandingRow = {
+  collection_id: string;
+  owner_id: string;
+  company_name: string | null;
+  brand_color: string | null;
+  logo_path: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // Resolved branding handed to the public pages: logo_path → an absolute public
 // URL. null = no branding configured (pages show the default DocFlow mark).
 export type ViewerBranding = {

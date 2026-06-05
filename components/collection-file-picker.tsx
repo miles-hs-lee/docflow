@@ -6,17 +6,16 @@ import {
   Checkbox,
   EmptyState,
   FileIcon,
-  Input,
   PaginationFooter,
   TableSearchInput,
   TableSkeleton
 } from '@polaris/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HiddenInput } from '@/components/hidden-input';
 import type { FileRow } from '@/lib/types';
 
-type CreateAction = (formData: FormData) => void | Promise<void>;
+type AddAction = (formData: FormData) => void | Promise<void>;
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -28,19 +27,23 @@ type FetchState = {
   error: string | null;
 };
 
-export function CollectionBuilder({
-  createCollectionAction
+// Server-driven picker for ADDING library files to an existing data room.
+// Files already in the room are shown disabled with a "포함됨" badge. Submits
+// the selection as `fileIds` to addFilesToCollectionAction.
+export function CollectionFilePicker({
+  collectionId,
+  action,
+  existingFileIds
 }: {
-  createCollectionAction: CreateAction;
+  collectionId: string;
+  action: AddAction;
+  existingFileIds: string[];
 }) {
-  // Server-driven file picker — fetches from /api/owner/files with the
-  // current search/page so we never need every file in client memory.
+  const existingIds = useMemo(() => new Set(existingFileIds), [existingFileIds]);
   const [draftQuery, setDraftQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
   const [page, setPage] = useState(1);
   const [state, setState] = useState<FetchState>({ rows: [], total: 0, loading: true, error: null });
-  // Track the selected file IDs separately from the current page so the
-  // selection survives pagination + search.
   const [selectedMap, setSelectedMap] = useState<Map<string, FileRow>>(new Map());
   const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -94,49 +97,37 @@ export function CollectionBuilder({
   const selectVisible = useCallback(() => {
     setSelectedMap((prev) => {
       const next = new Map(prev);
-      for (const file of state.rows) next.set(file.id, file);
+      for (const file of state.rows) {
+        if (!existingIds.has(file.id)) next.set(file.id, file);
+      }
       return next;
     });
-  }, [state.rows]);
+  }, [state.rows, existingIds]);
 
   const clearSelection = useCallback(() => setSelectedMap(new Map()), []);
 
   const selectedList = Array.from(selectedMap.values());
+  const addableVisible = state.rows.filter((file) => !existingIds.has(file.id));
 
   return (
-    <form action={createCollectionAction} className="collection-builder">
-      <div className="collection-builder-meta">
-        <Input name="name" required label="데이터룸 이름" placeholder="예: 2026 제안서 세트" />
-        <Input name="description" label="설명 (선택)" placeholder="예: 투자자용 실사 자료" />
-      </div>
+    <form action={action} className="collection-builder">
+      <HiddenInput name="collectionId" value={collectionId} />
 
       <div className="collection-builder-toolbar">
         <TableSearchInput
           value={draftQuery}
           onValueChange={setDraftQuery}
-          placeholder="데이터룸에 추가할 파일 검색"
+          placeholder="추가할 파일 검색"
           aria-label="파일 검색"
         />
         <div className="collection-builder-meta-right">
           <Badge variant="primary" tone={selectedMap.size > 0 ? 'solid' : 'subtle'}>
             선택 {selectedMap.size}개
           </Badge>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={selectVisible}
-            disabled={state.rows.length === 0}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={selectVisible} disabled={addableVisible.length === 0}>
             현재 페이지 모두 선택
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={clearSelection}
-            disabled={selectedMap.size === 0}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={clearSelection} disabled={selectedMap.size === 0}>
             선택 해제
           </Button>
         </div>
@@ -150,24 +141,29 @@ export function CollectionBuilder({
         <EmptyState
           title={appliedQuery ? '검색 결과가 없습니다' : '업로드된 파일이 없습니다'}
           description={
-            appliedQuery
-              ? `"${appliedQuery}"와 일치하는 파일이 없습니다.`
-              : '데이터룸을 만들려면 PDF를 먼저 업로드해주세요.'
+            appliedQuery ? `"${appliedQuery}"와 일치하는 파일이 없습니다.` : '먼저 콘텐츠 탭에서 PDF를 업로드해주세요.'
           }
         />
       ) : (
         <ul className="collection-builder-list">
           {state.rows.map((file) => {
-            const isChecked = selectedMap.has(file.id);
+            const alreadyIn = existingIds.has(file.id);
+            const isChecked = alreadyIn || selectedMap.has(file.id);
             return (
               <li key={file.id} className={`collection-builder-row${isChecked ? ' selected' : ''}`}>
                 <label className="collection-builder-row-label">
                   <Checkbox
                     checked={isChecked}
+                    disabled={alreadyIn}
                     onCheckedChange={(c) => toggleFile(file, c)}
                   />
                   <FileIcon type="pdf" size={20} />
                   <span className="collection-builder-row-name">{file.original_name}</span>
+                  {alreadyIn ? (
+                    <Badge variant="neutral" tone="subtle">
+                      포함됨
+                    </Badge>
+                  ) : null}
                 </label>
               </li>
             );
@@ -176,36 +172,15 @@ export function CollectionBuilder({
       )}
 
       {state.total > PAGE_SIZE ? (
-        <PaginationFooter
-          page={page}
-          total={state.total}
-          pageSize={PAGE_SIZE}
-          showPageSize={false}
-          onPageChange={setPage}
-        />
+        <PaginationFooter page={page} total={state.total} pageSize={PAGE_SIZE} showPageSize={false} onPageChange={setPage} />
       ) : null}
 
-      {selectedList.length > 0 ? (
-        <div className="collection-builder-summary">
-          <span className="muted small">선택된 파일</span>
-          <ul className="collection-builder-chip-list">
-            {selectedList.map((file) => (
-              <li key={file.id} className="collection-file-chip">
-                <FileIcon type="pdf" size={14} />
-                {file.original_name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {/* Submit the selection as fileIds — invisible inputs so the form action picks them up */}
       {selectedList.map((file) => (
         <HiddenInput key={file.id} name="fileIds" value={file.id} />
       ))}
 
-      <Button type="submit" disabled={selectedMap.size < 2}>
-        데이터룸 생성{selectedMap.size >= 2 ? ` (${selectedMap.size}개)` : ''}
+      <Button type="submit" disabled={selectedMap.size === 0}>
+        데이터룸에 추가{selectedMap.size > 0 ? ` (${selectedMap.size}개)` : ''}
       </Button>
     </form>
   );

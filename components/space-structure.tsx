@@ -14,6 +14,7 @@ import {
   createFolderAction,
   deleteFolderAction,
   moveFileToFolderAction,
+  removeFileFromCollectionAction,
   renameFolderAction
 } from '@/lib/actions/owner';
 import type { FolderRow, SpaceFile } from '@/lib/types';
@@ -61,6 +62,13 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
         </Select>
         <Button type="submit" size="sm" variant="ghost">
           이동
+        </Button>
+      </form>
+      <form action={removeFileFromCollectionAction} className="space-row-actions">
+        <HiddenInput name="collectionId" value={collectionId} />
+        <HiddenInput name="fileId" value={file.id} />
+        <Button type="submit" size="sm" variant="danger">
+          제거
         </Button>
       </form>
     </div>

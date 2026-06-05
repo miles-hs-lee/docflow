@@ -88,15 +88,23 @@ export async function POST(request: Request) {
       .map((u) => (u as { storage_path: string }).storage_path)
       .filter((p): p is string => Boolean(p));
 
-    // Branding logo lives in the public owner-logos bucket and cascades too.
+    // Branding logos live in the public owner-logos bucket and cascade too —
+    // the account logo plus every per-data-room logo.
     const { data: brand, error: brandError } = await admin
       .from('owner_branding')
       .select('logo_path')
       .eq('owner_id', user.id)
       .maybeSingle();
     if (brandError) throw brandError;
-    const logoPath = (brand as { logo_path: string | null } | null)?.logo_path ?? null;
-    logoPaths = logoPath ? [logoPath] : [];
+    const { data: roomBrands, error: roomBrandError } = await admin
+      .from('collection_branding')
+      .select('logo_path')
+      .eq('owner_id', user.id);
+    if (roomBrandError) throw roomBrandError;
+    logoPaths = [
+      (brand as { logo_path: string | null } | null)?.logo_path ?? null,
+      ...((roomBrands ?? []) as Array<{ logo_path: string | null }>).map((row) => row.logo_path)
+    ].filter((p): p is string => Boolean(p));
   } catch (err) {
     console.error('[deleteAccount] storage listing failed — aborting', {
       ownerId: user.id,
