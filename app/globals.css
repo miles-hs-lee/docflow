@@ -971,6 +971,48 @@ svg {
   white-space: nowrap;
 }
 
+/* Reorderable file list inside a data-room container (root or a folder). */
+.space-file-list {
+  display: grid;
+  gap: var(--polaris-spacing-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Let the filename take the slack so the reorder/move/remove controls pack
+   to the right of each file row. */
+.space-file > .space-node-label {
+  flex: 1 1 auto;
+}
+
+.space-drag-handle {
+  flex: none;
+  cursor: grab;
+  user-select: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding-inline: 2px;
+  touch-action: none;
+}
+
+.space-drag-handle:active {
+  cursor: grabbing;
+}
+
+.space-file-dragging {
+  opacity: 0.6;
+  outline: 2px dashed var(--border-strong);
+}
+
+.space-reorder-buttons {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .space-folder {
   margin-top: var(--polaris-spacing-2xs);
 }

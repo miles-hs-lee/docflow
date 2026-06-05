@@ -1,22 +1,8 @@
-import {
-  Button,
-  FileIcon,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@polaris/ui';
+import { Button, FileIcon, Input } from '@polaris/ui';
 
 import { HiddenInput } from '@/components/hidden-input';
-import {
-  createFolderAction,
-  deleteFolderAction,
-  moveFileToFolderAction,
-  removeFileFromCollectionAction,
-  renameFolderAction
-} from '@/lib/actions/owner';
+import { SpaceFileList } from '@/components/space-file-list';
+import { createFolderAction, deleteFolderAction, renameFolderAction } from '@/lib/actions/owner';
 import type { FolderRow, SpaceFile } from '@/lib/types';
 
 type SpaceStructureProps = {
@@ -26,8 +12,8 @@ type SpaceStructureProps = {
 };
 
 // Owner-side space (data room) structure editor: a folder tree with create /
-// rename / delete folder and move-file-to-folder. Server-component forms post
-// to the folder actions; native <select> posts the move target.
+// rename / delete folder. Each container's files render through the client-side
+// <SpaceFileList>, which adds drag-and-drop reorder + move-to-folder + remove.
 export function SpaceStructure({ collectionId, folders, files }: SpaceStructureProps) {
   const folderIds = new Set(folders.map((folder) => folder.id));
   // Orphaned / cross-collection parent references fall back to the root so a
@@ -37,42 +23,6 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
     folder.parent_folder_id && folderIds.has(folder.parent_folder_id) ? folder.parent_folder_id : null;
   const childFolders = (parentId: string | null) => folders.filter((folder) => folderParent(folder) === parentId);
   const folderFiles = (folderId: string | null) => files.filter((file) => fileParent(file) === folderId);
-
-  const renderFile = (file: SpaceFile) => (
-    <div key={file.id} className="space-node space-file">
-      <span className="space-node-label">
-        <FileIcon type="pdf" size={18} />
-        <span className="space-node-name">{file.original_name}</span>
-      </span>
-      <form action={moveFileToFolderAction} className="space-row-actions">
-        <HiddenInput name="collectionId" value={collectionId} />
-        <HiddenInput name="fileId" value={file.id} />
-        <Select name="folderId" defaultValue={fileParent(file) ?? 'root'}>
-          <SelectTrigger aria-label="폴더로 이동" className="space-move-select">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="root">최상위</SelectItem>
-            {folders.map((folder) => (
-              <SelectItem key={folder.id} value={folder.id}>
-                {folder.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="submit" size="sm" variant="ghost">
-          이동
-        </Button>
-      </form>
-      <form action={removeFileFromCollectionAction} className="space-row-actions">
-        <HiddenInput name="collectionId" value={collectionId} />
-        <HiddenInput name="fileId" value={file.id} />
-        <Button type="submit" size="sm" variant="danger">
-          제거
-        </Button>
-      </form>
-    </div>
-  );
 
   const renderFolder = (folder: FolderRow, depth: number) => (
     <div key={folder.id} className="space-folder">
@@ -111,7 +61,12 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
         </details>
       </div>
       <div className="space-folder-children">
-        {folderFiles(folder.id).map(renderFile)}
+        <SpaceFileList
+          collectionId={collectionId}
+          folderId={folder.id}
+          files={folderFiles(folder.id)}
+          folders={folders}
+        />
         {childFolders(folder.id).map((sub) => renderFolder(sub, depth + 1))}
       </div>
     </div>
@@ -129,7 +84,7 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
 
       <div className="space-tree">
         {childFolders(null).map((folder) => renderFolder(folder, 0))}
-        {folderFiles(null).map(renderFile)}
+        <SpaceFileList collectionId={collectionId} folderId={null} files={folderFiles(null)} folders={folders} />
       </div>
     </div>
   );

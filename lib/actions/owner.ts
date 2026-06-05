@@ -230,6 +230,67 @@ export async function removeFileFromCollectionAction(formData: FormData) {
   redirectWithSuccess(redirectPath, '데이터룸에서 파일을 제거했습니다.');
 }
 
+// Persist a new file order WITHIN one container of a data room (the root, or a
+// single folder). Renumbers collection_files.sort_order to 0..n-1 in the posted
+// order. Because the owner editor + viewer both render files grouped by folder,
+// numbering each container independently is enough — within-container order is
+// all that's observable, and 0..n-1 guarantees it's unambiguous. Called
+// programmatically from the structure editor (optimistic drag-and-drop), so it
+// never redirects: it revalidates and returns, and the client refreshes.
+export async function reorderCollectionFilesAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const folderRaw = ((formData.get('folderId') as string | null) || 'root').trim();
+  // '' or 'root' → the space root (folder_id NULL).
+  const folderId = folderRaw === '' || folderRaw === 'root' ? null : folderRaw;
+  const orderedIds = readSelectedFileIds(formData);
+
+  if (!collectionId || orderedIds.length === 0) return;
+
+  // Ownership: the collection must belong to the caller.
+  const { data: owned } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!owned) return;
+
+  // Current members of this exact container, scoped to owner + collection +
+  // folder. Reordering only ever touches rows that already live here.
+  let membersQuery = admin
+    .from('collection_files')
+    .select('file_id')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
+  membersQuery = folderId === null ? membersQuery.is('folder_id', null) : membersQuery.eq('folder_id', folderId);
+  const { data: members } = await membersQuery;
+  const memberIds = new Set(((members ?? []) as Array<{ file_id: string }>).map((row) => row.file_id));
+  if (memberIds.size === 0) return;
+
+  // Posted order filtered to real members (stale/tamper guard), then any member
+  // the client omitted appended after — so the whole container is renumbered
+  // with no gaps or duplicate sort_order values.
+  const present = orderedIds.filter((id) => memberIds.has(id));
+  const presentSet = new Set(present);
+  const finalOrder = [...present, ...[...memberIds].filter((id) => !presentSet.has(id))];
+
+  await Promise.all(
+    finalOrder.map((fileId, index) =>
+      admin
+        .from('collection_files')
+        .update({ sort_order: index })
+        .eq('collection_id', collectionId)
+        .eq('file_id', fileId)
+        .eq('owner_id', user.id)
+    )
+  );
+
+  revalidatePath(`/dashboard/collections/${collectionId}`);
+}
+
 export async function deleteCollectionAction(formData: FormData) {
   const { user } = await requireOwner();
   const admin = createAdminClient();

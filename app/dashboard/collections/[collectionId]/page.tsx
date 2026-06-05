@@ -153,7 +153,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             <CardTitle>데이터룸 구성</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">아래 “파일 추가”로 문서를 담고, 폴더를 만들어 정리하세요. 각 문서는 폴더로 옮기거나 룸에서 제거할 수 있으며, 이 구조는 공유 링크 뷰어에 그대로 표시됩니다.</p>
+            <p className="muted">아래 “파일 추가”로 문서를 담고, 폴더를 만들어 정리하세요. 각 문서는 손잡이(⠿)를 끌거나 ▲▼ 버튼으로 순서를 바꾸고, 폴더로 옮기거나 룸에서 제거할 수 있으며, 이 구조·순서는 공유 링크 뷰어에 그대로 표시됩니다.</p>
             {files.length === 0 ? (
               <EmptyState
                 title="아직 추가된 문서가 없습니다"
