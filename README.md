@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 021까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·NDA 동의·연락처/대시보드 집계 기능에 018~021을 사용하므로 빠짐없이 적용해야 합니다.)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 023까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청 기능에 018~023을 사용하므로 빠짐없이 적용해야 합니다. 022/023은 앱이 새 테이블·컬럼·RPC를 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
 
 | 번호 | 내용 |
 |---|---|
@@ -104,6 +104,8 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 021까지
 | 019 | 데이터룸 폴더 계층(`folders` 트리 + `collection_files.folder_id`) + 뷰어 번들 폴더 반환 |
 | 020 | 계정 단위 집계 RPC (`get_owner_overview`/`get_owner_top_documents`/`get_owner_contacts`) |
 | 021 | 리뷰 fix: `agreement` 구독 허용, 연락처 index, 지표 보정(방문자 페이지·연락처 문서수), 룸 distinct unique RPC, folders/collection_files 동일컬렉션 RLS |
+| 022 | 데이터룸 Phase 3: 뷰어 그룹(`viewer_groups`/`viewer_group_folders`) + `share_links.viewer_group_id`, 그룹 폴더 closure로 필터하는 `get_viewer_link_bundle` 재작성 + `link_can_view_file` RPC, `bump_policy_version`에 `viewer_group_id` 반영 |
+| 023 | 파일 요청(inbound 업로드): `file_requests`/`file_request_uploads` + owner RLS, `request-uploads` 비공개 버킷(문서 전반 MIME), `file_uploaded` 구독 이벤트, 업로드 카운트 트리거. 알림은 outbox가 아닌 직접 디스패치(`lib/notify/file-upload.ts`, 무재시도) |
 
 ### 4) Supabase Auth
 

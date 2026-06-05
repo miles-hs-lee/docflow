@@ -158,6 +158,40 @@ export type ViewerGroupWithFolders = ViewerGroupRow & {
   folder_ids: string[];
 };
 
+// File Request: an inbound upload request the owner publishes at /r/<token>.
+// Visitors upload files to the owner (the reverse of a share link).
+export type FileRequestRow = {
+  id: string;
+  owner_id: string;
+  token: string;
+  title: string;
+  instructions: string | null;
+  require_email: boolean;
+  is_active: boolean;
+  expires_at: string | null;
+  // null = unlimited uploads.
+  max_uploads: number | null;
+  upload_count: number;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// One file uploaded against a request. Stored in the 'request-uploads' bucket,
+// kept separate from the owner's curated `files`.
+export type FileRequestUploadRow = {
+  id: string;
+  request_id: string;
+  owner_id: string;
+  uploader_email: string | null;
+  original_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  ip_hash: string | null;
+  created_at: string;
+};
+
 export type McpApiKeyRow = {
   id: string;
   owner_id: string;

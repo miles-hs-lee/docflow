@@ -9,6 +9,8 @@ import type {
   CollectionSummaryRow,
   DeniedReason,
   DeniedReasonCount,
+  FileRequestRow,
+  FileRequestUploadRow,
   FileRow,
   FolderRow,
   LinkDailyView,
@@ -1027,6 +1029,98 @@ export async function removePdfObject(path: string) {
   const admin = createAdminClient();
   const { error } = await admin.storage.from('pdf-files').remove([path]);
   if (error) throw error;
+}
+
+// ── File Request storage + loaders ──────────────────────────────────────────
+// Inbound uploads live in a separate private bucket (broad MIME) from the
+// owner's curated pdf-files. contentType is the validated MIME so the bucket's
+// allowed_mime_types acts as a server-side backstop.
+const REQUEST_UPLOAD_BUCKET = 'request-uploads';
+
+export async function uploadRequestObject(args: { path: string; file: File; contentType: string }) {
+  const admin = createAdminClient();
+  const { error } = await admin.storage.from(REQUEST_UPLOAD_BUCKET).upload(args.path, args.file, {
+    contentType: args.contentType,
+    upsert: false
+  });
+  if (error) throw error;
+}
+
+export async function signedRequestObjectUrl(path: string, ttlSeconds = 60): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from(REQUEST_UPLOAD_BUCKET).createSignedUrl(path, ttlSeconds);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
+export async function removeRequestObject(path: string) {
+  const admin = createAdminClient();
+  const { error } = await admin.storage.from(REQUEST_UPLOAD_BUCKET).remove([path]);
+  if (error) throw error;
+}
+
+export async function listFileRequests(ownerClient: OwnerClient): Promise<FileRequestRow[]> {
+  const { data, error } = await ownerClient
+    .from('file_requests')
+    .select('*')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FileRequestRow[];
+}
+
+export async function getFileRequest(ownerClient: OwnerClient, requestId: string): Promise<FileRequestRow | null> {
+  const { data, error } = await ownerClient
+    .from('file_requests')
+    .select('*')
+    .eq('id', requestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as FileRequestRow | null) ?? null;
+}
+
+// Public upload route + page: resolve a non-deleted request by token with the
+// service-role client (the visitor is anonymous). The caller MUST still gate on
+// is_active / expires_at before accepting an upload.
+export async function getFileRequestByToken(token: string): Promise<FileRequestRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('file_requests')
+    .select('*')
+    .eq('token', token)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as FileRequestRow | null) ?? null;
+}
+
+export async function listRequestUploads(
+  ownerClient: OwnerClient,
+  requestId: string
+): Promise<FileRequestUploadRow[]> {
+  const { data, error } = await ownerClient
+    .from('file_request_uploads')
+    .select('*')
+    .eq('request_id', requestId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FileRequestUploadRow[];
+}
+
+// Owner download: one upload scoped to the owner (RLS) so a signed URL can be
+// minted for it.
+export async function getRequestUpload(
+  ownerClient: OwnerClient,
+  uploadId: string
+): Promise<FileRequestUploadRow | null> {
+  const { data, error } = await ownerClient
+    .from('file_request_uploads')
+    .select('*')
+    .eq('id', uploadId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as FileRequestUploadRow | null) ?? null;
 }
 
 // Drain the pending_storage_deletions queue (rows enqueued when an inline

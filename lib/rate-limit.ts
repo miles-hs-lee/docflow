@@ -32,7 +32,8 @@ export type RateLimitKind =
   | 'viewerPassword' // share-link password gate (brute force)
   | 'viewerDocument' // PDF byte serving (Range-heavy; NAT-shared)
   | 'mcp' // agent API
-  | 'authLogin'; // owner login
+  | 'authLogin' // owner login
+  | 'fileRequestUpload'; // inbound visitor file-request uploads (storage abuse)
 
 // limit = max requests per window. window is an @upstash/ratelimit Duration.
 const DEFS: Record<RateLimitKind, { limit: number; window: `${number} ${'m' | 's' | 'h'}`; prefix: string }> = {
@@ -44,7 +45,9 @@ const DEFS: Record<RateLimitKind, { limit: number; window: `${number} ${'m' | 's
   // still caps a single runaway client.
   viewerDocument: { limit: 300, window: '1 m', prefix: 'rl:doc' },
   mcp: { limit: 100, window: '1 m', prefix: 'rl:mcp' },
-  authLogin: { limit: 10, window: '1 m', prefix: 'rl:login' }
+  authLogin: { limit: 10, window: '1 m', prefix: 'rl:login' },
+  // Anonymous uploads write to storage — cap per (token+IP) to bound abuse.
+  fileRequestUpload: { limit: 10, window: '10 m', prefix: 'rl:upload' }
 };
 
 const limiters = new Map<RateLimitKind, Ratelimit>();

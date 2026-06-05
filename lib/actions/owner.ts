@@ -1147,3 +1147,92 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
   revalidatePath(redirectPath);
   redirectWithSuccess(redirectPath, '폴더 권한을 저장했습니다.');
 }
+
+// ───────────────────────────────────────────────────────────
+// File Request (inbound upload).
+
+export async function createFileRequestAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const title = ((formData.get('title') as string | null) || '').trim();
+  if (!title) {
+    redirectWithError('/dashboard/requests', '요청 제목을 입력해주세요.');
+  }
+  const instructions = ((formData.get('instructions') as string | null) || '').trim().slice(0, 2000) || null;
+
+  const { error } = await admin.from('file_requests').insert({
+    owner_id: user.id,
+    token: generateShareToken(),
+    title: title.slice(0, 200),
+    instructions,
+    require_email: parseBoolean(formData, 'requireEmail'),
+    is_active: parseBoolean(formData, 'isActive'),
+    expires_at: parseOptionalDate(formData, 'expiresAt'),
+    max_uploads: parseOptionalInt(formData, 'maxUploads')
+  });
+  if (error) {
+    redirectWithError('/dashboard/requests', '파일 요청 생성에 실패했습니다.');
+  }
+
+  revalidatePath('/dashboard/requests');
+  redirectWithSuccess('/dashboard/requests', '파일 요청을 만들었습니다.');
+}
+
+export async function toggleFileRequestAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const requestId = ((formData.get('requestId') as string | null) || '').trim();
+  if (!requestId) {
+    redirectWithError('/dashboard/requests', '요청 정보가 누락되었습니다.');
+  }
+
+  const { data: existing } = await admin
+    .from('file_requests')
+    .select('is_active')
+    .eq('id', requestId)
+    .eq('owner_id', user.id)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!existing) {
+    redirectWithError('/dashboard/requests', '요청을 찾을 수 없습니다.');
+  }
+
+  const wasActive = (existing as { is_active: boolean }).is_active;
+  const { error } = await admin
+    .from('file_requests')
+    .update({ is_active: !wasActive })
+    .eq('id', requestId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError('/dashboard/requests', '상태 변경에 실패했습니다.');
+  }
+
+  revalidatePath('/dashboard/requests');
+  redirectWithSuccess('/dashboard/requests', wasActive ? '요청을 비활성화했습니다.' : '요청을 활성화했습니다.');
+}
+
+export async function deleteFileRequestAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const requestId = ((formData.get('requestId') as string | null) || '').trim();
+  if (!requestId) {
+    redirectWithError('/dashboard/requests', '요청 정보가 누락되었습니다.');
+  }
+
+  // Soft-delete: hide from the owner list + reject further uploads. Uploaded
+  // objects linger in storage (mirrors share-link soft-delete).
+  const { error } = await admin
+    .from('file_requests')
+    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .eq('id', requestId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError('/dashboard/requests', '요청 삭제에 실패했습니다.');
+  }
+
+  revalidatePath('/dashboard/requests');
+  redirectWithSuccess('/dashboard/requests', '파일 요청을 삭제했습니다.');
+}

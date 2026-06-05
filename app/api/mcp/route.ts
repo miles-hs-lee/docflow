@@ -16,7 +16,15 @@ type RpcRequest = {
   params?: unknown;
 };
 
-const eventTypeSchema = z.enum(['view', 'denied', 'email_submitted', 'password_failed', 'download', 'agreement']);
+const eventTypeSchema = z.enum([
+  'view',
+  'denied',
+  'email_submitted',
+  'password_failed',
+  'download',
+  'agreement',
+  'file_uploaded'
+]);
 
 const tools = [
   {

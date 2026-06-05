@@ -9,7 +9,10 @@ export const EVENT_META: Record<string, { short: string; emoji: string; title: s
   denied: { short: '접근 거부', emoji: '🚫', title: '접근이 거부되었습니다' },
   email_submitted: { short: '이메일 제출', emoji: '✉️', title: '이메일이 제출되었습니다' },
   password_failed: { short: '비밀번호 실패', emoji: '🔑', title: '비밀번호 인증에 실패했습니다' },
-  agreement: { short: 'NDA 동의', emoji: '✍️', title: 'NDA에 동의했습니다' }
+  agreement: { short: 'NDA 동의', emoji: '✍️', title: 'NDA에 동의했습니다' },
+  // File Request inbound upload — not a link_event (no link analytics page), so
+  // it is intentionally absent from OWNER_FEED_EVENT_TYPES below.
+  file_uploaded: { short: '파일 수신', emoji: '📥', title: '파일이 업로드되었습니다' }
 };
 
 // Meaningful events for the owner activity feed (page_view excluded — too noisy).

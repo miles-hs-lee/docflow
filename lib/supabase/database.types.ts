@@ -513,6 +513,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      file_requests: {
+        Row: {
+          id: string;
+          owner_id: string;
+          token: string;
+          title: string;
+          instructions: string | null;
+          require_email: boolean;
+          is_active: boolean;
+          expires_at: string | null;
+          max_uploads: number | null;
+          upload_count: number;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          token: string;
+          title: string;
+          instructions?: string | null;
+          require_email?: boolean;
+          is_active?: boolean;
+          expires_at?: string | null;
+          max_uploads?: number | null;
+          upload_count?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          token?: string;
+          title?: string;
+          instructions?: string | null;
+          require_email?: boolean;
+          is_active?: boolean;
+          expires_at?: string | null;
+          max_uploads?: number | null;
+          upload_count?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      file_request_uploads: {
+        Row: {
+          id: string;
+          request_id: string;
+          owner_id: string;
+          uploader_email: string | null;
+          original_name: string;
+          storage_path: string;
+          mime_type: string;
+          size_bytes: number;
+          ip_hash: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          request_id: string;
+          owner_id: string;
+          uploader_email?: string | null;
+          original_name: string;
+          storage_path: string;
+          mime_type: string;
+          size_bytes: number;
+          ip_hash?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          request_id?: string;
+          owner_id?: string;
+          uploader_email?: string | null;
+          original_name?: string;
+          storage_path?: string;
+          mime_type?: string;
+          size_bytes?: number;
+          ip_hash?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
