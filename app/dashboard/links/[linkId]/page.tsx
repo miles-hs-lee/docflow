@@ -135,7 +135,7 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
         <PageHeader
           eyebrow={
             <span className="muted small">
-              공유 링크 · {collectionName ? `문서 묶음 — ${collectionName}` : fileName ?? 'Unknown'}
+              공유 링크 · {collectionName ? `데이터룸 — ${collectionName}` : fileName ?? 'Unknown'}
             </span>
           }
           title={link.label}

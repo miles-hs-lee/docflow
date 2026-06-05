@@ -106,15 +106,15 @@ export function CollectionBuilder({
   return (
     <form action={createCollectionAction} className="collection-builder">
       <div className="collection-builder-meta">
-        <Input name="name" required label="묶음 이름" placeholder="예: 2026 제안서 세트" />
-        <Input name="description" label="설명 (선택)" placeholder="외부 공유용 기본 자료 묶음" />
+        <Input name="name" required label="데이터룸 이름" placeholder="예: 2026 제안서 세트" />
+        <Input name="description" label="설명 (선택)" placeholder="예: 투자자용 실사 자료" />
       </div>
 
       <div className="collection-builder-toolbar">
         <TableSearchInput
           value={draftQuery}
           onValueChange={setDraftQuery}
-          placeholder="묶음에 추가할 파일 검색"
+          placeholder="데이터룸에 추가할 파일 검색"
           aria-label="파일 검색"
         />
         <div className="collection-builder-meta-right">
@@ -152,7 +152,7 @@ export function CollectionBuilder({
           description={
             appliedQuery
               ? `"${appliedQuery}"와 일치하는 파일이 없습니다.`
-              : '문서 묶음을 만들려면 PDF를 먼저 업로드해주세요.'
+              : '데이터룸을 만들려면 PDF를 먼저 업로드해주세요.'
           }
         />
       ) : (
@@ -205,7 +205,7 @@ export function CollectionBuilder({
       ))}
 
       <Button type="submit" disabled={selectedMap.size < 2}>
-        문서 묶음 생성{selectedMap.size >= 2 ? ` (${selectedMap.size}개)` : ''}
+        데이터룸 생성{selectedMap.size >= 2 ? ` (${selectedMap.size}개)` : ''}
       </Button>
     </form>
   );

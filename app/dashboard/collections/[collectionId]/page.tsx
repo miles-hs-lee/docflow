@@ -60,6 +60,19 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   const metricsList = await Promise.all(links.map((linkRow) => getMetricsForLink(supabase, linkRow)));
   const metricsMap = new Map(metricsList.map((metric) => [metric.link_id, metric]));
 
+  // Data-room rollup across all its links (Phase 2). opens / downloads / denied
+  // sum cleanly from the per-link counters; unique is a per-link sum (a true
+  // room-wide distinct count would need an RPC — fine for v1, labeled as such).
+  const roomSummary = metricsList.reduce(
+    (acc, metric) => ({
+      opens: acc.opens + (metric.views ?? 0),
+      unique: acc.unique + (metric.unique_viewers ?? 0),
+      downloads: acc.downloads + (metric.downloads ?? 0),
+      denied: acc.denied + (metric.denied ?? 0)
+    }),
+    { opens: 0, unique: 0, downloads: 0, denied: 0 }
+  );
+
   // Configured app URL, not the request host (avoids X-Forwarded-Host
   // spoofing → phishing share URLs, and proxy/preview host leakage).
   const appOrigin = publicEnv.appUrl;
@@ -72,7 +85,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           eyebrow={
             <Stack direction="row" align="center" gap={2}>
               <FileIcon type="folder" size={20} />
-              <span className="muted small">문서 묶음 · {files.length}개 포함</span>
+              <span className="muted small">데이터룸 · 문서 {files.length} · 폴더 {folders.length}</span>
             </Stack>
           }
           title={collection.name}
@@ -89,14 +102,33 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
 
         <Card>
           <CardHeader>
-            <CardTitle>스페이스 구성</CardTitle>
+            <CardTitle>데이터룸 요약</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">이 데이터룸의 모든 공유 링크를 합산한 지표입니다.</p>
+            <StatGroup cols={4} unwrapped>
+              <Stat label="조회수" value={roomSummary.opens} helper="총 열람" />
+              <Stat label="유니크" value={roomSummary.unique} helper="링크 합산" />
+              <Stat label="다운로드" value={roomSummary.downloads} />
+              <Stat
+                label="거부"
+                value={roomSummary.denied}
+                {...(roomSummary.denied > 0 ? { delta: '주의', deltaVariant: 'negative' as const } : {})}
+              />
+            </StatGroup>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>데이터룸 구성</CardTitle>
           </CardHeader>
           <CardBody>
             <p className="muted">폴더로 문서를 정리하세요. 폴더를 만들고 각 문서를 폴더로 옮길 수 있으며, 이 구조는 공유 링크 뷰어에 그대로 표시됩니다.</p>
             {files.length === 0 ? (
               <EmptyState
-                title="스페이스에 포함된 문서가 없습니다"
-                description="문서 묶음을 다시 구성해주세요."
+                title="데이터룸에 포함된 문서가 없습니다"
+                description="데이터룸을 다시 구성해주세요."
               />
             ) : (
               <SpaceStructure collectionId={collection.id} folders={folders} files={files} />
@@ -106,10 +138,10 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
 
         <Card>
           <CardHeader>
-            <CardTitle>문서 묶음 링크 생성</CardTitle>
+            <CardTitle>데이터룸 링크 생성</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">묶음 링크 하나로 여러 PDF를 보여주고, 링크 정책은 동일하게 적용합니다.</p>
+            <p className="muted">데이터룸 링크 하나로 여러 PDF를 보여주고, 링크 정책은 동일하게 적용합니다.</p>
             <form action={createCollectionShareLinkAction} className="form-grid link-create-grid">
               <HiddenInput name="collectionId" value={collection.id} />
               <Input name="label" required label="링크 이름" placeholder="영업 제안 패키지" />
@@ -139,7 +171,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             {links.length === 0 ? (
               <EmptyState
                 title="생성된 링크가 없습니다"
-                description="묶음 링크를 만들면 문서 목록, 정책, 통계가 함께 관리됩니다."
+                description="데이터룸 링크를 만들면 문서 목록, 정책, 통계가 함께 관리됩니다."
               />
             ) : (
               <Stack gap={3}>

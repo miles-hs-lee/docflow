@@ -104,11 +104,11 @@ export async function createCollectionAction(formData: FormData) {
   const selectedFileIds = readSelectedFileIds(formData);
 
   if (!name) {
-    redirectWithError('/dashboard', '묶음 이름을 입력해주세요.');
+    redirectWithError('/dashboard', '데이터룸 이름을 입력해주세요.');
   }
 
   if (selectedFileIds.length < 2) {
-    redirectWithError('/dashboard', '문서 묶음에는 최소 2개 파일을 선택해주세요.');
+    redirectWithError('/dashboard', '데이터룸에는 최소 2개 파일을 선택해주세요.');
   }
 
   const { data: ownedFiles, error: filesError } = await admin
@@ -132,7 +132,7 @@ export async function createCollectionAction(formData: FormData) {
     .maybeSingle();
 
   if (createError || !createdCollection) {
-    redirectWithError('/dashboard', '문서 묶음을 생성하지 못했습니다.');
+    redirectWithError('/dashboard', '데이터룸을 생성하지 못했습니다.');
   }
 
   const mappingRows = selectedFileIds.map((fileId, index) => ({
@@ -145,11 +145,11 @@ export async function createCollectionAction(formData: FormData) {
   const { error: mappingError } = await admin.from('collection_files').insert(mappingRows);
   if (mappingError) {
     await admin.from('collections').delete().eq('id', createdCollection.id).eq('owner_id', user.id);
-    redirectWithError('/dashboard', '문서 묶음 파일 연결에 실패했습니다.');
+    redirectWithError('/dashboard', '데이터룸 파일 연결에 실패했습니다.');
   }
 
   revalidatePath('/dashboard');
-  redirectWithSuccess(`/dashboard/collections/${createdCollection.id}`, '문서 묶음이 생성되었습니다.');
+  redirectWithSuccess(`/dashboard/collections/${createdCollection.id}`, '데이터룸이 생성되었습니다.');
 }
 
 export async function deleteCollectionAction(formData: FormData) {
@@ -158,7 +158,7 @@ export async function deleteCollectionAction(formData: FormData) {
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
   if (!collectionId) {
-    redirectWithError('/dashboard', '삭제할 문서 묶음을 확인할 수 없습니다.');
+    redirectWithError('/dashboard', '삭제할 데이터룸을 확인할 수 없습니다.');
   }
 
   // delete_collection_cascade (migration 009) wraps the active-link gate,
@@ -171,21 +171,21 @@ export async function deleteCollectionAction(formData: FormData) {
 
   const status = Array.isArray(data) ? data[0]?.status : null;
   if (rpcError || status == null) {
-    redirectWithError('/dashboard', '문서 묶음 삭제에 실패했습니다.');
+    redirectWithError('/dashboard', '데이터룸 삭제에 실패했습니다.');
   }
   if (status === 'not_found') {
-    redirectWithError('/dashboard', '삭제할 문서 묶음을 확인할 수 없습니다.');
+    redirectWithError('/dashboard', '삭제할 데이터룸을 확인할 수 없습니다.');
   }
   if (status === 'active_links_exist') {
     redirectWithError(
       '/dashboard',
-      '활성 링크가 남아있어 묶음을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
+      '활성 링크가 남아있어 데이터룸을 삭제할 수 없습니다. 휴지통에서 먼저 정리하세요.'
     );
   }
 
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/trash');
-  redirectWithSuccess('/dashboard', '문서 묶음을 삭제했습니다.');
+  redirectWithSuccess('/dashboard', '데이터룸을 삭제했습니다.');
 }
 
 export async function createMcpApiKeyAction(formData: FormData) {
@@ -430,7 +430,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
   if (!collectionId) {
-    redirectWithError('/dashboard', '문서 묶음 정보가 누락되었습니다.');
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
   }
 
   const { data: ownedCollection } = await admin
@@ -441,7 +441,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     .maybeSingle();
 
   if (!ownedCollection) {
-    redirectWithError('/dashboard', '문서 묶음 권한이 없습니다.');
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
   }
 
   const label = ((formData.get('label') as string | null) || '').trim();
@@ -480,7 +480,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/collections/${collectionId}`);
-  redirectWithSuccess(`/dashboard/collections/${collectionId}`, '문서 묶음 링크가 생성되었습니다.');
+  redirectWithSuccess(`/dashboard/collections/${collectionId}`, '데이터룸 링크가 생성되었습니다.');
 }
 
 export async function updateShareLinkAction(formData: FormData) {
@@ -733,7 +733,7 @@ export async function deleteFileAction(formData: FormData) {
   if (status === 'active_collection_links_exist') {
     redirectWithError(
       '/dashboard',
-      '이 파일이 포함된 문서 묶음에 활성 공유 링크가 있어 삭제할 수 없습니다. 묶음 링크를 먼저 휴지통으로 옮긴 뒤 다시 시도하세요.'
+      '이 파일이 포함된 데이터룸에 활성 공유 링크가 있어 삭제할 수 없습니다. 데이터룸 링크를 먼저 휴지통으로 옮긴 뒤 다시 시도하세요.'
     );
   }
 
@@ -786,7 +786,7 @@ export async function createFolderAction(formData: FormData) {
   const redirectPath = `/dashboard/collections/${collectionId}`;
 
   if (!collectionId) {
-    redirectWithError('/dashboard', '스페이스 정보가 누락되었습니다.');
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
   }
   if (!name) {
     redirectWithError(redirectPath, '폴더 이름을 입력해주세요.');
@@ -799,7 +799,7 @@ export async function createFolderAction(formData: FormData) {
     .eq('owner_id', user.id)
     .maybeSingle();
   if (!ownedCollection) {
-    redirectWithError('/dashboard', '스페이스 권한이 없습니다.');
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
   }
 
   // A parent folder (if given) must live in the same space and belong to the owner.
@@ -905,7 +905,7 @@ export async function moveFileToFolderAction(formData: FormData) {
     .eq('owner_id', user.id)
     .maybeSingle();
   if (!membership) {
-    redirectWithError(redirectPath, '스페이스에서 해당 문서를 찾을 수 없습니다.');
+    redirectWithError(redirectPath, '데이터룸에서 해당 문서를 찾을 수 없습니다.');
   }
 
   if (targetFolderId) {

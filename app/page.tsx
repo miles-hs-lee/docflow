@@ -144,8 +144,8 @@ export default function HomePage() {
             </Card>
             <Card className="landing-feature" variant="padded">
               <FileIcon type="folder" size={36} />
-              <h3>문서 묶음</h3>
-              <p>제안서 · 약관 · 소개서를 하나의 묶음 링크로 전달하고 파일 단위 통계를 분리해 봅니다.</p>
+              <h3>데이터룸</h3>
+              <p>제안서 · 약관 · 소개서를 하나의 데이터룸 링크로 전달하고 파일 단위 통계를 분리해 봅니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <Badge variant="info" tone="subtle">실시간</Badge>
@@ -179,7 +179,7 @@ export default function HomePage() {
             <article className="landing-usecase">
               <FileIcon type="folder" size={28} />
               <h3>파트너 · 벤더 온보딩</h3>
-              <p>약관, 가이드, 매뉴얼을 한 묶음 링크로 일괄 전달하고, 파트너 그룹마다 다른 접근 정책을 적용합니다.</p>
+              <p>약관, 가이드, 매뉴얼을 한 데이터룸 링크로 일괄 전달하고, 파트너 그룹마다 다른 접근 정책을 적용합니다.</p>
             </article>
             <article className="landing-usecase">
               <FileIcon type="pdf" size={28} />

@@ -25,8 +25,8 @@ export function CollectionBuilderLazy({
     <Disclosure
       title={
         <span className="disclosure-title">
-          <span className="disclosure-title-main">문서 묶음 생성</span>
-          <span className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 묶음을 만듭니다.</span>
+          <span className="disclosure-title-main">데이터룸 생성</span>
+          <span className="muted small">여러 문서를 하나의 링크로 공유할 수 있는 데이터룸을 만듭니다.</span>
         </span>
       }
       headingLevel="h3"

@@ -39,7 +39,7 @@ export function DeleteAccountConfirm() {
         <Alert variant="danger">
           <AlertTitle>삭제되는 데이터</AlertTitle>
           <AlertDescription>
-            업로드한 PDF, 문서 묶음, 공유 링크, 페이지 통계, MCP API 키, 자동화 구독.
+            업로드한 PDF, 데이터룸, 공유 링크, 페이지 통계, MCP API 키, 자동화 구독.
           </AlertDescription>
         </Alert>
         <DialogFooter>

@@ -58,7 +58,7 @@ export default async function TrashPage() {
                       <p className="muted">
                         대상:{' '}
                         {link.collection
-                          ? `문서 묶음 - ${link.collection.name}`
+                          ? `데이터룸 - ${link.collection.name}`
                           : link.file?.original_name ?? link.file_id}{' '}
                         | 삭제일: {formatDateTime(link.deleted_at)}
                       </p>

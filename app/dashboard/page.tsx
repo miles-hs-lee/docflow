@@ -121,19 +121,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <Card>
           <CardHeader>
-            <CardTitle>문서 묶음 목록</CardTitle>
+            <CardTitle>데이터룸 목록</CardTitle>
           </CardHeader>
           <CardBody>
             {collections.length === 0 ? (
               <EmptyState
-                title="생성된 문서 묶음이 없습니다"
+                title="생성된 데이터룸이 없습니다"
                 description="여러 PDF를 하나의 공유 경험으로 묶을 수 있습니다."
               />
             ) : (
               <Table density="compact">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>묶음명</TableHead>
+                    <TableHead>데이터룸명</TableHead>
                     <TableHead>포함 문서 수</TableHead>
                     <TableHead>생성일</TableHead>
                     <TableHead>작업</TableHead>
@@ -160,7 +160,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           <form action={deleteCollectionAction}>
                             <HiddenInput name="collectionId" value={collection.id} />
                             <Button type="submit" variant="danger" size="sm">
-                              묶음 삭제
+                              데이터룸 삭제
                             </Button>
                           </form>
                         </Stack>

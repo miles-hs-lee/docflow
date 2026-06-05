@@ -40,7 +40,7 @@ export default async function SettingsPage() {
             <Alert variant="danger">
               <AlertTitle>되돌릴 수 없는 작업입니다</AlertTitle>
               <AlertDescription>
-                계정과 함께 업로드한 모든 PDF, 문서 묶음, 공유 링크, 통계, 발급한 MCP API 키와
+                계정과 함께 업로드한 모든 PDF, 데이터룸, 공유 링크, 통계, 발급한 MCP API 키와
                 자동화 구독이 영구적으로 삭제됩니다. 외부 공유 링크는 즉시 작동을 멈춥니다.
                 확인을 위해 비밀번호를 다시 입력하세요.
               </AlertDescription>
