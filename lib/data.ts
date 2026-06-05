@@ -1,3 +1,4 @@
+import { OWNER_FEED_EVENT_TYPES } from '@/lib/event-labels';
 import { kickWebhookDispatch } from '@/lib/qstash';
 import { getRedis, isRedisConfigured } from '@/lib/redis';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -839,11 +840,44 @@ export async function listRecentEvents(
   const { data, error } = await ownerClient
     .from('link_events')
     .select('id, event_type, reason, viewer_email, created_at')
-    .in('event_type', ['view', 'download', 'denied', 'email_submitted', 'password_failed', 'agreement'])
+    .in('event_type', OWNER_FEED_EVENT_TYPES)
     .order('id', { ascending: false })
     .limit(limit);
   if (error || !data) return [];
   return data as Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>;
+}
+
+// True distinct unique viewers across a whole data room's active links
+// (migration 021). Replaces the per-link sum, which double-counted a visitor
+// who opened more than one link of the same room.
+export async function getCollectionUniqueViews(ownerId: string, collectionId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_collection_unique_views', {
+    p_owner_id: ownerId,
+    p_collection_id: collectionId
+  });
+  if (error) {
+    console.error('[getCollectionUniqueViews] degraded to 0', error);
+    return 0;
+  }
+  return typeof data === 'number' ? data : Number(data ?? 0);
+}
+
+// Per-link distinct unique for every link of a room in one round trip
+// (migration 021) — kills the N+1 of calling get_link_unique_views per link.
+export async function listCollectionLinkUniques(ownerId: string, collectionId: string): Promise<Map<string, number>> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_collection_link_uniques', {
+    p_owner_id: ownerId,
+    p_collection_id: collectionId
+  });
+  if (error || !data) {
+    if (error) console.error('[listCollectionLinkUniques] degraded to empty', error);
+    return new Map();
+  }
+  return new Map(
+    (data as Array<{ link_id: string; unique_viewers: number | string }>).map((row) => [row.link_id, Number(row.unique_viewers)])
+  );
 }
 
 // #1: bump the total-opens counter for a link. Called once per viewer-page

@@ -16,7 +16,7 @@ type RpcRequest = {
   params?: unknown;
 };
 
-const eventTypeSchema = z.enum(['view', 'denied', 'email_submitted', 'password_failed', 'download']);
+const eventTypeSchema = z.enum(['view', 'denied', 'email_submitted', 'password_failed', 'download', 'agreement']);
 
 const tools = [
   {
@@ -256,7 +256,7 @@ function parseDomainInput(value: unknown) {
 
 function parseEventTypes(value: unknown) {
   if (!Array.isArray(value) || value.length === 0) {
-    return ['view', 'denied', 'email_submitted', 'password_failed', 'download'];
+    return ['view', 'denied', 'email_submitted', 'password_failed', 'download', 'agreement'];
   }
 
   const parsed = value

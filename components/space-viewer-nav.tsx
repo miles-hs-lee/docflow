@@ -12,10 +12,15 @@ type SpaceViewerNavProps = {
 // File links keep the existing ?fileId= switch so the per-file fetch / claim /
 // page-event flow is unchanged.
 export function SpaceViewerNav({ token, folders, files, activeFileId }: SpaceViewerNavProps) {
-  const childFolders = (parentId: string | null) =>
-    folders.filter((folder) => (folder.parent_folder_id ?? null) === parentId);
-  const folderFiles = (folderId: string | null) =>
-    files.filter((file) => (file.folder_id ?? null) === folderId);
+  const folderIds = new Set(folders.map((folder) => folder.id));
+  // A file/folder whose parent reference points at a folder not in this set
+  // (orphaned / cross-collection) falls back to the root, so it is never
+  // silently dropped from the tree.
+  const fileParent = (file: SpaceFile) => (file.folder_id && folderIds.has(file.folder_id) ? file.folder_id : null);
+  const folderParent = (folder: FolderRow) =>
+    folder.parent_folder_id && folderIds.has(folder.parent_folder_id) ? folder.parent_folder_id : null;
+  const childFolders = (parentId: string | null) => folders.filter((folder) => folderParent(folder) === parentId);
+  const folderFiles = (folderId: string | null) => files.filter((file) => fileParent(file) === folderId);
 
   const fileLink = (file: SpaceFile) => (
     <a

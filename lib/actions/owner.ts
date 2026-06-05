@@ -92,7 +92,7 @@ function readEventTypes(formData: FormData) {
     return listed;
   }
 
-  return ['view', 'denied', 'email_submitted', 'password_failed', 'download'];
+  return ['view', 'denied', 'email_submitted', 'password_failed', 'download', 'agreement'];
 }
 
 export async function createCollectionAction(formData: FormData) {
@@ -148,7 +148,7 @@ export async function createCollectionAction(formData: FormData) {
     redirectWithError('/dashboard/collections', '데이터룸 파일 연결에 실패했습니다.');
   }
 
-  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/collections');
   redirectWithSuccess(`/dashboard/collections/${createdCollection.id}`, '데이터룸이 생성되었습니다.');
 }
 
@@ -183,7 +183,7 @@ export async function deleteCollectionAction(formData: FormData) {
     );
   }
 
-  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/collections');
   revalidatePath('/dashboard/trash');
   redirectWithSuccess('/dashboard/collections', '데이터룸을 삭제했습니다.');
 }
@@ -770,7 +770,7 @@ export async function deleteFileAction(formData: FormData) {
     }
   }
 
-  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/files');
   redirectWithSuccess('/dashboard/files', '파일과 연결된 링크를 삭제했습니다.');
 }
 
@@ -846,10 +846,13 @@ export async function renameFolderAction(formData: FormData) {
     redirectWithError(redirectPath, '폴더 이름을 입력해주세요.');
   }
 
+  // Scope by collection_id too so a forged/stale collectionId can't rename a
+  // folder that lives in a different data room (it just no-ops instead).
   const { error } = await admin
     .from('folders')
     .update({ name: name.slice(0, 120) })
     .eq('id', folderId)
+    .eq('collection_id', collectionId)
     .eq('owner_id', user.id);
   if (error) {
     redirectWithError(redirectPath, '폴더 이름 변경에 실패했습니다.');
@@ -873,7 +876,14 @@ export async function deleteFolderAction(formData: FormData) {
 
   // Subfolders cascade (parent_folder_id ON DELETE CASCADE); files in this
   // folder drop to the space root (collection_files.folder_id SET NULL).
-  const { error } = await admin.from('folders').delete().eq('id', folderId).eq('owner_id', user.id);
+  // Scope by collection_id so a forged/stale collectionId can't delete a
+  // folder belonging to a different data room.
+  const { error } = await admin
+    .from('folders')
+    .delete()
+    .eq('id', folderId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id);
   if (error) {
     redirectWithError(redirectPath, '폴더 삭제에 실패했습니다.');
   }

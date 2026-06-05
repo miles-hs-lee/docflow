@@ -1,4 +1,13 @@
-import { Button, FileIcon, Input } from '@polaris/ui';
+import {
+  Button,
+  FileIcon,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@polaris/ui';
 
 import { HiddenInput } from '@/components/hidden-input';
 import {
@@ -19,10 +28,14 @@ type SpaceStructureProps = {
 // rename / delete folder and move-file-to-folder. Server-component forms post
 // to the folder actions; native <select> posts the move target.
 export function SpaceStructure({ collectionId, folders, files }: SpaceStructureProps) {
-  const childFolders = (parentId: string | null) =>
-    folders.filter((folder) => (folder.parent_folder_id ?? null) === parentId);
-  const folderFiles = (folderId: string | null) =>
-    files.filter((file) => (file.folder_id ?? null) === folderId);
+  const folderIds = new Set(folders.map((folder) => folder.id));
+  // Orphaned / cross-collection parent references fall back to the root so a
+  // file or subfolder is never silently dropped from the editor.
+  const fileParent = (file: SpaceFile) => (file.folder_id && folderIds.has(file.folder_id) ? file.folder_id : null);
+  const folderParent = (folder: FolderRow) =>
+    folder.parent_folder_id && folderIds.has(folder.parent_folder_id) ? folder.parent_folder_id : null;
+  const childFolders = (parentId: string | null) => folders.filter((folder) => folderParent(folder) === parentId);
+  const folderFiles = (folderId: string | null) => files.filter((file) => fileParent(file) === folderId);
 
   const renderFile = (file: SpaceFile) => (
     <div key={file.id} className="space-node space-file">
@@ -33,19 +46,19 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
       <form action={moveFileToFolderAction} className="space-row-actions">
         <HiddenInput name="collectionId" value={collectionId} />
         <HiddenInput name="fileId" value={file.id} />
-        <select
-          name="folderId"
-          defaultValue={file.folder_id ?? 'root'}
-          aria-label="폴더로 이동"
-          className="space-select"
-        >
-          <option value="root">최상위</option>
-          {folders.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {folder.name}
-            </option>
-          ))}
-        </select>
+        <Select name="folderId" defaultValue={fileParent(file) ?? 'root'}>
+          <SelectTrigger aria-label="폴더로 이동" className="space-move-select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="root">최상위</SelectItem>
+            {folders.map((folder) => (
+              <SelectItem key={folder.id} value={folder.id}>
+                {folder.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button type="submit" size="sm" variant="ghost">
           이동
         </Button>

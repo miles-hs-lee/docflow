@@ -31,7 +31,13 @@ import {
   updateShareLinkAction
 } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
-import { getCollection, getMetricsForLink, listLinksForCollection, listSpaceContents } from '@/lib/data';
+import {
+  getCollection,
+  getCollectionUniqueViews,
+  listCollectionLinkUniques,
+  listLinksForCollection,
+  listSpaceContents
+} from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { linkStatus, statusVariant } from '@/lib/link-status';
 
@@ -54,24 +60,34 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
     notFound();
   }
 
-  // #5: collection link cards previously showed only raw counters (no
-  // unique). getMetricsForLink works for collection links (link_id-scoped),
-  // so fetch per-link metrics to surface 유니크 consistently with file cards.
-  const metricsList = await Promise.all(links.map((linkRow) => getMetricsForLink(supabase, linkRow)));
-  const metricsMap = new Map(metricsList.map((metric) => [metric.link_id, metric]));
-
-  // Data-room rollup across all its links (Phase 2). opens / downloads / denied
-  // sum cleanly from the per-link counters; unique is a per-link sum (a true
-  // room-wide distinct count would need an RPC — fine for v1, labeled as such).
-  const roomSummary = metricsList.reduce(
-    (acc, metric) => ({
-      opens: acc.opens + (metric.views ?? 0),
-      unique: acc.unique + (metric.unique_viewers ?? 0),
-      downloads: acc.downloads + (metric.downloads ?? 0),
-      denied: acc.denied + (metric.denied ?? 0)
-    }),
-    { opens: 0, unique: 0, downloads: 0, denied: 0 }
+  // Per-link unique in ONE round trip (migration 021), plus a TRUE room-wide
+  // distinct unique — replaces the old N+1 (one RPC per link) and the per-link
+  // unique sum that double-counted cross-link visitors.
+  const [linkUniques, roomUnique] = await Promise.all([
+    listCollectionLinkUniques(collection.owner_id, collection.id),
+    getCollectionUniqueViews(collection.owner_id, collection.id)
+  ]);
+  const metricsMap = new Map(
+    links.map((link) => [
+      link.id,
+      {
+        link_id: link.id,
+        views: link.open_count ?? link.view_count,
+        unique_viewers: linkUniques.get(link.id) ?? 0,
+        downloads: link.download_count,
+        denied: link.denied_count
+      }
+    ])
   );
+
+  // Data-room rollup: counters summed from the link rows; unique is the true
+  // distinct-session count across the room (not a per-link sum).
+  const roomSummary = {
+    opens: links.reduce((sum, link) => sum + (link.open_count ?? link.view_count ?? 0), 0),
+    unique: roomUnique,
+    downloads: links.reduce((sum, link) => sum + (link.download_count ?? 0), 0),
+    denied: links.reduce((sum, link) => sum + (link.denied_count ?? 0), 0)
+  };
 
   // Configured app URL, not the request host (avoids X-Forwarded-Host
   // spoofing → phishing share URLs, and proxy/preview host leakage).
@@ -108,7 +124,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             <p className="muted">이 데이터룸의 모든 공유 링크를 합산한 지표입니다.</p>
             <StatGroup cols={4} unwrapped>
               <Stat label="조회수" value={roomSummary.opens} helper="총 열람" />
-              <Stat label="유니크" value={roomSummary.unique} helper="링크 합산" />
+              <Stat label="유니크" value={roomSummary.unique} helper="세션 기준" />
               <Stat label="다운로드" value={roomSummary.downloads} />
               <Stat
                 label="거부"

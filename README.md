@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 017까지 순서대로** 실행합니다.
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 021까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·NDA 동의·연락처/대시보드 집계 기능에 018~021을 사용하므로 빠짐없이 적용해야 합니다.)
 
 | 번호 | 내용 |
 |---|---|
@@ -100,6 +100,10 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 017까지
 | 015 | 파일 검색(pg_trgm)·정렬·이벤트피드 index |
 | 016 | 링크별 워터마크 토글 컬럼 (`share_links.watermark`) |
 | 017 | 열람 분석 보강: `share_links.open_count`(총 열람), 페이지별 열람자수(`get_per_page_stats.viewers`), 일별 추세(`get_link_daily_views`) |
+| 018 | Teams 알림 대상(`destination_type`), 클릭랩 NDA 게이트(`require_agreement`/`agreement_text`/`agreement` 이벤트), 방문자 분석(`get_link_visitors`) |
+| 019 | 데이터룸 폴더 계층(`folders` 트리 + `collection_files.folder_id`) + 뷰어 번들 폴더 반환 |
+| 020 | 계정 단위 집계 RPC (`get_owner_overview`/`get_owner_top_documents`/`get_owner_contacts`) |
+| 021 | 리뷰 fix: `agreement` 구독 허용, 연락처 index, 지표 보정(방문자 페이지·연락처 문서수), 룸 distinct unique RPC, folders/collection_files 동일컬렉션 RLS |
 
 ### 4) Supabase Auth
 

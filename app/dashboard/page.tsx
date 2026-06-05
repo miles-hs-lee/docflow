@@ -20,15 +20,7 @@ import Link from 'next/link';
 import { LocalDate } from '@/components/local-date';
 import { requireOwner } from '@/lib/auth';
 import { getOwnerOverview, listRecentEvents, listTopDocuments } from '@/lib/data';
-
-const EVENT_LABEL: Record<string, string> = {
-  view: '열람',
-  download: '다운로드',
-  denied: '접근 거부',
-  email_submitted: '이메일 제출',
-  password_failed: '비밀번호 실패',
-  agreement: 'NDA 동의'
-};
+import { EVENT_META } from '@/lib/event-labels';
 
 export default async function OverviewPage() {
   const { supabase, user } = await requireOwner();
@@ -123,7 +115,7 @@ export default async function OverviewPage() {
                         <LocalDate value={event.created_at} />
                       </TableCell>
                       <TableCell>
-                        {EVENT_LABEL[event.event_type] ?? event.event_type}
+                        {EVENT_META[event.event_type]?.short ?? event.event_type}
                         {event.reason ? ` · ${event.reason}` : ''}
                       </TableCell>
                       <TableCell>{event.viewer_email ?? '익명'}</TableCell>

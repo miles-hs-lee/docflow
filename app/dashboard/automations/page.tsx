@@ -50,7 +50,8 @@ const eventTypeOptions = [
   { value: 'download', label: '다운로드(download)' },
   { value: 'denied', label: '접근 거부(denied)' },
   { value: 'email_submitted', label: '이메일 제출(email_submitted)' },
-  { value: 'password_failed', label: '비밀번호 실패(password_failed)' }
+  { value: 'password_failed', label: '비밀번호 실패(password_failed)' },
+  { value: 'agreement', label: 'NDA 동의(agreement)' }
 ];
 
 export default async function AutomationsPage() {

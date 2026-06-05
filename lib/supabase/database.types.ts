@@ -677,6 +677,23 @@ export type Database = {
           views: number;
         }[];
       };
+      get_collection_unique_views: {
+        Args: {
+          p_owner_id: string;
+          p_collection_id: string;
+        };
+        Returns: number;
+      };
+      get_collection_link_uniques: {
+        Args: {
+          p_owner_id: string;
+          p_collection_id: string;
+        };
+        Returns: {
+          link_id: string;
+          unique_viewers: number;
+        }[];
+      };
       get_owner_contacts: {
         Args: {
           p_owner_id: string;

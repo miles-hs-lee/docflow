@@ -255,8 +255,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     policyVersion: bundle.policy_version,
     email: normalizedEmail,
     grantedAt: Date.now(),
-    agreedAt,
-    agreementName
+    agreedAt
   }), {
     path: '/',
     httpOnly: true,

@@ -1001,14 +1001,24 @@ svg {
   border-radius: var(--polaris-radius-sm);
 }
 
-.space-select {
-  padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+.space-move-select {
+  min-width: 9rem;
+  max-width: 13rem;
+}
+
+/* Clickwrap NDA body shown to the viewer before access (token-based colors
+   instead of hardcoded hex). */
+.nda-text {
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--polaris-radius-sm);
+  padding: var(--polaris-spacing-sm);
+  background: var(--surface-soft);
   color: var(--text);
-  font: inherit;
-  max-width: 12rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .link-card {

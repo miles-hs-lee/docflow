@@ -271,9 +271,8 @@ export type ViewerGrantPayload = {
   policyVersion: number;
   email?: string;
   grantedAt: number;
-  // Set when the viewer accepted a clickwrap NDA gate. agreedAt is the
-  // assent timestamp; agreementName is the name they typed as their
-  // signature. Absent on links without require_agreement.
+  // Assent timestamp, set when the viewer accepted a clickwrap NDA gate
+  // (absent on links without require_agreement). The signer name is NOT kept
+  // here — the durable record lives in link_events.agreement_name.
   agreedAt?: number;
-  agreementName?: string;
 };

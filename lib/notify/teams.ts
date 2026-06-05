@@ -1,3 +1,4 @@
+import { EVENT_META } from '@/lib/event-labels';
 import { formatDateTime } from '@/lib/format';
 
 // Formats a DocFlow link event into a Microsoft Teams message.
@@ -23,18 +24,9 @@ type OutboxPayloadLike = {
   createdAt?: string | null;
 };
 
-const EVENT_LABELS: Record<string, { emoji: string; title: string; short: string }> = {
-  view: { emoji: '📄', title: '문서가 열람되었습니다', short: '열람' },
-  download: { emoji: '⬇️', title: '문서가 다운로드되었습니다', short: '다운로드' },
-  denied: { emoji: '🚫', title: '접근이 거부되었습니다', short: '거부' },
-  email_submitted: { emoji: '✉️', title: '이메일이 제출되었습니다', short: '이메일 제출' },
-  password_failed: { emoji: '🔑', title: '비밀번호 인증에 실패했습니다', short: '비밀번호 실패' },
-  agreement: { emoji: '✍️', title: 'NDA에 동의했습니다', short: 'NDA 동의' }
-};
-
 export function formatTeamsMessage(eventType: string, payload: unknown, appBaseUrl: string) {
   const p = (payload ?? {}) as OutboxPayloadLike;
-  const label = EVENT_LABELS[eventType] ?? { emoji: '🔔', title: `이벤트: ${eventType}`, short: eventType };
+  const label = EVENT_META[eventType] ?? { emoji: '🔔', title: `이벤트: ${eventType}`, short: eventType };
 
   const facts: { title: string; value: string }[] = [
     { title: '방문자', value: p.viewerEmail || '익명 방문자' },

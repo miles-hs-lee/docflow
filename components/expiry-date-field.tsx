@@ -1,6 +1,6 @@
 'use client';
 
-import { DatePicker } from '@polaris/ui';
+import { Button, DatePicker } from '@polaris/ui';
 import { useState } from 'react';
 
 type ExpiryDateFieldProps = {
@@ -43,15 +43,17 @@ export function ExpiryDateField({ name = 'expiresAt', defaultValue }: ExpiryDate
         className="expiry-date-picker"
       />
       {date ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className="expiry-date-clear"
           onClick={() => setDate(undefined)}
           aria-label="만료일 지우기"
           title="만료일 지우기"
         >
           ×
-        </button>
+        </Button>
       ) : null}
     </div>
   );

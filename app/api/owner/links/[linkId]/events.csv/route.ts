@@ -27,7 +27,14 @@ const COLUMNS = [
 
 function csvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const text = String(value);
+  let text = String(value);
+  // CSV formula-injection guard: a cell that starts with = + - @ (or a
+  // tab/CR that lets a leading formula char slip in) is executed as a formula
+  // by Excel/Sheets. We export viewer-controlled values (viewer_email, etc.)
+  // with a UTF-8 BOM for Excel, so neutralize by prefixing a single quote.
+  if (/^[=+\-@\t\r]/.test(text)) {
+    text = `'${text}`;
+  }
   if (/[",\r\n]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
