@@ -22,12 +22,12 @@ import { ChevronLeftIcon } from '@polaris/ui/icons';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { BrandingEditor } from '@/components/branding-editor';
 import { CollectionFilePicker } from '@/components/collection-file-picker';
 import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
-import { LogoUploader } from '@/components/logo-uploader';
 import { SpaceStructure } from '@/components/space-structure';
 import { ViewerGroups } from '@/components/viewer-groups';
 import {
@@ -197,46 +197,14 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             <p className="muted">
               이 데이터룸의 공유 링크 뷰어에만 적용됩니다. 비워둔 항목은 계정 브랜딩(설정)을 상속합니다.
             </p>
-            <form action={saveCollectionBrandingAction} className="form-grid">
-              <HiddenInput name="collectionId" value={collection.id} />
-              <Input
-                name="companyName"
-                label="회사명"
-                placeholder="예: Acme Inc."
-                defaultValue={roomBranding?.company_name ?? ''}
-                maxLength={80}
-              />
-              <Input
-                name="brandColor"
-                label="브랜드 색상 (HEX)"
-                placeholder="#RRGGBB"
-                defaultValue={roomBranding?.brand_color ?? ''}
-              />
-              <Button type="submit">브랜딩 저장</Button>
-            </form>
-
-            <Stack gap={3}>
-              <p className="muted small">로고</p>
-              {roomBranding?.logo_url ? (
-                <div
-                  className="brand-logo brand-logo-chip"
-                  role="img"
-                  aria-label="현재 데이터룸 로고"
-                  style={{ backgroundImage: `url("${roomBranding.logo_url}")` }}
-                />
-              ) : (
-                <p className="muted small">데이터룸 전용 로고가 없습니다. (계정 로고 상속)</p>
-              )}
-              <LogoUploader endpoint={`/dashboard/collections/${collection.id}/logo`} />
-              {roomBranding?.logo_url ? (
-                <form action={removeCollectionBrandingLogoAction}>
-                  <HiddenInput name="collectionId" value={collection.id} />
-                  <Button type="submit" variant="ghost" size="sm">
-                    로고 제거
-                  </Button>
-                </form>
-              ) : null}
-            </Stack>
+            <BrandingEditor
+              branding={roomBranding}
+              saveAction={saveCollectionBrandingAction}
+              removeLogoAction={removeCollectionBrandingLogoAction}
+              logoEndpoint={`/dashboard/collections/${collection.id}/logo`}
+              hiddenFields={[{ name: 'collectionId', value: collection.id }]}
+              noLogoLabel="데이터룸 전용 로고가 없습니다. (계정 로고 상속)"
+            />
           </CardBody>
         </Card>
 

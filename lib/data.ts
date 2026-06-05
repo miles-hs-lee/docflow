@@ -1140,7 +1140,23 @@ export function ownerLogoPublicUrl(logoPath: string): string {
 // viewer/request pages are anonymous). Degrades to null on any error (e.g. the
 // table not yet migrated) so the pages fall back to the default DocFlow mark.
 // Returns null when no branding fields are set.
-// cache() dedupes branding across generateMetadata + the page render in one request.
+// Shared mapping for both branding scopes (account + per-room): a row with no
+// fields set → null; otherwise resolve logo_path → public URL. Adding a future
+// branding field (e.g. a cover image) is a one-line change here + the select.
+type BrandingFields = { company_name: string | null; brand_color: string | null; logo_path: string | null };
+
+function toViewerBranding(row: BrandingFields | null): ViewerBranding | null {
+  if (!row) return null;
+  if (!row.company_name && !row.brand_color && !row.logo_path) return null;
+  return {
+    company_name: row.company_name,
+    brand_color: row.brand_color,
+    logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
+  };
+}
+
+// Account-level branding. cache() dedupes across generateMetadata + the page
+// render in one request. Service-role read; degrades to null on any error.
 export const getOwnerBranding = cache(async (ownerId: string): Promise<ViewerBranding | null> => {
   const admin = createAdminClient();
   try {
@@ -1149,21 +1165,14 @@ export const getOwnerBranding = cache(async (ownerId: string): Promise<ViewerBra
       .select('company_name, brand_color, logo_path')
       .eq('owner_id', ownerId)
       .maybeSingle();
-    if (error || !data) return null;
-    const row = data as { company_name: string | null; brand_color: string | null; logo_path: string | null };
-    if (!row.company_name && !row.brand_color && !row.logo_path) return null;
-    return {
-      company_name: row.company_name,
-      brand_color: row.brand_color,
-      logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
-    };
+    if (error) return null;
+    return toViewerBranding(data as BrandingFields | null);
   } catch {
     return null;
   }
 });
 
 // Per-data-room branding (layered over getOwnerBranding via mergeBranding).
-// Same service-role read + degrade-to-null contract.
 export const getCollectionBranding = cache(async (collectionId: string): Promise<ViewerBranding | null> => {
   const admin = createAdminClient();
   try {
@@ -1172,14 +1181,8 @@ export const getCollectionBranding = cache(async (collectionId: string): Promise
       .select('company_name, brand_color, logo_path')
       .eq('collection_id', collectionId)
       .maybeSingle();
-    if (error || !data) return null;
-    const row = data as { company_name: string | null; brand_color: string | null; logo_path: string | null };
-    if (!row.company_name && !row.brand_color && !row.logo_path) return null;
-    return {
-      company_name: row.company_name,
-      brand_color: row.brand_color,
-      logo_url: row.logo_path ? ownerLogoPublicUrl(row.logo_path) : null
-    };
+    if (error) return null;
+    return toViewerBranding(data as BrandingFields | null);
   } catch {
     return null;
   }

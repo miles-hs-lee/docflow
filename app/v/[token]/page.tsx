@@ -38,9 +38,12 @@ export async function generateMetadata({ params }: ViewerPageProps): Promise<Met
   const meta = await getViewerLinkMeta(token);
   if (!meta) return { ...base, title: '문서' };
 
-  // Data-room links: room branding field-merges over account branding.
-  const room = meta.collection_id ? await getCollectionBranding(meta.collection_id) : null;
-  const branding = mergeBranding(room, await getOwnerBranding(meta.owner_id));
+  // Data-room links: room branding field-merges over account branding (parallel).
+  const [room, account] = await Promise.all([
+    meta.collection_id ? getCollectionBranding(meta.collection_id) : Promise.resolve(null),
+    getOwnerBranding(meta.owner_id)
+  ]);
+  const branding = mergeBranding(room, account);
   if (!branding) return { ...base, title: meta.label };
 
   return {
@@ -182,11 +185,19 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     (selectedFileId ? availableFiles.find((item) => item.id === selectedFileId) : null) ?? availableFiles[0] ?? null;
 
   if (!activeFile) {
+    // A data-room link can now point at an empty room (rooms are built up after
+    // creation; the last file can also be removed). Show a friendly message
+    // instead of the generic "document not found" error.
+    const emptyRoom = Boolean(link.collection_id) && availableFiles.length === 0;
     return (
       <main className="viewer-layout">
         <Card className="viewer-card" variant="padded">
-          <h1>문서에 접근할 수 없습니다.</h1>
-          <p>이 링크에 연결된 문서를 찾을 수 없습니다.</p>
+          <h1>{emptyRoom ? '아직 공유된 문서가 없습니다.' : '문서에 접근할 수 없습니다.'}</h1>
+          <p>
+            {emptyRoom
+              ? '이 데이터룸에는 아직 추가된 문서가 없습니다. 잠시 후 다시 확인해주세요.'
+              : '이 링크에 연결된 문서를 찾을 수 없습니다.'}
+          </p>
         </Card>
       </main>
     );
@@ -200,10 +211,13 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     : `/api/v/${token}/download`;
   const eventEndpoint = `/api/v/${token}/event`;
   // White-label: data-room link → room branding field-merges over account
-  // branding; otherwise account branding. Falls back to the company name for the
-  // watermark. Degrades to null pre-migration.
-  const roomBranding = link.collection_id ? await getCollectionBranding(link.collection_id) : null;
-  const branding = mergeBranding(roomBranding, await getOwnerBranding(link.owner_id));
+  // branding; otherwise account branding. Read both in parallel. Falls back to
+  // the company name for the watermark. Degrades to null pre-migration.
+  const [roomBranding, accountBranding] = await Promise.all([
+    link.collection_id ? getCollectionBranding(link.collection_id) : Promise.resolve(null),
+    getOwnerBranding(link.owner_id)
+  ]);
+  const branding = mergeBranding(roomBranding, accountBranding);
   const watermarkLabel = grant?.email || branding?.company_name || 'DocFlow Viewer';
 
   // #1: count this open. Bumped once per granted viewer-page render — NOT

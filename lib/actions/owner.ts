@@ -8,6 +8,7 @@ import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
 import { requireOwner } from '@/lib/auth';
 import { removeLogoObject, removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
+import { normalizeBrandColor } from '@/lib/branding';
 import { assertSafePublicUrl } from '@/lib/url-safety';
 import {
   generateMcpApiKey,
@@ -203,6 +204,16 @@ export async function removeFileFromCollectionAction(formData: FormData) {
 
   if (!collectionId || !fileId) {
     redirectWithError('/dashboard', '정보가 누락되었습니다.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
   }
 
   const { error } = await admin
@@ -1335,14 +1346,11 @@ export async function saveBrandingAction(formData: FormData) {
 
   const companyName = ((formData.get('companyName') as string | null) || '').trim().slice(0, 80) || null;
 
-  const rawColor = ((formData.get('brandColor') as string | null) || '').trim();
-  let brandColor: string | null = null;
-  if (rawColor) {
-    const normalized = (rawColor.startsWith('#') ? rawColor : `#${rawColor}`).toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(normalized)) {
-      redirectWithError('/dashboard/settings', '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
-    }
-    brandColor = normalized;
+  const { color: brandColor, invalid: colorInvalid } = normalizeBrandColor(
+    (formData.get('brandColor') as string | null) || ''
+  );
+  if (colorInvalid) {
+    redirectWithError('/dashboard/settings', '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
   }
 
   // Upsert only the text fields → an existing logo_path is preserved.
@@ -1415,14 +1423,11 @@ export async function saveCollectionBrandingAction(formData: FormData) {
 
   const companyName = ((formData.get('companyName') as string | null) || '').trim().slice(0, 80) || null;
 
-  const rawColor = ((formData.get('brandColor') as string | null) || '').trim();
-  let brandColor: string | null = null;
-  if (rawColor) {
-    const normalized = (rawColor.startsWith('#') ? rawColor : `#${rawColor}`).toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(normalized)) {
-      redirectWithError(redirectPath, '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
-    }
-    brandColor = normalized;
+  const { color: brandColor, invalid: colorInvalid } = normalizeBrandColor(
+    (formData.get('brandColor') as string | null) || ''
+  );
+  if (colorInvalid) {
+    redirectWithError(redirectPath, '브랜드 색상은 #RRGGBB 형식이어야 합니다. (예: #1a73e8)');
   }
 
   // Upsert only the text fields → an existing logo_path is preserved.
@@ -1446,6 +1451,16 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
   const redirectPath = `/dashboard/collections/${collectionId}`;
   if (!collectionId) {
     redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
   }
 
   const { data } = await admin
