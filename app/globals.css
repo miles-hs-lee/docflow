@@ -1264,6 +1264,90 @@ svg {
   padding: var(--polaris-spacing-xs);
 }
 
+/* Viewer-side Q&A panel — lives in the dark data-room sidebar. */
+.viewer-qa {
+  margin-top: var(--polaris-spacing-sm);
+  padding-top: var(--polaris-spacing-sm);
+  border-top: 1px solid color-mix(in srgb, var(--polaris-static-white) 12%, transparent);
+  display: grid;
+  gap: var(--polaris-spacing-xs);
+}
+
+.viewer-qa-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--polaris-label-inverse);
+}
+
+.viewer-qa-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 58%, transparent);
+}
+
+.viewer-qa-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--polaris-spacing-xs);
+}
+
+.viewer-qa-item {
+  display: grid;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--polaris-static-white) 12%, transparent);
+  border-radius: var(--polaris-radius-sm);
+  padding: var(--polaris-spacing-xs);
+}
+
+.viewer-qa-q {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 90%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.viewer-qa-a {
+  margin: 0;
+  padding-inline-start: var(--polaris-spacing-xs);
+  border-inline-start: 2px solid var(--primary);
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 72%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.viewer-qa-pending {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 50%, transparent);
+}
+
+.viewer-qa-form {
+  display: grid;
+  gap: var(--polaris-spacing-xs);
+}
+
+/* Owner-side data-room Q&A cards (light dashboard surface). */
+.qa-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--polaris-spacing-xs);
+  margin-bottom: var(--polaris-spacing-2xs);
+}
+
+.qa-card-body {
+  margin: 0 0 var(--polaris-spacing-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qa-card-delete {
+  margin-top: var(--polaris-spacing-2xs);
+}
+
 .viewer-file-link {
   display: block;
   border: 1px solid transparent;

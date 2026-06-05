@@ -32,7 +32,9 @@ import { SpaceStructure } from '@/components/space-structure';
 import { ViewerGroups } from '@/components/viewer-groups';
 import {
   addFilesToCollectionAction,
+  answerQuestionAction,
   createCollectionShareLinkAction,
+  deleteQuestionAction,
   removeCollectionBrandingCoverAction,
   removeCollectionBrandingLogoAction,
   saveCollectionBrandingAction,
@@ -45,6 +47,7 @@ import {
   getCollectionBranding,
   getCollectionUniqueViews,
   listCollectionLinkUniques,
+  listCollectionQuestions,
   listLinksForCollection,
   listSpaceContents,
   listViewerGroups
@@ -60,14 +63,16 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   const { collectionId } = await params;
 
   const { supabase } = await requireOwner();
-  const [collection, space, links, viewerGroups, roomBranding] = await Promise.all([
+  const [collection, space, links, viewerGroups, roomBranding, questions] = await Promise.all([
     getCollection(supabase, collectionId),
     listSpaceContents(supabase, collectionId),
     listLinksForCollection(supabase, collectionId),
     listViewerGroups(supabase, collectionId),
-    getCollectionBranding(collectionId)
+    getCollectionBranding(collectionId),
+    listCollectionQuestions(supabase, collectionId)
   ]);
   const { folders, files } = space;
+  const unansweredCount = questions.filter((question) => !question.answer).length;
 
   if (!collection) {
     notFound();
@@ -209,6 +214,60 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               noLogoLabel="데이터룸 전용 로고가 없습니다. (계정 로고 상속)"
               noCoverLabel="데이터룸 전용 커버 이미지가 없습니다. (계정 커버 상속)"
             />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>질문 &amp; 답변{unansweredCount > 0 ? ` · 미답변 ${unansweredCount}` : ''}</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">
+              데이터룸 뷰어가 공유 링크에서 남긴 질문입니다. 답변을 등록하면 해당 질문자에게만 표시됩니다.
+            </p>
+            {questions.length === 0 ? (
+              <EmptyState
+                title="아직 등록된 질문이 없습니다"
+                description="뷰어가 데이터룸 링크에서 질문을 남기면 여기에 표시됩니다."
+              />
+            ) : (
+              <Stack gap={3}>
+                {questions.map((question) => (
+                  <Card className="qa-card compact" variant="padded" key={question.id}>
+                    <div className="qa-card-head">
+                      <Badge variant={question.answer ? 'success' : 'warning'} tone="subtle">
+                        {question.answer ? '답변완료' : '답변대기'}
+                      </Badge>
+                      <span className="muted small">
+                        {question.asker_email || '익명 방문자'} · <LocalDate value={question.created_at} mode="datetime" />
+                      </span>
+                    </div>
+                    <p className="qa-card-body">{question.body}</p>
+                    <form action={answerQuestionAction} className="form-grid compact">
+                      <HiddenInput name="questionId" value={question.id} />
+                      <HiddenInput name="collectionId" value={collection.id} />
+                      <Textarea
+                        name="answer"
+                        defaultValue={question.answer ?? ''}
+                        rows={2}
+                        label="답변"
+                        placeholder="답변을 입력하세요"
+                      />
+                      <Button type="submit" size="sm">
+                        {question.answer ? '답변 수정' : '답변 등록'}
+                      </Button>
+                    </form>
+                    <form action={deleteQuestionAction} className="qa-card-delete">
+                      <HiddenInput name="questionId" value={question.id} />
+                      <HiddenInput name="collectionId" value={collection.id} />
+                      <Button type="submit" size="sm" variant="ghost">
+                        질문 삭제
+                      </Button>
+                    </form>
+                  </Card>
+                ))}
+              </Stack>
+            )}
           </CardBody>
         </Card>
 

@@ -6,6 +6,7 @@ import { BrandCover } from '@/components/brand-cover';
 import { BrandMark } from '@/components/brand-mark';
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { SpaceViewerNav } from '@/components/space-viewer-nav';
+import { ViewerQuestions } from '@/components/viewer-questions';
 import { cookies, headers } from 'next/headers';
 
 import { brandAccentStyle, mergeBranding } from '@/lib/branding';
@@ -16,6 +17,7 @@ import {
   getOwnerBranding,
   getViewerLinkByToken,
   getViewerLinkMeta,
+  listViewerQuestions,
   recordLinkEvent
 } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
@@ -239,6 +241,12 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   // Best-effort + non-blocking; bumpOpenCount swallows its own errors.
   await bumpOpenCount(link.id);
 
+  // Data room Phase 4: load THIS viewer's own Q&A thread (by their session) for
+  // a data-room link. Private — never surfaces other viewers' questions.
+  const sessionId = normalizeViewerSessionId(cookieStore.get(VIEWER_SESSION_COOKIE)?.value);
+  const viewerQuestions = link.collection_id ? await listViewerQuestions(link.collection_id, sessionId) : [];
+  const qaStatus = typeof query.qa === 'string' ? query.qa : null;
+
   return (
     <main className="viewer-app" style={brandAccentStyle(branding?.brand_color)}>
       <header className="viewer-topbar">
@@ -268,6 +276,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
               files={link.collection_files}
               activeFileId={activeFile.id}
             />
+            <ViewerQuestions token={token} questions={viewerQuestions} status={qaStatus} />
           </aside>
         ) : null}
         <PdfViewer

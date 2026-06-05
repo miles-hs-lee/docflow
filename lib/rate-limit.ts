@@ -33,7 +33,8 @@ export type RateLimitKind =
   | 'viewerDocument' // PDF byte serving (Range-heavy; NAT-shared)
   | 'mcp' // agent API
   | 'authLogin' // owner login
-  | 'fileRequestUpload'; // inbound visitor file-request uploads (storage abuse)
+  | 'fileRequestUpload' // inbound visitor file-request uploads (storage abuse)
+  | 'viewerQuestion'; // viewer data-room Q&A submissions (spam)
 
 // limit = max requests per window. window is an @upstash/ratelimit Duration.
 const DEFS: Record<RateLimitKind, { limit: number; window: `${number} ${'m' | 's' | 'h'}`; prefix: string }> = {
@@ -47,7 +48,10 @@ const DEFS: Record<RateLimitKind, { limit: number; window: `${number} ${'m' | 's
   mcp: { limit: 100, window: '1 m', prefix: 'rl:mcp' },
   authLogin: { limit: 10, window: '1 m', prefix: 'rl:login' },
   // Anonymous uploads write to storage — cap per (token+IP) to bound abuse.
-  fileRequestUpload: { limit: 10, window: '10 m', prefix: 'rl:upload' }
+  fileRequestUpload: { limit: 10, window: '10 m', prefix: 'rl:upload' },
+  // Anonymous Q&A submissions — cap per (link+IP) so a viewer can't spam the
+  // owner's question feed.
+  viewerQuestion: { limit: 8, window: '10 m', prefix: 'rl:question' }
 };
 
 const limiters = new Map<RateLimitKind, Ratelimit>();

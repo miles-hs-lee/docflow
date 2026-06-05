@@ -158,6 +158,34 @@ export type ViewerGroupWithFolders = ViewerGroupRow & {
   folder_ids: string[];
 };
 
+// Data room Phase 4: a viewer Q&A. A viewer of a data-room link asks the owner a
+// question; the owner answers from the dashboard. Private between the asking
+// session + the owner — never visible to other viewers.
+export type DataRoomQuestionRow = {
+  id: string;
+  collection_id: string;
+  // The share link the viewer used; SET NULL if that link is later deleted.
+  link_id: string | null;
+  owner_id: string;
+  session_id: string | null;
+  asker_email: string | null;
+  body: string;
+  answer: string | null;
+  answered_at: string | null;
+  ip_hash: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// The viewer-facing slice of their own Q&A thread (no owner_id / ip_hash).
+export type ViewerQuestion = {
+  id: string;
+  body: string;
+  answer: string | null;
+  answered_at: string | null;
+  created_at: string;
+};
+
 // File Request: an inbound upload request the owner publishes at /r/<token>.
 // Visitors upload files to the owner (the reverse of a share link).
 export type FileRequestRow = {

@@ -52,7 +52,8 @@ const eventTypeOptions = [
   { value: 'email_submitted', label: '이메일 제출(email_submitted)' },
   { value: 'password_failed', label: '비밀번호 실패(password_failed)' },
   { value: 'agreement', label: 'NDA 동의(agreement)' },
-  { value: 'file_uploaded', label: '파일 수신(file_uploaded)' }
+  { value: 'file_uploaded', label: '파일 수신(file_uploaded)' },
+  { value: 'question_asked', label: '데이터룸 질문(question_asked)' }
 ];
 
 export default async function AutomationsPage() {

@@ -2,8 +2,15 @@
 
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 
-import { getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
+import {
+  getLinkForQuestion,
+  getViewerLinkByToken,
+  insertDataRoomQuestion,
+  recordLinkEvent
+} from '@/lib/data';
+import { notifyQuestion } from '@/lib/notify/question';
 import { evaluateBasePolicy } from '@/lib/policy';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
@@ -14,7 +21,7 @@ import {
   verifyPassword
 } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
-import { encodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
+import { decodeGrantCookie, encodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
 async function getRequestContext() {
   const cookieStore = await cookies();
@@ -265,4 +272,73 @@ export async function submitViewerAccessAction(token: string, formData: FormData
   });
 
   redirect(`/v/${token}`);
+}
+
+// Data room Phase 4: a viewer submits a question on a data-room link. Anonymous
+// (service-role write). Gated on the link being a live data-room link; rate-
+// limited per (link + hashed IP). The owner is notified best-effort after the
+// response. Questions are private — only the asker (by session) + owner see them.
+export async function submitViewerQuestionAction(token: string, formData: FormData) {
+  const link = await getLinkForQuestion(token);
+  // Only data-room links have Q&A. A missing/file link → just bounce back.
+  if (!link || !link.collection_id) {
+    redirect(`/v/${token}`);
+  }
+  // Capture now, while collection_id is narrowed to string — the awaits below
+  // would otherwise let TS widen the property back to string | null.
+  const collectionId = link.collection_id;
+  const ownerId = link.owner_id;
+  const linkId = link.id;
+
+  const expired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
+  if (!link.is_active || expired || link.deleted_at) {
+    redirect(`/v/${token}?denied=inactive`);
+  }
+
+  const body = ((formData.get('question') as string | null) || '').trim();
+  if (!body) {
+    redirect(`/v/${token}?qa=empty`);
+  }
+
+  const ctx = await getRequestContext();
+
+  // Spam guard: cap submissions per (link + hashed IP), like the upload route.
+  const limit = await checkRateLimit('viewerQuestion', `${link.id}:${ctx.ipHash ?? 'unknown'}`);
+  if (!limit.allowed) {
+    redirect(`/v/${token}?qa=rate`);
+  }
+
+  // Attribute the email only if the link already collected one (grant cookie).
+  const cookieStore = await cookies();
+  const grant = decodeGrantCookie(cookieStore.get(getGrantCookieName(link.id))?.value, link.id);
+  const askerEmail = grant?.email ?? null;
+
+  const trimmedBody = body.slice(0, 2000);
+  const inserted = await insertDataRoomQuestion({
+    collectionId,
+    linkId,
+    ownerId,
+    sessionId: ctx.sessionId,
+    askerEmail,
+    body: trimmedBody,
+    ipHash: ctx.ipHash
+  });
+
+  if (!inserted) {
+    redirect(`/v/${token}?qa=error`);
+  }
+
+  // Best-effort owner notification, AFTER the response (never blocks the viewer).
+  after(() =>
+    notifyQuestion({
+      ownerId,
+      collectionId,
+      questionId: inserted.id,
+      body: trimmedBody,
+      askerEmail,
+      createdAt: new Date().toISOString()
+    })
+  );
+
+  redirect(`/v/${token}?qa=sent`);
 }

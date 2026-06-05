@@ -10,6 +10,7 @@ import type {
   AutomationSubscriptionRow,
   CollectionRow,
   CollectionSummaryRow,
+  DataRoomQuestionRow,
   DeniedReason,
   DeniedReasonCount,
   FileRequestRow,
@@ -32,7 +33,8 @@ import type {
   ViewerBranding,
   ViewerGroupRow,
   ViewerGroupWithFolders,
-  ViewerLinkBundle
+  ViewerLinkBundle,
+  ViewerQuestion
 } from '@/lib/types';
 
 type OwnerClient = Awaited<ReturnType<typeof createOwnerClient>>;
@@ -1126,6 +1128,95 @@ export async function getRequestUpload(
     .maybeSingle();
   if (error) throw error;
   return (data as FileRequestUploadRow | null) ?? null;
+}
+
+// ── Data room Q&A (Phase 4) ──────────────────────────────────────────────────
+
+// Lightweight link lookup for the anonymous Q&A submit: just the fields needed
+// to gate a question (active / not expired / not deleted) and attribute it.
+// Service-role (the viewer is anonymous).
+export async function getLinkForQuestion(token: string): Promise<{
+  id: string;
+  owner_id: string;
+  collection_id: string | null;
+  is_active: boolean;
+  expires_at: string | null;
+  deleted_at: string | null;
+} | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('share_links')
+    .select('id, owner_id, collection_id, is_active, expires_at, deleted_at')
+    .eq('token', token)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as {
+    id: string;
+    owner_id: string;
+    collection_id: string | null;
+    is_active: boolean;
+    expires_at: string | null;
+    deleted_at: string | null;
+  };
+}
+
+// Persist a viewer's question (service-role; anonymous viewer). Returns the new
+// row id so the caller can fire a best-effort owner notification.
+export async function insertDataRoomQuestion(input: {
+  collectionId: string;
+  linkId: string;
+  ownerId: string;
+  sessionId: string | null;
+  askerEmail: string | null;
+  body: string;
+  ipHash: string | null;
+}): Promise<{ id: string } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('data_room_questions')
+    .insert({
+      collection_id: input.collectionId,
+      link_id: input.linkId,
+      owner_id: input.ownerId,
+      session_id: input.sessionId,
+      asker_email: input.askerEmail,
+      body: input.body,
+      ip_hash: input.ipHash
+    })
+    .select('id')
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as { id: string };
+}
+
+// The viewer's OWN thread for a room — scoped to their session (service-role).
+// Chronological so the conversation reads top-to-bottom. Never returns other
+// viewers' questions (Q&A is private to asker + owner).
+export async function listViewerQuestions(collectionId: string, sessionId: string): Promise<ViewerQuestion[]> {
+  if (!sessionId) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('data_room_questions')
+    .select('id, body, answer, answered_at, created_at')
+    .eq('collection_id', collectionId)
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+  if (error || !data) return [];
+  return data as ViewerQuestion[];
+}
+
+// Every question for a data room — owner side (RLS-scoped), newest first.
+export async function listCollectionQuestions(
+  ownerClient: OwnerClient,
+  collectionId: string
+): Promise<DataRoomQuestionRow[]> {
+  const { data, error } = await ownerClient
+    .from('data_room_questions')
+    .select('*')
+    .eq('collection_id', collectionId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DataRoomQuestionRow[];
 }
 
 // ── Custom branding (white-label) ───────────────────────────────────────────

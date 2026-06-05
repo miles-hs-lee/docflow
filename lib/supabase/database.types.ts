@@ -666,6 +666,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      data_room_questions: {
+        Row: {
+          id: string;
+          collection_id: string;
+          link_id: string | null;
+          owner_id: string;
+          session_id: string | null;
+          asker_email: string | null;
+          body: string;
+          answer: string | null;
+          answered_at: string | null;
+          ip_hash: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          collection_id: string;
+          link_id?: string | null;
+          owner_id: string;
+          session_id?: string | null;
+          asker_email?: string | null;
+          body: string;
+          answer?: string | null;
+          answered_at?: string | null;
+          ip_hash?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          collection_id?: string;
+          link_id?: string | null;
+          owner_id?: string;
+          session_id?: string | null;
+          asker_email?: string | null;
+          body?: string;
+          answer?: string | null;
+          answered_at?: string | null;
+          ip_hash?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

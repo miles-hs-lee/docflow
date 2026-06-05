@@ -12,7 +12,10 @@ export const EVENT_META: Record<string, { short: string; emoji: string; title: s
   agreement: { short: 'NDA 동의', emoji: '✍️', title: 'NDA에 동의했습니다' },
   // File Request inbound upload — not a link_event (no link analytics page), so
   // it is intentionally absent from OWNER_FEED_EVENT_TYPES below.
-  file_uploaded: { short: '파일 수신', emoji: '📥', title: '파일이 업로드되었습니다' }
+  file_uploaded: { short: '파일 수신', emoji: '📥', title: '파일이 업로드되었습니다' },
+  // Data room Q&A — a viewer asked a question. Not a link_event either, so it is
+  // likewise absent from OWNER_FEED_EVENT_TYPES.
+  question_asked: { short: '질문', emoji: '❓', title: '새 질문이 등록되었습니다' }
 };
 
 // Meaningful events for the owner activity feed (page_view excluded — too noisy).

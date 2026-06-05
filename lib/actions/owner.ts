@@ -327,6 +327,64 @@ export async function deleteCollectionAction(formData: FormData) {
   redirectWithSuccess('/dashboard/collections', '데이터룸을 삭제했습니다.');
 }
 
+// ───────────────────────────────────────────────────────────
+// Data room Phase 4: owner answers / removes viewer questions. Scoped by
+// owner_id so a forged/foreign questionId just no-ops.
+
+export async function answerQuestionAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const questionId = ((formData.get('questionId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const answer = ((formData.get('answer') as string | null) || '').trim();
+  const redirectPath = collectionId ? `/dashboard/collections/${collectionId}` : '/dashboard/collections';
+
+  if (!questionId) {
+    redirectWithError('/dashboard/collections', '질문 정보가 누락되었습니다.');
+  }
+  if (!answer) {
+    redirectWithError(redirectPath, '답변 내용을 입력해주세요.');
+  }
+
+  const { error } = await admin
+    .from('data_room_questions')
+    .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
+    .eq('id', questionId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '답변 저장에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '답변을 저장했습니다.');
+}
+
+export async function deleteQuestionAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const questionId = ((formData.get('questionId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = collectionId ? `/dashboard/collections/${collectionId}` : '/dashboard/collections';
+
+  if (!questionId) {
+    redirectWithError('/dashboard/collections', '질문 정보가 누락되었습니다.');
+  }
+
+  const { error } = await admin
+    .from('data_room_questions')
+    .delete()
+    .eq('id', questionId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '질문 삭제에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '질문을 삭제했습니다.');
+}
+
 export async function createMcpApiKeyAction(formData: FormData) {
   const { user } = await requireOwner();
   const admin = createAdminClient();

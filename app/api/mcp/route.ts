@@ -23,7 +23,8 @@ const eventTypeSchema = z.enum([
   'password_failed',
   'download',
   'agreement',
-  'file_uploaded'
+  'file_uploaded',
+  'question_asked'
 ]);
 
 const tools = [
