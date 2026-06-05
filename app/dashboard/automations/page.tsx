@@ -9,11 +9,8 @@ import {
   EmptyState,
   Input,
   PageHeader,
-  Select,
-  SelectContent,
+  SelectField,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
   Stack,
   Table,
   TableBody,
@@ -175,18 +172,15 @@ export default async function AutomationsPage() {
             <p className="muted">지정한 이벤트가 발생하면 거의 실시간(QStash)으로 웹훅 또는 Microsoft Teams 채널에 알림을 전달합니다.</p>
             <form action={createAutomationSubscriptionAction} className="form-grid">
               <Input name="name" required label="구독 이름" placeholder="예: 영업팀 열람 알림" />
-              <div className="field-block">
-                <span className="muted small">전달 대상</span>
-                <Select name="destinationType" defaultValue="webhook">
-                  <SelectTrigger aria-label="전달 대상" style={{ width: '100%' }}>
-                    <SelectValue placeholder="전달 대상 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="webhook">웹훅 (Generic JSON)</SelectItem>
-                    <SelectItem value="teams">Microsoft Teams</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectField
+                name="destinationType"
+                defaultValue="webhook"
+                label="전달 대상"
+                placeholder="전달 대상 선택"
+              >
+                <SelectItem value="webhook">웹훅 (Generic JSON)</SelectItem>
+                <SelectItem value="teams">Microsoft Teams</SelectItem>
+              </SelectField>
               <Input type="url" name="webhookUrl" required label="Webhook URL" placeholder="https://example.com/webhooks/docflow" />
               <Input name="signingSecret" label="서명 시크릿 (선택)" placeholder="HMAC 검증용 비밀값 · Teams에는 사용 안 함" />
               <p className="muted small">
