@@ -250,6 +250,50 @@ svg {
   accent-color: var(--primary);
 }
 
+/* Full-width helper note inside a .form-grid (spans both columns). */
+.form-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--polaris-spacing-xs) var(--polaris-spacing-sm);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--polaris-radius-sm);
+  line-height: 1.55;
+}
+
+/* Plain inline checkbox — no boxed-chip look (cf. .check-item). */
+.check-plain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--polaris-spacing-2xs);
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.check-plain input {
+  accent-color: var(--primary);
+}
+
+/* Full-width form footer: secondary toggle on the left, submit on the right. */
+.form-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--polaris-spacing-sm);
+  flex-wrap: wrap;
+  margin-top: var(--polaris-spacing-2xs);
+  padding-top: var(--polaris-spacing-sm);
+  border-top: 1px solid var(--border);
+}
+
+/* Bottom-align controls so a floating-label Input and an above-label
+   SelectField share the same baseline when they sit in the same row. */
+.form-grid-end {
+  align-items: end;
+}
+
 /* .metric-grid / .metric-label / .metric-value removed
    — replaced by Polaris <Stat /> in v0.7.4. */
 

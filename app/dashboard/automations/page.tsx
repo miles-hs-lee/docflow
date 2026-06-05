@@ -170,7 +170,7 @@ export default async function AutomationsPage() {
           </CardHeader>
           <CardBody>
             <p className="muted">지정한 이벤트가 발생하면 거의 실시간(QStash)으로 웹훅 또는 Microsoft Teams 채널에 알림을 전달합니다.</p>
-            <form action={createAutomationSubscriptionAction} className="form-grid">
+            <form action={createAutomationSubscriptionAction} className="form-grid form-grid-end">
               <Input name="name" required label="구독 이름" placeholder="예: 영업팀 열람 알림" />
               <SelectField
                 name="destinationType"
@@ -183,11 +183,11 @@ export default async function AutomationsPage() {
               </SelectField>
               <Input type="url" name="webhookUrl" required label="Webhook URL" placeholder="https://example.com/webhooks/docflow" />
               <Input name="signingSecret" label="서명 시크릿 (선택)" placeholder="HMAC 검증용 비밀값 · Teams에는 사용 안 함" />
-              <p className="muted small">
-                Microsoft Teams를 선택하면 Power Automate에서 <strong>&quot;When a Teams webhook request is received&quot;</strong> →{' '}
+              <p className="muted small form-hint">
+                <strong>Teams 설정:</strong> Microsoft Teams를 선택하면 Power Automate에서{' '}
+                <strong>&quot;When a Teams webhook request is received&quot;</strong> →{' '}
                 <strong>&quot;Post card in a channel&quot;</strong> 흐름을 만들고, 생성된 URL을 위 Webhook URL에 붙여넣으세요. DocFlow가 Adaptive Card를 전송합니다.
               </p>
-              <Checkbox name="isActive" defaultChecked label="즉시 활성화" containerClassName="check-inline" />
               <fieldset className="form-fieldset">
                 <legend>구독 이벤트</legend>
                 <div className="check-grid">
@@ -196,7 +196,10 @@ export default async function AutomationsPage() {
                   ))}
                 </div>
               </fieldset>
-              <Button type="submit">구독 추가</Button>
+              <div className="form-footer">
+                <Checkbox name="isActive" defaultChecked label="즉시 활성화" containerClassName="check-plain" />
+                <Button type="submit">구독 추가</Button>
+              </div>
             </form>
           </CardBody>
         </Card>
