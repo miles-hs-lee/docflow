@@ -1,9 +1,9 @@
 'use client';
 
 import { Alert, AlertDescription, Button, FileInput, Input } from '@polaris/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 
-type Phase = 'idle' | 'uploading' | 'done' | 'error';
+import { useFileUpload } from '@/components/use-file-upload';
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.txt,.csv,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx';
 const MAX_BYTES = 52428800;
@@ -29,62 +29,26 @@ type FileRequestUploaderProps = {
 };
 
 export function FileRequestUploader({ token, requireEmail }: FileRequestUploaderProps) {
-  const [files, setFiles] = useState<File[]>([]);
   const [email, setEmail] = useState('');
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [message, setMessage] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const file = files[0];
-      if (!file) {
-        setPhase('error');
-        setMessage(ERRORS.no_file);
-        return;
-      }
-      if (file.size > MAX_BYTES) {
-        setPhase('error');
-        setMessage(ERRORS.too_large);
-        return;
-      }
-      if (requireEmail && !email.includes('@')) {
-        setPhase('error');
-        setMessage(ERRORS.email_required);
-        return;
-      }
-
-      const data = new FormData();
-      data.append('file', file);
-      if (email.trim()) data.append('email', email.trim());
-
-      setPhase('uploading');
-      setMessage(null);
-      try {
-        const res = await fetch(`/r/${token}/upload`, { method: 'POST', body: data });
-        if (res.ok) {
-          setPhase('done');
-          setMessage('업로드가 완료되었습니다. 감사합니다!');
-          setFiles([]);
-          formRef.current?.reset();
-        } else {
-          const json = (await res.json().catch(() => ({}))) as { error?: string };
-          setPhase('error');
-          setMessage((json.error && ERRORS[json.error]) || '업로드에 실패했습니다.');
-        }
-      } catch {
-        setPhase('error');
-        setMessage('네트워크 오류로 업로드에 실패했습니다.');
-      }
-    },
-    [files, email, requireEmail, token]
-  );
-
-  const busy = phase === 'uploading';
+  const { setFiles, phase, message, formRef, submit, busy } = useFileUpload({
+    endpoint: `/r/${token}/upload`,
+    fieldName: 'file',
+    maxBytes: MAX_BYTES,
+    errorMap: ERRORS,
+    successMessage: '업로드가 완료되었습니다. 감사합니다!'
+  });
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="form-grid">
+    <form
+      ref={formRef}
+      onSubmit={(event) =>
+        submit(event, {
+          fields: { email: email.trim() },
+          preflight: () => (requireEmail && !email.includes('@') ? ERRORS.email_required : null)
+        })
+      }
+      className="form-grid"
+    >
       <Input
         type="email"
         label={requireEmail ? '이메일' : '이메일 (선택)'}

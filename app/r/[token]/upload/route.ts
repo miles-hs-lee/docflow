@@ -7,6 +7,7 @@ import { notifyFileUpload } from '@/lib/notify/file-upload';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { hashIp, normalizeEmail, sanitizeFileName } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fileExtension, magicByteMatches } from '@/lib/upload-validation';
 
 // 50MB uploads over slow links can exceed the default function budget.
 export const maxDuration = 60;
@@ -76,16 +77,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const uploaderEmail = rawEmail ? normalizeEmail(rawEmail).slice(0, 200) : null;
 
   // Extension allowlist → canonical content type.
-  const ext = (file.name.includes('.') ? file.name.split('.').pop() : '')?.toLowerCase() ?? '';
+  const ext = fileExtension(file.name);
   const contentType = EXT_TO_MIME[ext];
   if (!contentType) return bad(415, 'unsupported_type');
 
-  // PDF gets a magic-byte check (the one type we render/preview). Other types
-  // rely on the extension allowlist + the bucket MIME backstop.
-  if (contentType === 'application/pdf') {
-    const header = Buffer.from(await file.slice(0, 5).arrayBuffer());
-    if (header.toString('binary') !== '%PDF-') return bad(415, 'unsupported_type');
-  }
+  // Magic-byte check for sniffable types (pdf/png/jpeg); others rely on the
+  // extension allowlist + the bucket MIME backstop.
+  const header = Buffer.from(await file.slice(0, 8).arrayBuffer());
+  if (!magicByteMatches(header, contentType)) return bad(415, 'unsupported_type');
 
   const admin = createAdminClient();
   const uploadId = crypto.randomUUID();

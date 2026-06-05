@@ -1142,6 +1142,10 @@ svg {
   font-weight: 700;
   font-size: 0.95rem;
   letter-spacing: -0.01em;
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-name-onDark {

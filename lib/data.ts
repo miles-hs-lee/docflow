@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { OWNER_FEED_EVENT_TYPES } from '@/lib/event-labels';
 import { kickWebhookDispatch } from '@/lib/qstash';
 import { getRedis, isRedisConfigured } from '@/lib/redis';
@@ -1085,7 +1087,8 @@ export async function getFileRequest(ownerClient: OwnerClient, requestId: string
 // Public upload route + page: resolve a non-deleted request by token with the
 // service-role client (the visitor is anonymous). The caller MUST still gate on
 // is_active / expires_at before accepting an upload.
-export async function getFileRequestByToken(token: string): Promise<FileRequestRow | null> {
+// cache() dedupes the call across generateMetadata + the page render in one request.
+export const getFileRequestByToken = cache(async (token: string): Promise<FileRequestRow | null> => {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('file_requests')
@@ -1095,7 +1098,7 @@ export async function getFileRequestByToken(token: string): Promise<FileRequestR
     .maybeSingle();
   if (error) throw error;
   return (data as FileRequestRow | null) ?? null;
-}
+});
 
 export async function listRequestUploads(
   ownerClient: OwnerClient,
@@ -1137,7 +1140,8 @@ export function ownerLogoPublicUrl(logoPath: string): string {
 // viewer/request pages are anonymous). Degrades to null on any error (e.g. the
 // table not yet migrated) so the pages fall back to the default DocFlow mark.
 // Returns null when no branding fields are set.
-export async function getOwnerBranding(ownerId: string): Promise<ViewerBranding | null> {
+// cache() dedupes branding across generateMetadata + the page render in one request.
+export const getOwnerBranding = cache(async (ownerId: string): Promise<ViewerBranding | null> => {
   const admin = createAdminClient();
   try {
     const { data, error } = await admin
@@ -1156,7 +1160,22 @@ export async function getOwnerBranding(ownerId: string): Promise<ViewerBranding 
   } catch {
     return null;
   }
-}
+});
+
+// Lightweight loader for the viewer page's generateMetadata: just the label +
+// owner_id (avoids loading the full bundle twice). cache()d per request.
+export const getViewerLinkMeta = cache(
+  async (token: string): Promise<{ label: string; owner_id: string } | null> => {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('share_links')
+      .select('label, owner_id')
+      .eq('token', token)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as { label: string; owner_id: string };
+  }
+);
 
 export async function uploadLogoObject(args: { path: string; file: File; contentType: string }) {
   const admin = createAdminClient();

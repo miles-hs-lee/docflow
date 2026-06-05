@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { removeLogoObject, uploadLogoObject } from '@/lib/data';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { fileExtension, magicByteMatches } from '@/lib/upload-validation';
 
 export const maxDuration = 30;
 
@@ -37,18 +38,14 @@ export async function POST(request: Request) {
   const file = uploaded as File;
   if (file.size > MAX_LOGO_BYTES) return bad(413, 'too_large');
 
-  const ext = (file.name.includes('.') ? file.name.split('.').pop() : '')?.toLowerCase() ?? '';
+  const ext = fileExtension(file.name);
   const contentType = EXT_TO_MIME[ext];
   if (!contentType) return bad(415, 'unsupported_type');
 
-  // Magic-byte check for raster types (svg/webp rely on ext + bucket MIME).
-  if (contentType === 'image/png' || contentType === 'image/jpeg') {
-    const head = Buffer.from(await file.slice(0, 4).arrayBuffer());
-    const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
-    const isJpg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
-    if (contentType === 'image/png' && !isPng) return bad(415, 'unsupported_type');
-    if (contentType === 'image/jpeg' && !isJpg) return bad(415, 'unsupported_type');
-  }
+  // Magic-byte check for sniffable types (png/jpeg); svg/webp rely on ext +
+  // the bucket's allowed_mime_types backstop.
+  const header = Buffer.from(await file.slice(0, 8).arrayBuffer());
+  if (!magicByteMatches(header, contentType)) return bad(415, 'unsupported_type');
 
   const admin = createAdminClient();
 

@@ -1,5 +1,7 @@
 import { Alert, AlertDescription, Badge, Button, Card, Checkbox, Input } from '@polaris/ui';
 
+import type { Metadata } from 'next';
+
 import { BrandMark } from '@/components/brand-mark';
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
 import { SpaceViewerNav } from '@/components/space-viewer-nav';
@@ -7,7 +9,7 @@ import { cookies, headers } from 'next/headers';
 
 import { brandAccentStyle } from '@/lib/branding';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
-import { bumpOpenCount, getOwnerBranding, getViewerLinkByToken, recordLinkEvent } from '@/lib/data';
+import { bumpOpenCount, getOwnerBranding, getViewerLinkByToken, getViewerLinkMeta, recordLinkEvent } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
@@ -17,6 +19,28 @@ type ViewerPageProps = {
   params: Promise<{ token: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+// White-label: when the owner has branding, the browser tab / link preview /
+// favicon show their brand, never "DocFlow". Viewer links are private, so
+// noindex regardless. (description/icons set to null explicitly override the
+// root layout's DocFlow values.)
+export async function generateMetadata({ params }: ViewerPageProps): Promise<Metadata> {
+  const { token } = await params;
+  const base: Metadata = { robots: { index: false, follow: false } };
+
+  const meta = await getViewerLinkMeta(token);
+  if (!meta) return { ...base, title: '문서' };
+
+  const branding = await getOwnerBranding(meta.owner_id);
+  if (!branding) return { ...base, title: meta.label };
+
+  return {
+    ...base,
+    title: branding.company_name ? `${meta.label} · ${branding.company_name}` : meta.label,
+    description: null,
+    icons: branding.logo_url ? { icon: branding.logo_url } : null
+  };
+}
 
 export default async function ViewerPage({ params, searchParams }: ViewerPageProps) {
   const { token } = await params;

@@ -1301,7 +1301,16 @@ export async function removeBrandingLogoAction() {
     .maybeSingle();
   const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
 
-  await admin.from('owner_branding').update({ logo_path: null }).eq('owner_id', user.id);
+  // Clear the DB reference FIRST and only delete the object if that succeeded —
+  // otherwise a failed update would leave logo_path pointing at a deleted file
+  // (a broken logo on the viewer pages).
+  const { error: updateError } = await admin
+    .from('owner_branding')
+    .update({ logo_path: null })
+    .eq('owner_id', user.id);
+  if (updateError) {
+    redirectWithError('/dashboard/settings', '로고 제거에 실패했습니다.');
+  }
   if (logoPath) {
     try {
       await removeLogoObject(logoPath);

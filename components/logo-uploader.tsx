@@ -2,9 +2,8 @@
 
 import { Alert, AlertDescription, Button, FileInput } from '@polaris/ui';
 import { useRouter } from 'next/navigation';
-import { useCallback, useRef, useState } from 'react';
 
-type Phase = 'idle' | 'uploading' | 'error';
+import { useFileUpload } from '@/components/use-file-upload';
 
 const ACCEPT = '.png,.jpg,.jpeg,.webp,.svg';
 const MAX_BYTES = 2097152;
@@ -20,55 +19,16 @@ const ERRORS: Record<string, string> = {
 
 export function LogoUploader() {
   const router = useRouter();
-  const [files, setFiles] = useState<File[]>([]);
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [message, setMessage] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const file = files[0];
-      if (!file) {
-        setPhase('error');
-        setMessage(ERRORS.no_file);
-        return;
-      }
-      if (file.size > MAX_BYTES) {
-        setPhase('error');
-        setMessage(ERRORS.too_large);
-        return;
-      }
-
-      const data = new FormData();
-      data.append('logo', file);
-
-      setPhase('uploading');
-      setMessage(null);
-      try {
-        const res = await fetch('/dashboard/logo', { method: 'POST', body: data });
-        if (res.ok) {
-          setFiles([]);
-          formRef.current?.reset();
-          setPhase('idle');
-          router.refresh();
-        } else {
-          const json = (await res.json().catch(() => ({}))) as { error?: string };
-          setPhase('error');
-          setMessage((json.error && ERRORS[json.error]) || '업로드에 실패했습니다.');
-        }
-      } catch {
-        setPhase('error');
-        setMessage('네트워크 오류로 업로드에 실패했습니다.');
-      }
-    },
-    [files, router]
-  );
-
-  const busy = phase === 'uploading';
+  const { setFiles, phase, message, formRef, submit, busy } = useFileUpload({
+    endpoint: '/dashboard/logo',
+    fieldName: 'logo',
+    maxBytes: MAX_BYTES,
+    errorMap: ERRORS,
+    onSuccess: () => router.refresh()
+  });
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="form-grid">
+    <form ref={formRef} onSubmit={(event) => submit(event)} className="form-grid">
       <FileInput
         accept={ACCEPT}
         disabled={busy}

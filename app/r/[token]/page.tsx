@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { Card } from '@polaris/ui';
 
 import { BrandMark } from '@/components/brand-mark';
@@ -11,6 +13,25 @@ export const dynamic = 'force-dynamic';
 type FileRequestPageProps = {
   params: Promise<{ token: string }>;
 };
+
+// White-label: brand the tab / preview / favicon; never "DocFlow". noindex.
+export async function generateMetadata({ params }: FileRequestPageProps): Promise<Metadata> {
+  const { token } = await params;
+  const base: Metadata = { robots: { index: false, follow: false } };
+
+  const req = await getFileRequestByToken(token);
+  if (!req) return { ...base, title: '파일 요청' };
+
+  const branding = await getOwnerBranding(req.owner_id);
+  if (!branding) return { ...base, title: req.title };
+
+  return {
+    ...base,
+    title: branding.company_name ? `${req.title} · ${branding.company_name}` : req.title,
+    description: null,
+    icons: branding.logo_url ? { icon: branding.logo_url } : null
+  };
+}
 
 export default async function FileRequestPage({ params }: FileRequestPageProps) {
   const { token } = await params;
