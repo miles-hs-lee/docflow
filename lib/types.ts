@@ -106,6 +106,25 @@ export type CollectionSummaryRow = CollectionRow & {
   file_count: number;
 };
 
+// A folder inside a space (= collection). Self-referential tree;
+// parent_folder_id NULL = top level.
+export type FolderRow = {
+  id: string;
+  collection_id: string;
+  parent_folder_id: string | null;
+  owner_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// A file as it sits inside a space — the file row plus its folder
+// placement from collection_files (folder_id NULL = space root).
+export type SpaceFile = FileRow & {
+  folder_id: string | null;
+};
+
 export type McpApiKeyRow = {
   id: string;
   owner_id: string;
@@ -201,7 +220,9 @@ export type OutboxPayload = {
 export type ViewerLinkBundle = ShareLinkRow & {
   file: FileRow | null;
   collection: CollectionRow | null;
-  collection_files: FileRow[];
+  // SpaceFile (FileRow + folder_id) so the viewer can build the folder tree.
+  collection_files: SpaceFile[];
+  folders: FolderRow[];
 };
 
 export type LinkMetrics = {

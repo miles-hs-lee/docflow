@@ -24,13 +24,14 @@ import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
+import { SpaceStructure } from '@/components/space-structure';
 import {
   createCollectionShareLinkAction,
   softDeleteLinkAction,
   updateShareLinkAction
 } from '@/lib/actions/owner';
 import { requireOwner } from '@/lib/auth';
-import { getCollection, getMetricsForLink, listFilesForCollection, listLinksForCollection } from '@/lib/data';
+import { getCollection, getMetricsForLink, listLinksForCollection, listSpaceContents } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { linkStatus, statusVariant } from '@/lib/link-status';
 
@@ -42,11 +43,12 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   const { collectionId } = await params;
 
   const { supabase } = await requireOwner();
-  const [collection, files, links] = await Promise.all([
+  const [collection, space, links] = await Promise.all([
     getCollection(supabase, collectionId),
-    listFilesForCollection(supabase, collectionId),
+    listSpaceContents(supabase, collectionId),
     listLinksForCollection(supabase, collectionId)
   ]);
+  const { folders, files } = space;
 
   if (!collection) {
     notFound();
@@ -87,23 +89,17 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
 
         <Card>
           <CardHeader>
-            <CardTitle>포함 문서</CardTitle>
+            <CardTitle>스페이스 구성</CardTitle>
           </CardHeader>
           <CardBody>
+            <p className="muted">폴더로 문서를 정리하세요. 폴더를 만들고 각 문서를 폴더로 옮길 수 있으며, 이 구조는 공유 링크 뷰어에 그대로 표시됩니다.</p>
             {files.length === 0 ? (
               <EmptyState
-                title="묶음에 포함된 문서가 없습니다"
+                title="스페이스에 포함된 문서가 없습니다"
                 description="문서 묶음을 다시 구성해주세요."
               />
             ) : (
-              <div className="collection-file-list">
-                {files.map((file) => (
-                  <span key={file.id} className="collection-file-chip">
-                    <FileIcon type="pdf" size={20} />
-                    {file.original_name}
-                  </span>
-                ))}
-              </div>
+              <SpaceStructure collectionId={collection.id} folders={folders} files={files} />
             )}
           </CardBody>
         </Card>

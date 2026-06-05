@@ -924,6 +924,93 @@ svg {
   font-weight: 700;
 }
 
+/* Space (data room) structure editor — owner side. */
+.space-structure {
+  display: grid;
+  gap: var(--polaris-spacing-sm);
+}
+
+.space-tree {
+  display: grid;
+  gap: var(--polaris-spacing-2xs);
+}
+
+.space-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-2xs);
+  flex-wrap: wrap;
+}
+
+.space-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--polaris-spacing-sm);
+  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--polaris-radius-sm);
+  background: var(--surface-soft);
+}
+
+.space-folder-head {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.space-node-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--polaris-spacing-2xs);
+  min-width: 0;
+}
+
+.space-node-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space-folder {
+  margin-top: var(--polaris-spacing-2xs);
+}
+
+.space-folder-children {
+  display: grid;
+  gap: var(--polaris-spacing-2xs);
+  margin-top: var(--polaris-spacing-2xs);
+  padding-inline-start: 18px;
+  border-inline-start: 2px solid var(--border);
+}
+
+.space-folder-manage summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.space-manage-forms {
+  display: grid;
+  gap: var(--polaris-spacing-2xs);
+  margin-top: var(--polaris-spacing-2xs);
+  padding: var(--polaris-spacing-xs);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--polaris-radius-sm);
+}
+
+.space-select {
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  max-width: 12rem;
+}
+
 .link-card {
   display: grid;
   gap: var(--polaris-spacing-xs);
@@ -1075,6 +1162,52 @@ svg {
   border-color: color-mix(in srgb, var(--primary) 36%, transparent);
   background: color-mix(in srgb, var(--primary) 20%, transparent);
   color: var(--polaris-label-inverse);
+}
+
+/* Viewer folder tree (dark sidebar). */
+.viewer-tree {
+  display: grid;
+  gap: 2px;
+}
+
+.viewer-folder {
+  margin-bottom: 2px;
+}
+
+.viewer-folder-label {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-2xs);
+  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 62%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.viewer-folder-label::-webkit-details-marker {
+  display: none;
+}
+
+.viewer-folder-label::before {
+  content: '▸';
+  font-size: 0.7rem;
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.viewer-folder[open] > .viewer-folder-label::before {
+  transform: rotate(90deg);
+}
+
+.viewer-folder-children {
+  display: grid;
+  gap: 2px;
+  margin-inline-start: 7px;
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid color-mix(in srgb, var(--polaris-static-white) 12%, transparent);
 }
 
 .pdf-viewer {

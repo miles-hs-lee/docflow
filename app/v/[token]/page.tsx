@@ -2,6 +2,7 @@ import { Alert, AlertDescription, Badge, Button, Card, Checkbox, Input } from '@
 import { PolarisLogo } from '@polaris/ui/logos';
 
 import { PdfViewer } from '@/components/pdf-viewer-lazy';
+import { SpaceViewerNav } from '@/components/space-viewer-nav';
 import { cookies, headers } from 'next/headers';
 
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
@@ -211,15 +212,12 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
       <section className={`viewer-main${link.collection_id ? ' with-list' : ''}`}>
         {link.collection_id ? (
           <aside className="viewer-file-list">
-            {availableFiles.map((file) => {
-              const href = `/v/${token}?fileId=${encodeURIComponent(file.id)}`;
-              const isActive = file.id === activeFile.id;
-              return (
-                <a key={file.id} href={href} className={`viewer-file-link${isActive ? ' active' : ''}`}>
-                  {file.original_name}
-                </a>
-              );
-            })}
+            <SpaceViewerNav
+              token={token}
+              folders={link.folders}
+              files={link.collection_files}
+              activeFileId={activeFile.id}
+            />
           </aside>
         ) : null}
         <PdfViewer

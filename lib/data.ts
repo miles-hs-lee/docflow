@@ -9,6 +9,7 @@ import type {
   DeniedReason,
   DeniedReasonCount,
   FileRow,
+  FolderRow,
   LinkDailyView,
   LinkEventRow,
   LinkEventType,
@@ -18,6 +19,7 @@ import type {
   PerPageStat,
   ShareLinkRow,
   ShareLinkTrashRow,
+  SpaceFile,
   ViewerLinkBundle
 } from '@/lib/types';
 
@@ -170,6 +172,45 @@ export async function listFilesForCollection(ownerClient: OwnerClient, collectio
   return fileIds.map((id) => fileMap.get(id)).filter((file): file is FileRow => Boolean(file));
 }
 
+// Owner-side space contents for the structure editor: the folder rows plus
+// every file with its folder placement (folder_id NULL = root). Uses the
+// RLS-scoped owner client.
+export async function listSpaceContents(
+  ownerClient: OwnerClient,
+  collectionId: string
+): Promise<{ folders: FolderRow[]; files: SpaceFile[] }> {
+  const [foldersResult, mappingResult] = await Promise.all([
+    ownerClient.from('folders').select('*').eq('collection_id', collectionId).order('sort_order', { ascending: true }),
+    ownerClient
+      .from('collection_files')
+      .select('file_id, sort_order, folder_id')
+      .eq('collection_id', collectionId)
+      .order('sort_order', { ascending: true })
+  ]);
+  if (foldersResult.error) throw foldersResult.error;
+  if (mappingResult.error) throw mappingResult.error;
+
+  const folders = (foldersResult.data ?? []) as FolderRow[];
+  const mappingRows = (mappingResult.data ?? []) as Array<{ file_id: string; folder_id: string | null }>;
+  const fileIds = mappingRows.map((item) => item.file_id);
+  if (fileIds.length === 0) return { folders, files: [] };
+
+  const { data: filesData, error: filesError } = await ownerClient.from('files').select('*').in('id', fileIds);
+  if (filesError) throw filesError;
+
+  const fileMap = new Map<string, FileRow>();
+  (filesData ?? []).forEach((row) => fileMap.set((row as FileRow).id, row as FileRow));
+
+  const files = mappingRows
+    .map((item) => {
+      const f = fileMap.get(item.file_id);
+      return f ? ({ ...f, folder_id: item.folder_id ?? null } as SpaceFile) : null;
+    })
+    .filter((row): row is SpaceFile => Boolean(row));
+
+  return { folders, files };
+}
+
 export async function listLinksForFile(ownerClient: OwnerClient, fileId: string): Promise<ShareLinkRow[]> {
   const { data, error } = await ownerClient
     .from('share_links')
@@ -309,14 +350,16 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
       link: ShareLinkRow;
       file: FileRow | null;
       collection: CollectionRow | null;
-      collection_files: FileRow[];
+      collection_files: SpaceFile[];
+      folders?: FolderRow[];
     } | null;
     if (!bundle || !bundle.link) return null;
     return {
       ...bundle.link,
       file: bundle.file,
       collection: bundle.collection,
-      collection_files: bundle.collection_files ?? []
+      collection_files: bundle.collection_files ?? [],
+      folders: bundle.folders ?? []
     };
   }
 
@@ -329,7 +372,8 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
 
   let file: FileRow | null = null;
   let collection: CollectionRow | null = null;
-  let collectionFiles: FileRow[] = [];
+  let collectionFiles: SpaceFile[] = [];
+  let folders: FolderRow[] = [];
 
   // Defense-in-depth: this loader runs with the service-role client so it
   // bypasses RLS. Even though migration 012 hardens RLS so a share_links
@@ -363,13 +407,16 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
 
     const { data: mapping, error: mappingError } = await admin
       .from('collection_files')
-      .select('file_id, sort_order')
+      .select('file_id, sort_order, folder_id')
       .eq('collection_id', link.collection_id)
       .eq('owner_id', ownerScope)
       .order('sort_order', { ascending: true });
     if (mappingError) throw mappingError;
 
-    const fileIds = (mapping ?? []).map((item) => (item as { file_id: string }).file_id);
+    const mappingRows = (mapping ?? []) as Array<{ file_id: string; folder_id: string | null }>;
+    const folderByFile = new Map<string, string | null>();
+    mappingRows.forEach((item) => folderByFile.set(item.file_id, item.folder_id ?? null));
+    const fileIds = mappingRows.map((item) => item.file_id);
     if (fileIds.length > 0) {
       const { data: filesData, error: filesError } = await admin
         .from('files')
@@ -382,15 +429,30 @@ export async function getViewerLinkByToken(token: string): Promise<ViewerLinkBun
       (filesData ?? []).forEach((row) => {
         fileMap.set((row as FileRow).id, row as FileRow);
       });
-      collectionFiles = fileIds.map((id) => fileMap.get(id)).filter((row): row is FileRow => Boolean(row));
+      collectionFiles = fileIds
+        .map((id) => {
+          const f = fileMap.get(id);
+          return f ? ({ ...f, folder_id: folderByFile.get(id) ?? null } as SpaceFile) : null;
+        })
+        .filter((row): row is SpaceFile => Boolean(row));
     }
+
+    const { data: folderRows, error: foldersError } = await admin
+      .from('folders')
+      .select('*')
+      .eq('collection_id', link.collection_id)
+      .eq('owner_id', ownerScope)
+      .order('sort_order', { ascending: true });
+    if (foldersError) throw foldersError;
+    folders = (folderRows ?? []) as FolderRow[];
   }
 
   return {
     ...(link as ShareLinkRow),
     file,
     collection,
-    collection_files: collectionFiles
+    collection_files: collectionFiles,
+    folders
   };
 }
 

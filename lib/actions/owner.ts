@@ -773,3 +773,164 @@ export async function deleteFileAction(formData: FormData) {
   revalidatePath('/dashboard');
   redirectWithSuccess('/dashboard', '파일과 연결된 링크를 삭제했습니다.');
 }
+
+// ── Space folders (Phase 1) ───────────────────────────────────────────────
+
+export async function createFolderAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const name = ((formData.get('name') as string | null) || '').trim();
+  const parentFolderId = ((formData.get('parentFolderId') as string | null) || '').trim() || null;
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId) {
+    redirectWithError('/dashboard', '스페이스 정보가 누락되었습니다.');
+  }
+  if (!name) {
+    redirectWithError(redirectPath, '폴더 이름을 입력해주세요.');
+  }
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '스페이스 권한이 없습니다.');
+  }
+
+  // A parent folder (if given) must live in the same space and belong to the owner.
+  if (parentFolderId) {
+    const { data: parent } = await admin
+      .from('folders')
+      .select('id')
+      .eq('id', parentFolderId)
+      .eq('collection_id', collectionId)
+      .eq('owner_id', user.id)
+      .maybeSingle();
+    if (!parent) {
+      redirectWithError(redirectPath, '상위 폴더를 찾을 수 없습니다.');
+    }
+  }
+
+  const { error } = await admin.from('folders').insert({
+    collection_id: collectionId,
+    parent_folder_id: parentFolderId,
+    owner_id: user.id,
+    name: name.slice(0, 120)
+  });
+  if (error) {
+    redirectWithError(redirectPath, '폴더 생성에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '폴더를 만들었습니다.');
+}
+
+export async function renameFolderAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const folderId = ((formData.get('folderId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const name = ((formData.get('name') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!folderId || !collectionId) {
+    redirectWithError('/dashboard', '폴더 정보가 누락되었습니다.');
+  }
+  if (!name) {
+    redirectWithError(redirectPath, '폴더 이름을 입력해주세요.');
+  }
+
+  const { error } = await admin
+    .from('folders')
+    .update({ name: name.slice(0, 120) })
+    .eq('id', folderId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '폴더 이름 변경에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '폴더 이름을 변경했습니다.');
+}
+
+export async function deleteFolderAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const folderId = ((formData.get('folderId') as string | null) || '').trim();
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!folderId || !collectionId) {
+    redirectWithError('/dashboard', '폴더 정보가 누락되었습니다.');
+  }
+
+  // Subfolders cascade (parent_folder_id ON DELETE CASCADE); files in this
+  // folder drop to the space root (collection_files.folder_id SET NULL).
+  const { error } = await admin.from('folders').delete().eq('id', folderId).eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '폴더 삭제에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '폴더를 삭제했습니다. 안의 문서는 최상위로 이동했습니다.');
+}
+
+export async function moveFileToFolderAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const fileId = ((formData.get('fileId') as string | null) || '').trim();
+  // '' or 'root' → move to the space root (folder_id NULL).
+  const rawTarget = ((formData.get('folderId') as string | null) || '').trim();
+  const targetFolderId = rawTarget && rawTarget !== 'root' ? rawTarget : null;
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId || !fileId) {
+    redirectWithError('/dashboard', '이동 정보가 누락되었습니다.');
+  }
+
+  const { data: membership } = await admin
+    .from('collection_files')
+    .select('file_id')
+    .eq('collection_id', collectionId)
+    .eq('file_id', fileId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!membership) {
+    redirectWithError(redirectPath, '스페이스에서 해당 문서를 찾을 수 없습니다.');
+  }
+
+  if (targetFolderId) {
+    const { data: folder } = await admin
+      .from('folders')
+      .select('id')
+      .eq('id', targetFolderId)
+      .eq('collection_id', collectionId)
+      .eq('owner_id', user.id)
+      .maybeSingle();
+    if (!folder) {
+      redirectWithError(redirectPath, '대상 폴더를 찾을 수 없습니다.');
+    }
+  }
+
+  const { error } = await admin
+    .from('collection_files')
+    .update({ folder_id: targetFolderId })
+    .eq('collection_id', collectionId)
+    .eq('file_id', fileId)
+    .eq('owner_id', user.id);
+  if (error) {
+    redirectWithError(redirectPath, '문서 이동에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(redirectPath, '문서를 이동했습니다.');
+}

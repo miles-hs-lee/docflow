@@ -42,6 +42,7 @@ export type Database = {
           file_id: string;
           owner_id: string;
           sort_order: number;
+          folder_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -49,6 +50,7 @@ export type Database = {
           file_id: string;
           owner_id: string;
           sort_order?: number;
+          folder_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -56,7 +58,41 @@ export type Database = {
           file_id?: string;
           owner_id?: string;
           sort_order?: number;
+          folder_id?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      folders: {
+        Row: {
+          id: string;
+          collection_id: string;
+          parent_folder_id: string | null;
+          owner_id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          collection_id: string;
+          parent_folder_id?: string | null;
+          owner_id: string;
+          name: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          collection_id?: string;
+          parent_folder_id?: string | null;
+          owner_id?: string;
+          name?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
