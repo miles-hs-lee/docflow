@@ -44,7 +44,13 @@ export default async function FileRequestsPage() {
             <p className="muted">요청 링크를 공유하면 외부 사용자가 파일을 업로드할 수 있습니다. 업로드되면 자동화 구독으로 알림을 받을 수 있습니다.</p>
             <form action={createFileRequestAction} className="form-grid">
               <Input name="title" required label="요청 제목" placeholder="예: 계약서 사본을 보내주세요" />
-              <Textarea name="instructions" label="안내 문구 (선택)" placeholder="업로드할 파일에 대한 안내를 적어주세요" rows={3} />
+              <Textarea
+                name="instructions"
+                label="안내 문구 (선택)"
+                placeholder="업로드할 파일에 대한 안내를 적어주세요"
+                rows={4}
+                containerClassName="form-full"
+              />
               <ExpiryDateField name="expiresAt" />
               <Input type="number" name="maxUploads" min={1} label="최대 업로드 수 (선택)" placeholder="미설정" />
               <div className="check-grid">
