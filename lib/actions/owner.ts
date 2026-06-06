@@ -277,18 +277,21 @@ export async function reorderCollectionFilesAction(formData: FormData) {
   const presentSet = new Set(present);
   const finalOrder = [...present, ...[...memberIds].filter((id) => !presentSet.has(id))];
 
-  // Persist in ONE statement: upsert the whole container with its new
-  // sort_order. onConflict on the (collection_id, file_id) PK takes the update
-  // path for these already-members; folder_id is omitted from the payload so
-  // Supabase preserves it. Atomic + a single round trip (was N parallel UPDATEs
-  // whose partial failure could leave sort_order half-renumbered).
-  const rows = finalOrder.map((fileId, index) => ({
-    collection_id: collectionId,
-    file_id: fileId,
-    owner_id: user.id,
-    sort_order: index
-  }));
-  await admin.from('collection_files').upsert(rows, { onConflict: 'collection_id,file_id' });
+  // Persist in ONE atomic, UPDATE-ONLY statement (migration 029). The RPC sets
+  // each id's 0-based position and only matches rows that already exist, so —
+  // unlike an upsert — it can't resurrect a concurrently-removed membership, and
+  // unlike N parallel UPDATEs it can't half-apply. folder_id is never touched.
+  const { error: reorderError } = await admin.rpc('reorder_collection_files', {
+    p_collection_id: collectionId,
+    p_owner_id: user.id,
+    p_file_ids: finalOrder
+  });
+  if (reorderError) {
+    // Best-effort: log and fall through to revalidate so the client refresh
+    // reverts the optimistic order (the row "snaps back"). This action is
+    // invoked programmatically, so it never redirects.
+    console.error('[reorderCollectionFiles] failed', reorderError);
+  }
 
   revalidatePath(`/dashboard/collections/${collectionId}`);
 }

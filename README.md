@@ -79,7 +79,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 028까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A 기능에 018~028을 사용하므로 빠짐없이 적용해야 합니다. 022~028은 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 029까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·순서변경 RPC 기능에 018~029를 사용하므로 빠짐없이 적용해야 합니다. 022~029는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
 
 | 번호 | 내용 |
 |---|---|
@@ -111,6 +111,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 028까지
 | 026 | 데이터룸별 브랜딩: `collection_branding`(collection_id PK + owner RLS, owner-logos 버킷 재사용). 데이터룸 링크 뷰어는 룸 브랜딩이 계정 브랜딩 위에 **필드 단위 병합**(룸이 비운 항목은 계정 상속). 데이터룸 생성은 빈 룸(이름만) → 룸 페이지에서 파일·폴더 추가/제거 |
 | 027 | 커버 이미지 브랜딩: `owner_branding`·`collection_branding`에 `cover_image_path` 컬럼 추가(로고와 동일 패턴·필드 단위 병합·owner-logos 버킷 재사용). 공개 **랜딩** 화면(뷰어 접근 게이트·빈 데이터룸·파일 요청)에 가로형 커버 배너 표시 + 링크 미리보기(OG) 이미지. 풀스크린 PDF 뷰어에는 미표시 |
 | 028 | 데이터룸 Q&A(Phase 4): `data_room_questions`(collection_id/link_id SET NULL/owner_id/session_id/asker_email/body/answer + owner RLS, **인증 insert 없음** — 방문자 질문은 service-role). 뷰어는 데이터룸 링크에서 질문을 남기고 **본인 세션 스레드만**(비공개) 확인, 소유자는 룸 페이지에서 전체 질문 확인·답변·삭제. `question_asked` 구독 이벤트(Teams/webhook, outbox 아닌 직접 디스패치 `lib/notify/question.ts`) 추가 |
+| 029 | 데이터룸 파일 순서변경 RPC `reorder_collection_files`(collection·owner 스코프, `unnest … with ordinality`로 0-based `sort_order` 일괄 갱신). **UPDATE 전용**이라 동시 삭제된 멤버를 되살리지 않고(업서트 INSERT 경로 제거), 원자적·단일 왕복. 코드리뷰 후속 수정 |
 
 ### 4) Supabase Auth
 

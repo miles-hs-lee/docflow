@@ -919,6 +919,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      reorder_collection_files: {
+        Args: {
+          p_collection_id: string;
+          p_owner_id: string;
+          p_file_ids: string[];
+        };
+        Returns: undefined;
+      };
       get_link_visitors: {
         Args: {
           p_owner_id: string;
