@@ -9,6 +9,7 @@ import { SpaceViewerNav } from '@/components/space-viewer-nav';
 import { ViewerQuestions } from '@/components/viewer-questions';
 import { cookies, headers } from 'next/headers';
 
+import { DEFAULT_AGREEMENT_TEXT } from '@/lib/agreement';
 import { brandAccentStyle, mergeBranding } from '@/lib/branding';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
 import {
@@ -184,8 +185,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
             {requiresAgreement ? (
               <>
                 <div className="nda-text">
-                  {link.agreement_text?.trim() ||
-                    '본 문서를 열람함으로써 본인은 문서에 포함된 정보를 기밀로 유지하며, 사전 서면 동의 없이 제3자에게 공개하지 않을 것에 동의합니다.'}
+                  {link.agreement_text?.trim() || DEFAULT_AGREEMENT_TEXT}
                 </div>
                 <Input name="agreementName" required label="이름(서명)" placeholder="실명을 입력하세요" />
                 <Checkbox name="agree" value="on" required label="위 내용을 읽었으며 이에 동의합니다." />

@@ -208,7 +208,8 @@ svg {
 .form-grid > button,
 .check-grid,
 .form-fieldset,
-.collection-file-picker {
+.collection-file-picker,
+.form-full {
   grid-column: 1 / -1;
 }
 
