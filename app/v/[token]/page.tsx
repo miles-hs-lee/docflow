@@ -150,7 +150,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     }
 
     return (
-      <main className="viewer-layout">
+      <main className="viewer-layout" style={brandAccentStyle(branding?.brand_color)}>
         <Card className="viewer-card" variant="padded">
           <BrandCover branding={branding} />
           <h1>접근할 수 없습니다.</h1>
@@ -162,7 +162,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
   if (needsForm) {
     return (
-      <main className="viewer-layout">
+      <main className="viewer-layout" style={brandAccentStyle(branding?.brand_color)}>
         <Card className="viewer-card" variant="padded">
           <BrandCover branding={branding} />
           <h1>{link.label}</h1>
@@ -209,7 +209,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     // instead of the generic "document not found" error.
     const emptyRoom = Boolean(link.collection_id) && availableFiles.length === 0;
     return (
-      <main className="viewer-layout">
+      <main className="viewer-layout" style={brandAccentStyle(branding?.brand_color)}>
         <Card className="viewer-card" variant="padded">
           <BrandCover branding={branding} />
           <h1>{emptyRoom ? '아직 공유된 문서가 없습니다.' : '문서에 접근할 수 없습니다.'}</h1>

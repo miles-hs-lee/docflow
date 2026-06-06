@@ -4,14 +4,9 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 
-import {
-  getLinkForQuestion,
-  getViewerLinkByToken,
-  insertDataRoomQuestion,
-  recordLinkEvent
-} from '@/lib/data';
+import { getViewerLinkByToken, insertDataRoomQuestion, recordLinkEvent } from '@/lib/data';
 import { notifyQuestion } from '@/lib/notify/question';
-import { evaluateBasePolicy } from '@/lib/policy';
+import { evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
   getEmailDomain,
@@ -279,20 +274,35 @@ export async function submitViewerAccessAction(token: string, formData: FormData
 // limited per (link + hashed IP). The owner is notified best-effort after the
 // response. Questions are private — only the asker (by session) + owner see them.
 export async function submitViewerQuestionAction(token: string, formData: FormData) {
-  const link = await getLinkForQuestion(token);
-  // Only data-room links have Q&A. A missing/file link → just bounce back.
-  if (!link || !link.collection_id) {
+  const bundle = await getViewerLinkByToken(token);
+  // Only data-room links have Q&A. A missing / file link → just bounce back.
+  if (!bundle || !bundle.collection_id) {
     redirect(`/v/${token}`);
   }
   // Capture now, while collection_id is narrowed to string — the awaits below
   // would otherwise let TS widen the property back to string | null.
-  const collectionId = link.collection_id;
-  const ownerId = link.owner_id;
-  const linkId = link.id;
+  const collectionId = bundle.collection_id;
+  const ownerId = bundle.owner_id;
+  const linkId = bundle.id;
 
-  const expired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
-  if (!link.is_active || expired || link.deleted_at) {
-    redirect(`/v/${token}?denied=inactive`);
+  const cookieStore = await cookies();
+  const grant = decodeGrantCookie(cookieStore.get(getGrantCookieName(linkId))?.value, linkId);
+
+  // Enforce the SAME access gate as the viewer page: a viewer who couldn't open
+  // the room can't ask either. Base policy (active/expiry/max-views/…) first,
+  // then — when the link is gated — a satisfied grant (email/password/NDA). This
+  // is the security boundary; the ask form only renders post-grant, but the
+  // server action is independently invocable, so it must re-check here.
+  const baseDenied = evaluateBasePolicy({ link: bundle, grant });
+  if (baseDenied) {
+    redirect(`/v/${token}?denied=${baseDenied}`);
+  }
+  const requiresEmail = bundle.require_email || bundle.allowed_domains.length > 0;
+  const requiresPassword = Boolean(bundle.password_hash);
+  const requiresAgreement = bundle.require_agreement;
+  const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
+  if (grantDenied && (requiresEmail || requiresPassword || requiresAgreement)) {
+    redirect(`/v/${token}?denied=${grantDenied}`);
   }
 
   const body = ((formData.get('question') as string | null) || '').trim();
@@ -303,16 +313,13 @@ export async function submitViewerQuestionAction(token: string, formData: FormDa
   const ctx = await getRequestContext();
 
   // Spam guard: cap submissions per (link + hashed IP), like the upload route.
-  const limit = await checkRateLimit('viewerQuestion', `${link.id}:${ctx.ipHash ?? 'unknown'}`);
+  const limit = await checkRateLimit('viewerQuestion', `${linkId}:${ctx.ipHash ?? 'unknown'}`);
   if (!limit.allowed) {
     redirect(`/v/${token}?qa=rate`);
   }
 
   // Attribute the email only if the link already collected one (grant cookie).
-  const cookieStore = await cookies();
-  const grant = decodeGrantCookie(cookieStore.get(getGrantCookieName(link.id))?.value, link.id);
   const askerEmail = grant?.email ?? null;
-
   const trimmedBody = body.slice(0, 2000);
   const inserted = await insertDataRoomQuestion({
     collectionId,

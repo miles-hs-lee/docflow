@@ -277,16 +277,18 @@ export async function reorderCollectionFilesAction(formData: FormData) {
   const presentSet = new Set(present);
   const finalOrder = [...present, ...[...memberIds].filter((id) => !presentSet.has(id))];
 
-  await Promise.all(
-    finalOrder.map((fileId, index) =>
-      admin
-        .from('collection_files')
-        .update({ sort_order: index })
-        .eq('collection_id', collectionId)
-        .eq('file_id', fileId)
-        .eq('owner_id', user.id)
-    )
-  );
+  // Persist in ONE statement: upsert the whole container with its new
+  // sort_order. onConflict on the (collection_id, file_id) PK takes the update
+  // path for these already-members; folder_id is omitted from the payload so
+  // Supabase preserves it. Atomic + a single round trip (was N parallel UPDATEs
+  // whose partial failure could leave sort_order half-renumbered).
+  const rows = finalOrder.map((fileId, index) => ({
+    collection_id: collectionId,
+    file_id: fileId,
+    owner_id: user.id,
+    sort_order: index
+  }));
+  await admin.from('collection_files').upsert(rows, { onConflict: 'collection_id,file_id' });
 
   revalidatePath(`/dashboard/collections/${collectionId}`);
 }

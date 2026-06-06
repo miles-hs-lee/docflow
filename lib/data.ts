@@ -1132,34 +1132,6 @@ export async function getRequestUpload(
 
 // ── Data room Q&A (Phase 4) ──────────────────────────────────────────────────
 
-// Lightweight link lookup for the anonymous Q&A submit: just the fields needed
-// to gate a question (active / not expired / not deleted) and attribute it.
-// Service-role (the viewer is anonymous).
-export async function getLinkForQuestion(token: string): Promise<{
-  id: string;
-  owner_id: string;
-  collection_id: string | null;
-  is_active: boolean;
-  expires_at: string | null;
-  deleted_at: string | null;
-} | null> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('share_links')
-    .select('id, owner_id, collection_id, is_active, expires_at, deleted_at')
-    .eq('token', token)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as {
-    id: string;
-    owner_id: string;
-    collection_id: string | null;
-    is_active: boolean;
-    expires_at: string | null;
-    deleted_at: string | null;
-  };
-}
-
 // Persist a viewer's question (service-role; anonymous viewer). Returns the new
 // row id so the caller can fire a best-effort owner notification.
 export async function insertDataRoomQuestion(input: {
