@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 
 import { after, NextResponse } from 'next/server';
 
-import { getFileRequestByToken, uploadRequestObject } from '@/lib/data';
+import { getFileRequestByToken, removeRequestObject, uploadRequestObject } from '@/lib/data';
 import { notifyFileUpload } from '@/lib/notify/file-upload';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { hashIp, normalizeEmail, sanitizeFileName } from '@/lib/security';
@@ -116,6 +116,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     // Compensating delete; the after-delete trigger decrements upload_count.
     await admin.from('file_request_uploads').delete().eq('id', uploadId).eq('owner_id', req.owner_id);
     return bad(500, 'storage_failed');
+  }
+
+  // Two-phase commit (migration 030): the claim RPC inserted the row BEFORE the
+  // upload, so mark it confirmed now that the object is durably stored. Only
+  // confirmed rows are shown to the owner; the dispatch cron sweeps any row left
+  // unconfirmed by a crash between the insert and here.
+  const { error: confirmError } = await admin
+    .from('file_request_uploads')
+    .update({ confirmed_at: new Date().toISOString() })
+    .eq('id', uploadId)
+    .eq('owner_id', req.owner_id);
+  if (confirmError) {
+    // Couldn't confirm — roll back the object + row so the visitor's retry
+    // starts clean instead of leaving a stuck unconfirmed row.
+    try {
+      await removeRequestObject(storagePath);
+    } catch {
+      // ignore — the orphan sweep will catch a leftover object
+    }
+    await admin.from('file_request_uploads').delete().eq('id', uploadId).eq('owner_id', req.owner_id);
+    return bad(500, 'save_failed');
   }
 
   // Owner notification runs AFTER the response is flushed (Next `after`), so a

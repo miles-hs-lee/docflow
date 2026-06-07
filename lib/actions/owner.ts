@@ -1168,6 +1168,69 @@ export async function moveFileToFolderAction(formData: FormData) {
   redirectWithSuccess(redirectPath, '문서를 이동했습니다.');
 }
 
+// Move a folder up/down among its siblings (same parent). Renumbers that
+// sibling set's sort_order via the atomic, update-only reorder_folders RPC
+// (migration 031). Server-action ▲▼ — no client component needed.
+export async function moveCollectionFolderAction(formData: FormData) {
+  const { user } = await requireOwner();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const folderId = ((formData.get('folderId') as string | null) || '').trim();
+  const direction = ((formData.get('direction') as string | null) || '').trim();
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  if (!collectionId || !folderId || (direction !== 'up' && direction !== 'down')) {
+    redirectWithError('/dashboard', '폴더 이동 정보가 누락되었습니다.');
+  }
+
+  // The folder must belong to the caller's collection (this also authorizes).
+  const { data: folder } = await admin
+    .from('folders')
+    .select('id, parent_folder_id')
+    .eq('id', folderId)
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  if (!folder) {
+    redirectWithError(redirectPath, '폴더를 찾을 수 없습니다.');
+  }
+  const parentFolderId = (folder as { parent_folder_id: string | null }).parent_folder_id;
+
+  // Sibling folders (same parent), in display order.
+  let siblingQuery = admin
+    .from('folders')
+    .select('id')
+    .eq('collection_id', collectionId)
+    .eq('owner_id', user.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  siblingQuery =
+    parentFolderId === null
+      ? siblingQuery.is('parent_folder_id', null)
+      : siblingQuery.eq('parent_folder_id', parentFolderId);
+  const { data: siblings } = await siblingQuery;
+  const ids = ((siblings ?? []) as Array<{ id: string }>).map((row) => row.id);
+
+  const index = ids.indexOf(folderId);
+  const target = direction === 'up' ? index - 1 : index + 1;
+  // Only act when there's a real neighbor to swap with (no-op at the edges).
+  if (index !== -1 && target >= 0 && target < ids.length) {
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    const { error } = await admin.rpc('reorder_folders', {
+      p_collection_id: collectionId,
+      p_owner_id: user.id,
+      p_folder_ids: ids
+    });
+    if (error) {
+      redirectWithError(redirectPath, '폴더 순서 변경에 실패했습니다.');
+    }
+    revalidatePath(redirectPath);
+  }
+
+  redirectWithSuccess(redirectPath, '폴더 순서를 변경했습니다.');
+}
+
 // ───────────────────────────────────────────────────────────
 // Data room Phase 3: viewer groups + per-folder permissions.
 

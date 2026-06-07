@@ -1110,9 +1110,50 @@ export async function listRequestUploads(
     .from('file_request_uploads')
     .select('*')
     .eq('request_id', requestId)
+    // Two-phase commit (migration 030): only surface uploads whose object is
+    // durably stored. Unconfirmed rows are in-flight or crash-orphaned.
+    .not('confirmed_at', 'is', null)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as FileRequestUploadRow[];
+}
+
+// Orphan sweep for the dispatch cron: delete file-request upload rows that were
+// inserted by the claim RPC but never confirmed (object durably stored) — i.e.
+// a process crash/timeout died between the insert and the storage upload. The
+// 1h floor never touches an in-flight upload (those confirm within seconds).
+// The after-delete trigger restores the parent's upload_count, and any stray
+// object is removed best-effort.
+const REQUEST_UPLOAD_ORPHAN_AGE_MS = 60 * 60 * 1000; // 1 hour
+const REQUEST_UPLOAD_SWEEP_BATCH = 100;
+
+export async function cleanupUnconfirmedRequestUploads(): Promise<{ removed: number }> {
+  const admin = createAdminClient();
+  const cutoff = new Date(Date.now() - REQUEST_UPLOAD_ORPHAN_AGE_MS).toISOString();
+  const { data, error } = await admin
+    .from('file_request_uploads')
+    .select('id, storage_path, owner_id')
+    .is('confirmed_at', null)
+    .lt('created_at', cutoff)
+    .limit(REQUEST_UPLOAD_SWEEP_BATCH);
+  if (error || !data || data.length === 0) return { removed: 0 };
+
+  let removed = 0;
+  for (const row of data as Array<{ id: string; storage_path: string; owner_id: string }>) {
+    // Remove the (usually-missing, occasionally-orphaned) object first.
+    try {
+      await admin.storage.from(REQUEST_UPLOAD_BUCKET).remove([row.storage_path]);
+    } catch {
+      // ignore — row delete is the source of truth; a stray object is cosmetic
+    }
+    const { error: delError } = await admin
+      .from('file_request_uploads')
+      .delete()
+      .eq('id', row.id)
+      .eq('owner_id', row.owner_id);
+    if (!delError) removed += 1; // after-delete trigger restores upload_count
+  }
+  return { removed };
 }
 
 // Owner download: one upload scoped to the owner (RLS) so a signed URL can be

@@ -217,6 +217,9 @@ export type FileRequestUploadRow = {
   mime_type: string;
   size_bytes: number;
   ip_hash: string | null;
+  // Two-phase commit: NULL until the object is durably stored. Only confirmed
+  // rows are shown to the owner; unconfirmed orphans are swept by the cron.
+  confirmed_at: string | null;
   created_at: string;
 };
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { parseBearerToken } from '@/lib/agent-auth';
-import { processPendingStorageDeletions } from '@/lib/data';
+import { cleanupUnconfirmedRequestUploads, processPendingStorageDeletions } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { formatTeamsMessage } from '@/lib/notify/teams';
 import { signWebhookPayload, timingSafeEqualString } from '@/lib/security';
@@ -347,7 +347,14 @@ async function handler(request: NextRequest) {
     } catch {
       // swallow — retried next tick
     }
-    return NextResponse.json({ ok: true, ...result, storage });
+    // Sweep orphaned (unconfirmed) file-request uploads on the same tick.
+    let orphanUploads = { removed: 0 };
+    try {
+      orphanUploads = await cleanupUnconfirmedRequestUploads();
+    } catch {
+      // swallow — retried next tick
+    }
+    return NextResponse.json({ ok: true, ...result, storage, orphanUploads });
   } catch (error) {
     return NextResponse.json(
       {

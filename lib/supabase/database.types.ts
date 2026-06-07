@@ -575,6 +575,7 @@ export type Database = {
           mime_type: string;
           size_bytes: number;
           ip_hash: string | null;
+          confirmed_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -587,6 +588,7 @@ export type Database = {
           mime_type: string;
           size_bytes: number;
           ip_hash?: string | null;
+          confirmed_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -599,6 +601,7 @@ export type Database = {
           mime_type?: string;
           size_bytes?: number;
           ip_hash?: string | null;
+          confirmed_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -924,6 +927,14 @@ export type Database = {
           p_collection_id: string;
           p_owner_id: string;
           p_file_ids: string[];
+        };
+        Returns: undefined;
+      };
+      reorder_folders: {
+        Args: {
+          p_collection_id: string;
+          p_owner_id: string;
+          p_folder_ids: string[];
         };
         Returns: undefined;
       };

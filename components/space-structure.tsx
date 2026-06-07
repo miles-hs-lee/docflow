@@ -1,8 +1,14 @@
 import { Button, FileIcon, Input } from '@polaris/ui';
+import { ChevronDownIcon, ChevronUpIcon } from '@polaris/ui/icons';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { SpaceFileList } from '@/components/space-file-list';
-import { createFolderAction, deleteFolderAction, renameFolderAction } from '@/lib/actions/owner';
+import {
+  createFolderAction,
+  deleteFolderAction,
+  moveCollectionFolderAction,
+  renameFolderAction
+} from '@/lib/actions/owner';
 import type { FolderRow, SpaceFile } from '@/lib/types';
 
 type SpaceStructureProps = {
@@ -24,13 +30,31 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
   const childFolders = (parentId: string | null) => folders.filter((folder) => folderParent(folder) === parentId);
   const folderFiles = (folderId: string | null) => files.filter((file) => fileParent(file) === folderId);
 
-  const renderFolder = (folder: FolderRow, depth: number) => (
+  const renderFolder = (folder: FolderRow, depth: number, isFirst: boolean, isLast: boolean) => (
     <div key={folder.id} className="space-folder">
       <div className="space-node space-folder-head">
         <span className="space-node-label">
           <FileIcon type="folder" size={18} />
           <strong className="space-node-name">{folder.name}</strong>
         </span>
+        <div className="space-reorder-buttons">
+          <form action={moveCollectionFolderAction}>
+            <HiddenInput name="collectionId" value={collectionId} />
+            <HiddenInput name="folderId" value={folder.id} />
+            <HiddenInput name="direction" value="up" />
+            <Button type="submit" size="sm" variant="ghost" aria-label="폴더 위로" disabled={isFirst}>
+              <ChevronUpIcon size={14} aria-hidden />
+            </Button>
+          </form>
+          <form action={moveCollectionFolderAction}>
+            <HiddenInput name="collectionId" value={collectionId} />
+            <HiddenInput name="folderId" value={folder.id} />
+            <HiddenInput name="direction" value="down" />
+            <Button type="submit" size="sm" variant="ghost" aria-label="폴더 아래로" disabled={isLast}>
+              <ChevronDownIcon size={14} aria-hidden />
+            </Button>
+          </form>
+        </div>
         <details className="space-folder-manage">
           <summary>관리</summary>
           <div className="space-manage-forms">
@@ -67,7 +91,9 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
           files={folderFiles(folder.id)}
           folders={folders}
         />
-        {childFolders(folder.id).map((sub) => renderFolder(sub, depth + 1))}
+        {childFolders(folder.id).map((sub, i, arr) =>
+          renderFolder(sub, depth + 1, i === 0, i === arr.length - 1)
+        )}
       </div>
     </div>
   );
@@ -83,7 +109,9 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
       </form>
 
       <div className="space-tree">
-        {childFolders(null).map((folder) => renderFolder(folder, 0))}
+        {childFolders(null).map((folder, i, arr) =>
+          renderFolder(folder, 0, i === 0, i === arr.length - 1)
+        )}
         <SpaceFileList collectionId={collectionId} folderId={null} files={folderFiles(null)} folders={folders} />
       </div>
     </div>
