@@ -1251,6 +1251,41 @@ svg {
   border: 1px solid color-mix(in srgb, var(--polaris-static-black) 12%, transparent);
 }
 
+/* Branding editor — desktop layout. Width-capped so it doesn't stretch
+   edge-to-edge; save/upload buttons size to content (not full-width); logo +
+   cover sit side-by-side on wide screens and stack on mobile. */
+.branding-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--polaris-spacing-md);
+  max-width: 60rem;
+}
+.branding-editor .form-grid > button {
+  justify-self: start;
+  width: auto;
+  min-width: 9rem;
+}
+.branding-asset-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--polaris-spacing-md);
+}
+.branding-asset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--polaris-spacing-sm);
+}
+/* Inside an asset block the uploader stacks in one column, not the 2-col grid. */
+.branding-asset-grid .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .branding-asset-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .viewer-title {
   overflow: hidden;
   color: color-mix(in srgb, var(--polaris-label-inverse) 76%, transparent);
