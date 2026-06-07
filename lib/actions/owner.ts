@@ -239,7 +239,7 @@ export async function removeFileFromCollectionAction(formData: FormData) {
 // programmatically from the structure editor (optimistic drag-and-drop), so it
 // never redirects: it revalidates and returns, and the client refreshes.
 export async function reorderCollectionFilesAction(formData: FormData) {
-  const { user, workspace } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -284,7 +284,7 @@ export async function reorderCollectionFilesAction(formData: FormData) {
   // unlike N parallel UPDATEs it can't half-apply. folder_id is never touched.
   const { error: reorderError } = await admin.rpc('reorder_collection_files', {
     p_collection_id: collectionId,
-    p_owner_id: user.id,
+    p_workspace_id: workspace.id,
     p_file_ids: finalOrder
   });
   if (reorderError) {
@@ -1178,7 +1178,7 @@ export async function moveFileToFolderAction(formData: FormData) {
 // sibling set's sort_order via the atomic, update-only reorder_folders RPC
 // (migration 031). Server-action ▲▼ — no client component needed.
 export async function moveCollectionFolderAction(formData: FormData) {
-  const { user, workspace } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1225,7 +1225,7 @@ export async function moveCollectionFolderAction(formData: FormData) {
     [ids[index], ids[target]] = [ids[target], ids[index]];
     const { error } = await admin.rpc('reorder_folders', {
       p_collection_id: collectionId,
-      p_owner_id: user.id,
+      p_workspace_id: workspace.id,
       p_folder_ids: ids
     });
     if (error) {

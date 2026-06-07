@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { WORKSPACE_COOKIE, listUserWorkspaces, requireOwner, requireWorkspace } from '@/lib/auth';
-import { countWorkspaceOwners, getInvitationByToken } from '@/lib/data-workspace';
+import { countWorkspaceOwners } from '@/lib/data-workspace';
 import { generateShareToken } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { WorkspaceRole } from '@/lib/types';
@@ -147,36 +147,31 @@ export async function revokeInviteAction(formData: FormData) {
 export async function acceptInviteAction(formData: FormData) {
   const { user } = await requireOwner();
   const token = ((formData.get('token') as string | null) || '').trim();
-  const invite = await getInvitationByToken(token);
-  if (!invite || invite.status !== 'pending') {
-    redirectWithError('/dashboard', '유효하지 않은 초대입니다.');
-  }
-  if (invite!.expires_at && new Date(invite!.expires_at) < new Date()) {
-    redirectWithError('/dashboard', '만료된 초대입니다.');
-  }
-  // Bind the invite to its intended recipient: the logged-in account's email
-  // must match the invited email (the team UI shows that email as the
-  // recipient). Token possession alone must NOT grant membership — otherwise a
-  // leaked link lets any account join at the invited role (up to owner).
-  if ((user.email ?? '').trim().toLowerCase() !== invite!.email.trim().toLowerCase()) {
-    redirectWithError('/dashboard', `이 초대는 ${invite!.email} 주소로 발급되었습니다. 해당 이메일로 로그인 후 다시 시도해주세요.`);
-  }
 
+  // accept_workspace_invitation locks the invite row and validates pending +
+  // not-expired + email-match, then inserts membership + consumes the invite in
+  // ONE transaction — so token possession alone can't join, the invite is
+  // single-use, and concurrent accepts can't double-consume it.
   const admin = createAdminClient();
-  // Idempotent: if already a member, keep the existing role (don't downgrade).
-  await admin
-    .from('workspace_members')
-    .upsert(
-      { workspace_id: invite!.workspace_id, user_id: user.id, role: invite!.role },
-      { onConflict: 'workspace_id,user_id', ignoreDuplicates: true }
-    );
-  await admin
-    .from('workspace_invitations')
-    .update({ status: 'accepted', accepted_by: user.id, accepted_at: new Date().toISOString() })
-    .eq('id', invite!.id);
+  const { data, error } = await admin.rpc('accept_workspace_invitation', {
+    p_token: token,
+    p_user_id: user.id,
+    p_user_email: user.email ?? ''
+  });
+  const result = (Array.isArray(data) ? data[0] : null) as { workspace_id: string | null; outcome: string } | null;
 
-  await setWorkspaceCookie(invite!.workspace_id);
-  redirectWithSuccess('/dashboard', `${invite!.workspace_name}에 참여했습니다.`);
+  if (error || !result || result.outcome !== 'ok' || !result.workspace_id) {
+    const message =
+      result?.outcome === 'email_mismatch'
+        ? '이 초대는 다른 이메일 주소로 발급되었습니다. 초대받은 이메일로 로그인 후 다시 시도해주세요.'
+        : result?.outcome === 'expired'
+          ? '만료된 초대입니다.'
+          : '유효하지 않은 초대입니다.';
+    redirectWithError('/dashboard', message);
+  }
+
+  await setWorkspaceCookie(result!.workspace_id!);
+  redirectWithSuccess('/dashboard', '워크스페이스에 참여했습니다.');
 }
 
 // Change a member's role (admin+; only owners touch the owner role; never strand

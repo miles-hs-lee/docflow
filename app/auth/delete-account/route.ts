@@ -61,6 +61,35 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  // 0) Workspace guard: deleting the auth user cascades away every owner_id row,
+  // which now belongs to a SHARED workspace. Block deletion while the user is the
+  // SOLE owner of any workspace that has other members — otherwise the workspace
+  // is left ownerless (nobody can administer it) and the departing owner's shared
+  // content vanishes for teammates. They must transfer ownership (promote another
+  // member to owner) or remove the other members first.
+  const { data: ownedWorkspaces } = await admin
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
+    .eq('role', 'owner');
+  for (const row of (ownedWorkspaces ?? []) as Array<{ workspace_id: string }>) {
+    const [{ count: memberCount }, { count: ownerCount }] = await Promise.all([
+      admin.from('workspace_members').select('user_id', { count: 'exact', head: true }).eq('workspace_id', row.workspace_id),
+      admin
+        .from('workspace_members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('workspace_id', row.workspace_id)
+        .eq('role', 'owner')
+    ]);
+    if ((memberCount ?? 0) > 1 && (ownerCount ?? 0) <= 1) {
+      return redirectToSettings(
+        request.url,
+        'error',
+        '다른 멤버가 있는 워크스페이스의 유일한 소유자입니다. 팀 페이지에서 소유권을 이전하거나 멤버를 제거한 뒤 다시 시도해주세요.'
+      );
+    }
+  }
+
   // 1) Snapshot storage paths BEFORE we delete the auth user. If the
   // listing itself fails we abort — proceeding would leak the orphan
   // paths since we'd no longer be able to recover them after cascade.

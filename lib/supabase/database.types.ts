@@ -1054,10 +1054,21 @@ export type Database = {
         };
         Returns: undefined;
       };
+      accept_workspace_invitation: {
+        Args: {
+          p_token: string;
+          p_user_id: string;
+          p_user_email: string;
+        };
+        Returns: {
+          workspace_id: string;
+          outcome: string;
+        }[];
+      };
       reorder_collection_files: {
         Args: {
           p_collection_id: string;
-          p_owner_id: string;
+          p_workspace_id: string;
           p_file_ids: string[];
         };
         Returns: undefined;
@@ -1065,7 +1076,7 @@ export type Database = {
       reorder_folders: {
         Args: {
           p_collection_id: string;
-          p_owner_id: string;
+          p_workspace_id: string;
           p_folder_ids: string[];
         };
         Returns: undefined;
