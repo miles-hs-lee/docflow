@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
-import { requireOwner } from '@/lib/auth';
+import { requireOwner, requireWorkspace } from '@/lib/auth';
 import { removeLogoObject, removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
 import { normalizeBrandColor } from '@/lib/branding';
@@ -99,7 +99,7 @@ function readEventTypes(formData: FormData) {
 // Create an EMPTY data room (name + description only). Files and folders are
 // added afterward on the room page — no files are required at creation.
 export async function createCollectionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const name = ((formData.get('name') as string | null) || '').trim();
@@ -111,7 +111,7 @@ export async function createCollectionAction(formData: FormData) {
 
   const { data: createdCollection, error: createError } = await admin
     .from('collections')
-    .insert({ owner_id: user.id, name, description })
+    .insert({ owner_id: user.id, workspace_id: workspace.id, name, description })
     .select('id')
     .maybeSingle();
 
@@ -129,7 +129,7 @@ export async function createCollectionAction(formData: FormData) {
 // Add existing library files to a data room. Skips files already in the room
 // and appends after the current max sort_order.
 export async function addFilesToCollectionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -177,6 +177,7 @@ export async function addFilesToCollectionAction(formData: FormData) {
       collection_id: collectionId,
       file_id: fileId,
       owner_id: user.id,
+      workspace_id: workspace.id,
       sort_order: maxSort + 1 + index
     }));
     const { error: insertError } = await admin.from('collection_files').insert(rows);
@@ -395,7 +396,7 @@ export async function deleteQuestionAction(formData: FormData) {
 }
 
 export async function createMcpApiKeyAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const label = ((formData.get('label') as string | null) || '').trim();
@@ -415,6 +416,7 @@ export async function createMcpApiKeyAction(formData: FormData) {
 
   const { error } = await admin.from('mcp_api_keys').insert({
     owner_id: user.id,
+    workspace_id: workspace.id,
     label,
     key_hash: hashMcpApiKey(rawKey),
     key_prefix: getMcpKeyPrefix(rawKey),
@@ -470,7 +472,7 @@ export async function revokeMcpApiKeyAction(formData: FormData) {
 }
 
 export async function createAutomationSubscriptionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const name = ((formData.get('name') as string | null) || '').trim();
@@ -505,6 +507,7 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
 
   const { error } = await admin.from('automation_subscriptions').insert({
     owner_id: user.id,
+    workspace_id: workspace.id,
     name,
     webhook_url: parsedUrl.toString(),
     signing_secret: signingSecret,
@@ -572,7 +575,7 @@ export async function deleteAutomationSubscriptionAction(formData: FormData) {
 }
 
 export async function createShareLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const fileId = (formData.get('fileId') as string | null)?.trim();
@@ -607,6 +610,7 @@ export async function createShareLinkAction(formData: FormData) {
     file_id: fileId,
     collection_id: null,
     owner_id: user.id,
+    workspace_id: workspace.id,
     label,
     token: generateShareToken(),
     is_active: parseBoolean(formData, 'isActive'),
@@ -631,7 +635,7 @@ export async function createShareLinkAction(formData: FormData) {
 }
 
 export async function createCollectionShareLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -675,6 +679,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     file_id: null,
     collection_id: collectionId,
     owner_id: user.id,
+    workspace_id: workspace.id,
     label,
     token: generateShareToken(),
     is_active: parseBoolean(formData, 'isActive'),
@@ -1000,7 +1005,7 @@ export async function deleteFileAction(formData: FormData) {
 // ── Space folders (Phase 1) ───────────────────────────────────────────────
 
 export async function createFolderAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1043,6 +1048,7 @@ export async function createFolderAction(formData: FormData) {
     collection_id: collectionId,
     parent_folder_id: parentFolderId,
     owner_id: user.id,
+    workspace_id: workspace.id,
     name: name.slice(0, 120)
   });
   if (error) {
@@ -1264,7 +1270,7 @@ async function resolveViewerGroupId(
 }
 
 export async function createViewerGroupAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1291,6 +1297,7 @@ export async function createViewerGroupAction(formData: FormData) {
   const { error } = await admin.from('viewer_groups').insert({
     collection_id: collectionId,
     owner_id: user.id,
+    workspace_id: workspace.id,
     name: name.slice(0, 120)
   });
   if (error) {
@@ -1364,7 +1371,7 @@ export async function deleteViewerGroupAction(formData: FormData) {
 // then-insert reconcile naturally drops them. Each folder must belong to the same
 // data room + owner.
 export async function setViewerGroupFoldersAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const groupId = ((formData.get('groupId') as string | null) || '').trim();
@@ -1410,7 +1417,14 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
   if (validIds.length > 0) {
     const { error: insertError } = await admin
       .from('viewer_group_folders')
-      .insert(validIds.map((folderId) => ({ group_id: groupId, folder_id: folderId, owner_id: user.id })));
+      .insert(
+        validIds.map((folderId) => ({
+          group_id: groupId,
+          folder_id: folderId,
+          owner_id: user.id,
+          workspace_id: workspace.id
+        }))
+      );
     if (insertError) {
       redirectWithError(redirectPath, '폴더 권한 저장에 실패했습니다.');
     }
@@ -1434,7 +1448,7 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
 // File Request (inbound upload).
 
 export async function createFileRequestAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const title = ((formData.get('title') as string | null) || '').trim();
@@ -1453,6 +1467,7 @@ export async function createFileRequestAction(formData: FormData) {
 
   const { error } = await admin.from('file_requests').insert({
     owner_id: user.id,
+    workspace_id: workspace.id,
     token: generateShareToken(),
     title: title.slice(0, 200),
     instructions,

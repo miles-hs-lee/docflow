@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
+import { getCurrentWorkspace } from '@/lib/auth';
 import { uploadPdfObject } from '@/lib/data';
 import { sanitizeFileName } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -59,9 +60,15 @@ export async function POST(request: Request) {
   const safeName = sanitizeFileName(file.name || `${fileId}.pdf`);
   const storagePath = `${user.id}/${fileId}/${safeName}`;
 
+  const workspace = await getCurrentWorkspace(user.id);
+  if (!workspace) {
+    return redirectToDashboard(request.url, 'error', '워크스페이스를 찾을 수 없습니다.');
+  }
+
   const { error: insertError } = await admin.from('files').insert({
     id: fileId,
     owner_id: user.id,
+    workspace_id: workspace.id,
     original_name: file.name,
     mime_type: 'application/pdf',
     size_bytes: file.size,

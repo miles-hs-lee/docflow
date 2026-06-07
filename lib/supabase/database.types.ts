@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           id: string;
           owner_id: string;
+          workspace_id: string | null;
           name: string;
           description: string | null;
           created_at: string;
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           id?: string;
           owner_id: string;
+          workspace_id?: string | null;
           name: string;
           description?: string | null;
           created_at?: string;
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           name?: string;
           description?: string | null;
           created_at?: string;
@@ -41,6 +44,7 @@ export type Database = {
           collection_id: string;
           file_id: string;
           owner_id: string;
+          workspace_id: string | null;
           sort_order: number;
           folder_id: string | null;
           created_at: string;
@@ -49,6 +53,7 @@ export type Database = {
           collection_id: string;
           file_id: string;
           owner_id: string;
+          workspace_id?: string | null;
           sort_order?: number;
           folder_id?: string | null;
           created_at?: string;
@@ -57,6 +62,7 @@ export type Database = {
           collection_id?: string;
           file_id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           sort_order?: number;
           folder_id?: string | null;
           created_at?: string;
@@ -69,6 +75,7 @@ export type Database = {
           collection_id: string;
           parent_folder_id: string | null;
           owner_id: string;
+          workspace_id: string | null;
           name: string;
           sort_order: number;
           created_at: string;
@@ -79,6 +86,7 @@ export type Database = {
           collection_id: string;
           parent_folder_id?: string | null;
           owner_id: string;
+          workspace_id?: string | null;
           name: string;
           sort_order?: number;
           created_at?: string;
@@ -89,6 +97,7 @@ export type Database = {
           collection_id?: string;
           parent_folder_id?: string | null;
           owner_id?: string;
+          workspace_id?: string | null;
           name?: string;
           sort_order?: number;
           created_at?: string;
@@ -101,6 +110,7 @@ export type Database = {
           id: string;
           collection_id: string;
           owner_id: string;
+          workspace_id: string | null;
           name: string;
           include_root: boolean;
           sort_order: number;
@@ -111,6 +121,7 @@ export type Database = {
           id?: string;
           collection_id: string;
           owner_id: string;
+          workspace_id?: string | null;
           name: string;
           include_root?: boolean;
           sort_order?: number;
@@ -121,6 +132,7 @@ export type Database = {
           id?: string;
           collection_id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           name?: string;
           include_root?: boolean;
           sort_order?: number;
@@ -134,18 +146,21 @@ export type Database = {
           group_id: string;
           folder_id: string;
           owner_id: string;
+          workspace_id: string | null;
           created_at: string;
         };
         Insert: {
           group_id: string;
           folder_id: string;
           owner_id: string;
+          workspace_id?: string | null;
           created_at?: string;
         };
         Update: {
           group_id?: string;
           folder_id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -154,6 +169,7 @@ export type Database = {
         Row: {
           id: string;
           owner_id: string;
+          workspace_id: string | null;
           label: string;
           key_hash: string;
           key_prefix: string;
@@ -165,6 +181,7 @@ export type Database = {
         Insert: {
           id?: string;
           owner_id: string;
+          workspace_id?: string | null;
           label: string;
           key_hash: string;
           key_prefix: string;
@@ -176,6 +193,7 @@ export type Database = {
         Update: {
           id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           label?: string;
           key_hash?: string;
           key_prefix?: string;
@@ -190,6 +208,7 @@ export type Database = {
         Row: {
           id: string;
           owner_id: string;
+          workspace_id: string | null;
           name: string;
           webhook_url: string;
           signing_secret: string | null;
@@ -204,6 +223,7 @@ export type Database = {
         Insert: {
           id?: string;
           owner_id: string;
+          workspace_id?: string | null;
           name: string;
           webhook_url: string;
           signing_secret?: string | null;
@@ -218,6 +238,7 @@ export type Database = {
         Update: {
           id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           name?: string;
           webhook_url?: string;
           signing_secret?: string | null;
@@ -349,6 +370,7 @@ export type Database = {
         Row: {
           id: string;
           owner_id: string;
+          workspace_id: string | null;
           original_name: string;
           mime_type: string;
           size_bytes: number;
@@ -359,6 +381,7 @@ export type Database = {
         Insert: {
           id?: string;
           owner_id: string;
+          workspace_id?: string | null;
           original_name: string;
           mime_type: string;
           size_bytes: number;
@@ -369,6 +392,7 @@ export type Database = {
         Update: {
           id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           original_name?: string;
           mime_type?: string;
           size_bytes?: number;
@@ -384,6 +408,7 @@ export type Database = {
           file_id: string | null;
           collection_id: string | null;
           owner_id: string;
+          workspace_id: string | null;
           label: string;
           token: string;
           is_active: boolean;
@@ -412,6 +437,7 @@ export type Database = {
           file_id?: string | null;
           collection_id?: string | null;
           owner_id: string;
+          workspace_id?: string | null;
           label: string;
           token: string;
           is_active?: boolean;
@@ -440,6 +466,7 @@ export type Database = {
           file_id?: string | null;
           collection_id?: string | null;
           owner_id?: string;
+          workspace_id?: string | null;
           label?: string;
           token?: string;
           is_active?: boolean;
@@ -471,6 +498,7 @@ export type Database = {
           link_id: string | null;
           file_id: string | null;
           owner_id: string;
+          workspace_id: string | null;
           event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason: string | null;
           session_id: string | null;
@@ -487,6 +515,7 @@ export type Database = {
           link_id: string | null;
           file_id: string | null;
           owner_id: string;
+          workspace_id?: string | null;
           event_type: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason?: string | null;
           session_id?: string | null;
@@ -503,6 +532,7 @@ export type Database = {
           link_id?: string | null;
           file_id?: string | null;
           owner_id?: string;
+          workspace_id?: string | null;
           event_type?: 'view' | 'denied' | 'email_submitted' | 'password_failed' | 'download' | 'page_view' | 'agreement';
           reason?: string | null;
           session_id?: string | null;
@@ -520,6 +550,7 @@ export type Database = {
         Row: {
           id: string;
           owner_id: string;
+          workspace_id: string | null;
           token: string;
           title: string;
           instructions: string | null;
@@ -535,6 +566,7 @@ export type Database = {
         Insert: {
           id?: string;
           owner_id: string;
+          workspace_id?: string | null;
           token: string;
           title: string;
           instructions?: string | null;
@@ -550,6 +582,7 @@ export type Database = {
         Update: {
           id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           token?: string;
           title?: string;
           instructions?: string | null;
@@ -569,6 +602,7 @@ export type Database = {
           id: string;
           request_id: string;
           owner_id: string;
+          workspace_id: string | null;
           uploader_email: string | null;
           original_name: string;
           storage_path: string;
@@ -582,6 +616,7 @@ export type Database = {
           id?: string;
           request_id: string;
           owner_id: string;
+          workspace_id?: string | null;
           uploader_email?: string | null;
           original_name: string;
           storage_path: string;
@@ -595,6 +630,7 @@ export type Database = {
           id?: string;
           request_id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           uploader_email?: string | null;
           original_name?: string;
           storage_path?: string;
@@ -609,6 +645,7 @@ export type Database = {
       owner_branding: {
         Row: {
           owner_id: string;
+          workspace_id: string | null;
           company_name: string | null;
           brand_color: string | null;
           logo_path: string | null;
@@ -618,6 +655,7 @@ export type Database = {
         };
         Insert: {
           owner_id: string;
+          workspace_id?: string | null;
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
@@ -627,6 +665,7 @@ export type Database = {
         };
         Update: {
           owner_id?: string;
+          workspace_id?: string | null;
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
@@ -640,6 +679,7 @@ export type Database = {
         Row: {
           collection_id: string;
           owner_id: string;
+          workspace_id: string | null;
           company_name: string | null;
           brand_color: string | null;
           logo_path: string | null;
@@ -650,6 +690,7 @@ export type Database = {
         Insert: {
           collection_id: string;
           owner_id: string;
+          workspace_id?: string | null;
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
@@ -660,6 +701,7 @@ export type Database = {
         Update: {
           collection_id?: string;
           owner_id?: string;
+          workspace_id?: string | null;
           company_name?: string | null;
           brand_color?: string | null;
           logo_path?: string | null;
@@ -675,6 +717,7 @@ export type Database = {
           collection_id: string;
           link_id: string | null;
           owner_id: string;
+          workspace_id: string | null;
           session_id: string | null;
           asker_email: string | null;
           body: string;
@@ -689,6 +732,7 @@ export type Database = {
           collection_id: string;
           link_id?: string | null;
           owner_id: string;
+          workspace_id?: string | null;
           session_id?: string | null;
           asker_email?: string | null;
           body: string;
@@ -703,6 +747,7 @@ export type Database = {
           collection_id?: string;
           link_id?: string | null;
           owner_id?: string;
+          workspace_id?: string | null;
           session_id?: string | null;
           asker_email?: string | null;
           body?: string;

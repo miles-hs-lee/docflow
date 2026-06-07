@@ -64,6 +64,7 @@ export type ShareLinkRow = {
   file_id: string | null;
   collection_id: string | null;
   owner_id: string;
+  workspace_id: string | null;
   label: string;
   token: string;
   is_active: boolean;
@@ -111,6 +112,7 @@ export type ShareLinkTrashRow = ShareLinkRow & {
 export type FileRow = {
   id: string;
   owner_id: string;
+  workspace_id: string | null;
   original_name: string;
   mime_type: string;
   size_bytes: number;
@@ -122,6 +124,7 @@ export type FileRow = {
 export type CollectionRow = {
   id: string;
   owner_id: string;
+  workspace_id: string | null;
   name: string;
   description: string | null;
   created_at: string;
@@ -213,6 +216,7 @@ export type ViewerQuestion = {
 export type FileRequestRow = {
   id: string;
   owner_id: string;
+  workspace_id: string | null;
   token: string;
   title: string;
   instructions: string | null;

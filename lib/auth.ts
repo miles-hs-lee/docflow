@@ -90,17 +90,24 @@ export async function requireWorkspace(): Promise<{
     redirect('/login');
   }
 
-  const workspaces = await listUserWorkspaces(user.id);
-  if (workspaces.length === 0) {
+  const workspace = await getCurrentWorkspace(user.id);
+  if (!workspace) {
     // Post-backfill every user has a personal workspace, so this only fires for
     // a brand-new account before its workspace exists — send to login (a future
     // onboarding flow can create one here).
     redirect('/login');
   }
 
+  return { user, supabase, workspace, role: workspace.role };
+}
+
+// The user's current workspace (WORKSPACE_COOKIE-pinned, else earliest), or null
+// if they belong to none. Used by routes/actions that need the workspace without
+// requireWorkspace's redirect (they handle auth themselves).
+export async function getCurrentWorkspace(userId: string): Promise<WorkspaceWithRole | null> {
+  const workspaces = await listUserWorkspaces(userId);
+  if (workspaces.length === 0) return null;
   const cookieStore = await cookies();
   const pinned = cookieStore.get(WORKSPACE_COOKIE)?.value;
-  const workspace = (pinned && workspaces.find((w) => w.id === pinned)) || workspaces[0];
-
-  return { user, supabase, workspace, role: workspace.role };
+  return (pinned && workspaces.find((w) => w.id === pinned)) || workspaces[0];
 }
