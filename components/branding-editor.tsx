@@ -1,4 +1,4 @@
-import { Button, Input, Stack } from '@polaris/ui';
+import { Button, Stack } from '@polaris/ui';
 
 import { BrandColorField } from '@/components/brand-color-field';
 import { BrandingImageUploader } from '@/components/branding-image-uploader';
@@ -48,13 +48,19 @@ export function BrandingEditor({
         {hiddenFields.map((field) => (
           <HiddenInput key={field.name} name={field.name} value={field.value} />
         ))}
-        <Input
-          name="companyName"
-          label="회사명"
-          placeholder="예: Acme Inc."
-          defaultValue={branding?.company_name ?? ''}
-          maxLength={80}
-        />
+        {/* Native field so the label sits ABOVE the input, matching BrandColorField
+            (the Polaris Input rendered "회사명" as a floating in-field label). */}
+        <label className="brand-text-field">
+          회사명
+          {/* eslint-disable-next-line -- native input to keep a static label above, like the colour field */}
+          <input
+            type="text"
+            name="companyName"
+            placeholder="예: Acme Inc."
+            defaultValue={branding?.company_name ?? ''}
+            maxLength={80}
+          />
+        </label>
         <BrandColorField defaultValue={branding?.brand_color ?? ''} />
         <Button type="submit">브랜딩 저장</Button>
       </form>
