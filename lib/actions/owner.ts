@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
-import { requireOwner, requireWorkspace } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { removeLogoObject, removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
 import { normalizeBrandColor } from '@/lib/branding';
@@ -147,7 +147,7 @@ export async function addFilesToCollectionAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -157,7 +157,7 @@ export async function addFilesToCollectionAction(formData: FormData) {
     .from('files')
     .select('id')
     .in('id', fileIds)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (filesError || (ownedFiles?.length ?? 0) !== fileIds.length) {
     redirectWithError(redirectPath, '선택한 파일 중 접근할 수 없는 항목이 있습니다.');
   }
@@ -166,7 +166,7 @@ export async function addFilesToCollectionAction(formData: FormData) {
     .from('collection_files')
     .select('file_id, sort_order')
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   const existingRows = (existing ?? []) as Array<{ file_id: string; sort_order: number }>;
   const existingIds = new Set(existingRows.map((row) => row.file_id));
   const maxSort = existingRows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1);
@@ -196,7 +196,7 @@ export async function addFilesToCollectionAction(formData: FormData) {
 // Remove a file from a data room (unlink only — the file stays in the library
 // and any other rooms). Actual file deletion lives on the content page.
 export async function removeFileFromCollectionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -211,7 +211,7 @@ export async function removeFileFromCollectionAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -222,7 +222,7 @@ export async function removeFileFromCollectionAction(formData: FormData) {
     .delete()
     .eq('collection_id', collectionId)
     .eq('file_id', fileId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '파일 제거에 실패했습니다.');
   }
@@ -239,7 +239,7 @@ export async function removeFileFromCollectionAction(formData: FormData) {
 // programmatically from the structure editor (optimistic drag-and-drop), so it
 // never redirects: it revalidates and returns, and the client refreshes.
 export async function reorderCollectionFilesAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -255,7 +255,7 @@ export async function reorderCollectionFilesAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!owned) return;
 
@@ -265,7 +265,7 @@ export async function reorderCollectionFilesAction(formData: FormData) {
     .from('collection_files')
     .select('file_id')
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   membersQuery = folderId === null ? membersQuery.is('folder_id', null) : membersQuery.eq('folder_id', folderId);
   const { data: members } = await membersQuery;
   const memberIds = new Set(((members ?? []) as Array<{ file_id: string }>).map((row) => row.file_id));
@@ -298,7 +298,7 @@ export async function reorderCollectionFilesAction(formData: FormData) {
 }
 
 export async function deleteCollectionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -340,7 +340,7 @@ export async function deleteCollectionAction(formData: FormData) {
 // with the row actually touched).
 
 export async function answerQuestionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const questionId = ((formData.get('questionId') as string | null) || '').trim();
@@ -360,7 +360,7 @@ export async function answerQuestionAction(formData: FormData) {
     .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
     .eq('id', questionId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '답변 저장에 실패했습니다.');
   }
@@ -370,7 +370,7 @@ export async function answerQuestionAction(formData: FormData) {
 }
 
 export async function deleteQuestionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const questionId = ((formData.get('questionId') as string | null) || '').trim();
@@ -386,7 +386,7 @@ export async function deleteQuestionAction(formData: FormData) {
     .delete()
     .eq('id', questionId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '질문 삭제에 실패했습니다.');
   }
@@ -446,7 +446,7 @@ export async function createMcpApiKeyAction(formData: FormData) {
 }
 
 export async function revokeMcpApiKeyAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const keyId = ((formData.get('keyId') as string | null) || '').trim();
@@ -460,7 +460,7 @@ export async function revokeMcpApiKeyAction(formData: FormData) {
       revoked_at: new Date().toISOString()
     })
     .eq('id', keyId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .is('revoked_at', null);
 
   if (error) {
@@ -525,7 +525,7 @@ export async function createAutomationSubscriptionAction(formData: FormData) {
 }
 
 export async function toggleAutomationSubscriptionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const subscriptionId = ((formData.get('subscriptionId') as string | null) || '').trim();
@@ -541,7 +541,7 @@ export async function toggleAutomationSubscriptionAction(formData: FormData) {
       is_active: nextValue
     })
     .eq('id', subscriptionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
 
   if (error) {
     redirectWithError('/dashboard/automations', '구독 상태 변경에 실패했습니다.');
@@ -552,7 +552,7 @@ export async function toggleAutomationSubscriptionAction(formData: FormData) {
 }
 
 export async function deleteAutomationSubscriptionAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const subscriptionId = ((formData.get('subscriptionId') as string | null) || '').trim();
@@ -564,7 +564,7 @@ export async function deleteAutomationSubscriptionAction(formData: FormData) {
     .from('automation_subscriptions')
     .delete()
     .eq('id', subscriptionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
 
   if (error) {
     redirectWithError('/dashboard/automations', '구독 삭제에 실패했습니다.');
@@ -587,7 +587,7 @@ export async function createShareLinkAction(formData: FormData) {
     .from('files')
     .select('id')
     .eq('id', fileId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
 
   if (!ownedFile) {
@@ -647,7 +647,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
 
   if (!ownedCollection) {
@@ -705,7 +705,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
 }
 
 export async function updateShareLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -718,7 +718,7 @@ export async function updateShareLinkAction(formData: FormData) {
     .from('share_links')
     .select('id, file_id, collection_id, password_hash')
     .eq('id', linkId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
 
   if (fetchError || !existingLink) {
@@ -772,7 +772,7 @@ export async function updateShareLinkAction(formData: FormData) {
       viewer_group_id: viewerGroupId
     })
     .eq('id', linkId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
 
   if (error) {
     redirectWithError(redirectPath, '링크 수정에 실패했습니다.');
@@ -784,7 +784,7 @@ export async function updateShareLinkAction(formData: FormData) {
 }
 
 export async function softDeleteLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -797,7 +797,7 @@ export async function softDeleteLinkAction(formData: FormData) {
     .from('share_links')
     .select('id, file_id, collection_id')
     .eq('id', linkId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
 
   if (existingError || !existingLink) {
@@ -813,7 +813,7 @@ export async function softDeleteLinkAction(formData: FormData) {
       is_active: false
     })
     .eq('id', linkId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .is('deleted_at', null);
 
   if (error) {
@@ -826,7 +826,7 @@ export async function softDeleteLinkAction(formData: FormData) {
 }
 
 export async function restoreLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -839,7 +839,7 @@ export async function restoreLinkAction(formData: FormData) {
     .from('share_links')
     .select('id, file_id, collection_id')
     .eq('id', linkId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .not('deleted_at', 'is', null)
     .maybeSingle();
 
@@ -854,7 +854,7 @@ export async function restoreLinkAction(formData: FormData) {
       is_active: true
     })
     .eq('id', linkId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
 
   if (error) {
     redirectWithError('/dashboard/trash', '링크 복구에 실패했습니다.');
@@ -867,7 +867,7 @@ export async function restoreLinkAction(formData: FormData) {
 }
 
 export async function hardDeleteLinkAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -885,7 +885,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
     .from('share_links')
     .select('id, file_id, collection_id')
     .eq('id', linkId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .not('deleted_at', 'is', null)
     .maybeSingle();
 
@@ -913,7 +913,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
 }
 
 export async function deleteFileAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const fileId = ((formData.get('fileId') as string | null) || '').trim();
@@ -926,7 +926,7 @@ export async function deleteFileAction(formData: FormData) {
     .from('files')
     .select('id, storage_path')
     .eq('id', fileId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
 
   if (fileError || !file) {
@@ -1024,7 +1024,7 @@ export async function createFolderAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -1037,7 +1037,7 @@ export async function createFolderAction(formData: FormData) {
       .select('id')
       .eq('id', parentFolderId)
       .eq('collection_id', collectionId)
-      .eq('owner_id', user.id)
+      .eq('workspace_id', workspace.id)
       .maybeSingle();
     if (!parent) {
       redirectWithError(redirectPath, '상위 폴더를 찾을 수 없습니다.');
@@ -1060,7 +1060,7 @@ export async function createFolderAction(formData: FormData) {
 }
 
 export async function renameFolderAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const folderId = ((formData.get('folderId') as string | null) || '').trim();
@@ -1082,7 +1082,7 @@ export async function renameFolderAction(formData: FormData) {
     .update({ name: name.slice(0, 120) })
     .eq('id', folderId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '폴더 이름 변경에 실패했습니다.');
   }
@@ -1092,7 +1092,7 @@ export async function renameFolderAction(formData: FormData) {
 }
 
 export async function deleteFolderAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const folderId = ((formData.get('folderId') as string | null) || '').trim();
@@ -1112,7 +1112,7 @@ export async function deleteFolderAction(formData: FormData) {
     .delete()
     .eq('id', folderId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '폴더 삭제에 실패했습니다.');
   }
@@ -1122,7 +1122,7 @@ export async function deleteFolderAction(formData: FormData) {
 }
 
 export async function moveFileToFolderAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1141,7 +1141,7 @@ export async function moveFileToFolderAction(formData: FormData) {
     .select('file_id')
     .eq('collection_id', collectionId)
     .eq('file_id', fileId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!membership) {
     redirectWithError(redirectPath, '데이터룸에서 해당 문서를 찾을 수 없습니다.');
@@ -1153,7 +1153,7 @@ export async function moveFileToFolderAction(formData: FormData) {
       .select('id')
       .eq('id', targetFolderId)
       .eq('collection_id', collectionId)
-      .eq('owner_id', user.id)
+      .eq('workspace_id', workspace.id)
       .maybeSingle();
     if (!folder) {
       redirectWithError(redirectPath, '대상 폴더를 찾을 수 없습니다.');
@@ -1165,7 +1165,7 @@ export async function moveFileToFolderAction(formData: FormData) {
     .update({ folder_id: targetFolderId })
     .eq('collection_id', collectionId)
     .eq('file_id', fileId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '문서 이동에 실패했습니다.');
   }
@@ -1178,7 +1178,7 @@ export async function moveFileToFolderAction(formData: FormData) {
 // sibling set's sort_order via the atomic, update-only reorder_folders RPC
 // (migration 031). Server-action ▲▼ — no client component needed.
 export async function moveCollectionFolderAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1196,7 +1196,7 @@ export async function moveCollectionFolderAction(formData: FormData) {
     .select('id, parent_folder_id')
     .eq('id', folderId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!folder) {
     redirectWithError(redirectPath, '폴더를 찾을 수 없습니다.');
@@ -1208,7 +1208,7 @@ export async function moveCollectionFolderAction(formData: FormData) {
     .from('folders')
     .select('id')
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   siblingQuery =
@@ -1288,7 +1288,7 @@ export async function createViewerGroupAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -1309,7 +1309,7 @@ export async function createViewerGroupAction(formData: FormData) {
 }
 
 export async function renameViewerGroupAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const groupId = ((formData.get('groupId') as string | null) || '').trim();
@@ -1329,7 +1329,7 @@ export async function renameViewerGroupAction(formData: FormData) {
     .update({ name: name.slice(0, 120) })
     .eq('id', groupId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '그룹 이름 변경에 실패했습니다.');
   }
@@ -1339,7 +1339,7 @@ export async function renameViewerGroupAction(formData: FormData) {
 }
 
 export async function deleteViewerGroupAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const groupId = ((formData.get('groupId') as string | null) || '').trim();
@@ -1357,7 +1357,7 @@ export async function deleteViewerGroupAction(formData: FormData) {
     .delete()
     .eq('id', groupId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError(redirectPath, '그룹 삭제에 실패했습니다.');
   }
@@ -1388,7 +1388,7 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
     .select('id')
     .eq('id', groupId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!group) {
     redirectWithError(redirectPath, '그룹을 찾을 수 없습니다.');
@@ -1406,13 +1406,13 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
       .from('folders')
       .select('id')
       .eq('collection_id', collectionId)
-      .eq('owner_id', user.id)
+      .eq('workspace_id', workspace.id)
       .in('id', requested);
     validIds = ((folderRows ?? []) as Array<{ id: string }>).map((row) => row.id);
   }
 
   // Reconcile: drop all current grants for the group, then insert the new set.
-  await admin.from('viewer_group_folders').delete().eq('group_id', groupId).eq('owner_id', user.id);
+  await admin.from('viewer_group_folders').delete().eq('group_id', groupId).eq('workspace_id', workspace.id);
 
   if (validIds.length > 0) {
     const { error: insertError } = await admin
@@ -1435,7 +1435,7 @@ export async function setViewerGroupFoldersAction(formData: FormData) {
     .update({ include_root: includeRoot })
     .eq('id', groupId)
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (updateError) {
     redirectWithError(redirectPath, '폴더 권한 저장에 실패했습니다.');
   }
@@ -1485,7 +1485,7 @@ export async function createFileRequestAction(formData: FormData) {
 }
 
 export async function toggleFileRequestAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const requestId = ((formData.get('requestId') as string | null) || '').trim();
@@ -1497,7 +1497,7 @@ export async function toggleFileRequestAction(formData: FormData) {
     .from('file_requests')
     .select('is_active')
     .eq('id', requestId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .is('deleted_at', null)
     .maybeSingle();
   if (!existing) {
@@ -1509,7 +1509,7 @@ export async function toggleFileRequestAction(formData: FormData) {
     .from('file_requests')
     .update({ is_active: !wasActive })
     .eq('id', requestId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError('/dashboard/requests', '상태 변경에 실패했습니다.');
   }
@@ -1519,7 +1519,7 @@ export async function toggleFileRequestAction(formData: FormData) {
 }
 
 export async function deleteFileRequestAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const requestId = ((formData.get('requestId') as string | null) || '').trim();
@@ -1533,7 +1533,7 @@ export async function deleteFileRequestAction(formData: FormData) {
     .from('file_requests')
     .update({ deleted_at: new Date().toISOString(), is_active: false })
     .eq('id', requestId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (error) {
     redirectWithError('/dashboard/requests', '요청 삭제에 실패했습니다.');
   }
@@ -1575,13 +1575,13 @@ export async function saveBrandingAction(formData: FormData) {
 }
 
 export async function removeBrandingLogoAction() {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const { data } = await admin
     .from('owner_branding')
     .select('logo_path')
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
 
@@ -1591,7 +1591,7 @@ export async function removeBrandingLogoAction() {
   const { error: updateError } = await admin
     .from('owner_branding')
     .update({ logo_path: null })
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (updateError) {
     redirectWithError('/dashboard/settings', '로고 제거에 실패했습니다.');
   }
@@ -1608,13 +1608,13 @@ export async function removeBrandingLogoAction() {
 }
 
 export async function removeBrandingCoverAction() {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const { data } = await admin
     .from('owner_branding')
     .select('cover_image_path')
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   const coverPath = (data as { cover_image_path: string | null } | null)?.cover_image_path ?? null;
 
@@ -1623,7 +1623,7 @@ export async function removeBrandingCoverAction() {
   const { error: updateError } = await admin
     .from('owner_branding')
     .update({ cover_image_path: null })
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (updateError) {
     redirectWithError('/dashboard/settings', '커버 이미지 제거에 실패했습니다.');
   }
@@ -1656,7 +1656,7 @@ export async function saveCollectionBrandingAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -1691,7 +1691,7 @@ export async function saveCollectionBrandingAction(formData: FormData) {
 }
 
 export async function removeCollectionBrandingLogoAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1704,7 +1704,7 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -1714,7 +1714,7 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
     .from('collection_branding')
     .select('logo_path')
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
 
@@ -1722,7 +1722,7 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
     .from('collection_branding')
     .update({ logo_path: null })
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (updateError) {
     redirectWithError(redirectPath, '로고 제거에 실패했습니다.');
   }
@@ -1739,7 +1739,7 @@ export async function removeCollectionBrandingLogoAction(formData: FormData) {
 }
 
 export async function removeCollectionBrandingCoverAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1752,7 +1752,7 @@ export async function removeCollectionBrandingCoverAction(formData: FormData) {
     .from('collections')
     .select('id')
     .eq('id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   if (!ownedCollection) {
     redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
@@ -1762,7 +1762,7 @@ export async function removeCollectionBrandingCoverAction(formData: FormData) {
     .from('collection_branding')
     .select('cover_image_path')
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id)
+    .eq('workspace_id', workspace.id)
     .maybeSingle();
   const coverPath = (data as { cover_image_path: string | null } | null)?.cover_image_path ?? null;
 
@@ -1770,7 +1770,7 @@ export async function removeCollectionBrandingCoverAction(formData: FormData) {
     .from('collection_branding')
     .update({ cover_image_path: null })
     .eq('collection_id', collectionId)
-    .eq('owner_id', user.id);
+    .eq('workspace_id', workspace.id);
   if (updateError) {
     redirectWithError(redirectPath, '커버 이미지 제거에 실패했습니다.');
   }
