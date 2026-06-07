@@ -11,7 +11,8 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 
 ### Owner (로그인 사용자)
 
-- **대시보드 개요**: 전체 열람 · 유니크 · 다운로드 · 거부 집계, 인기 문서, 최근 활동 피드
+- **팀 / 워크스페이스 + 역할(RBAC)**: 모든 콘텐츠·링크·데이터룸·분석을 **워크스페이스 단위로 공유**. 토큰 **초대 링크**로 멤버 초대(이메일 인프라 불필요) → `owner`/`admin`/`member` 역할, 워크스페이스 전환·생성·이름변경, 멤버 역할 변경·제거·나가기(마지막 소유자 보호). 상단 워크스페이스 표시 + `팀` 탭
+- **대시보드 개요**: 전체 열람 · 유니크 · 다운로드 · 거부 집계, 인기 문서, 최근 활동 피드 (워크스페이스 단위 집계)
 - **콘텐츠 업로드**: PDF (최대 50MB), XHR 진행률 표시
 - **링크 발급**: 파일 단위 또는 **데이터룸**(여러 문서 묶음) 단위
 - **데이터룸**: 폴더 계층으로 정리, **드래그(또는 ▲▼)로 파일 순서 변경**, **뷰어 그룹별 폴더 권한**(그룹마다 보이는 폴더를 다르게 개방), 룸 단위 통계 롤업
@@ -79,7 +80,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 031까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC 기능에 018~031을 사용하므로 빠짐없이 적용해야 합니다. 022~031은 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다.)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 034까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC·**팀/워크스페이스(RBAC)** 기능에 018~034를 사용하므로 빠짐없이 적용해야 합니다. 022~034는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다. **032~034는 워크스페이스 마이그레이션으로, 기존 사용자마다 개인 워크스페이스를 백필하므로 한 번만 안전하게 적용됩니다.**)
 
 | 번호 | 내용 |
 |---|---|
@@ -114,6 +115,9 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 031까지
 | 029 | 데이터룸 파일 순서변경 RPC `reorder_collection_files`(collection·owner 스코프, `unnest … with ordinality`로 0-based `sort_order` 일괄 갱신). **UPDATE 전용**이라 동시 삭제된 멤버를 되살리지 않고(업서트 INSERT 경로 제거), 원자적·단일 왕복. 코드리뷰 후속 수정 |
 | 030 | 파일 요청 업로드 2단계 커밋: `file_request_uploads.confirmed_at`(+ 기존 row backfill·미확정 partial index). 업로드 라우트가 Storage 저장 성공 후에만 confirm → 소유자 목록은 confirmed만 노출, 디스패치 cron이 1시간 지난 **미확정 고아 row 정리**(트리거가 `upload_count` 복구). insert↔Storage 사이 크래시로 생기던 빈 row + 한도 소진 방지 |
 | 031 | 데이터룸 **폴더** 순서변경 RPC `reorder_folders`(collection·owner 스코프, UPDATE 전용·원자적 — 029의 폴더판). 룸 페이지 폴더 헤더의 ▲▼ 버튼으로 형제 폴더 순서 변경 |
+| 032 | **팀/워크스페이스 Phase A**(추가 전용): `workspaces`·`workspace_members`(역할 enum owner/admin/member) + `is_workspace_member`/`has_workspace_role` SECURITY DEFINER 헬퍼. 15개 테넌트 테이블에 `workspace_id`(nullable·FK·인덱스) 추가 + **기존 사용자마다 개인 워크스페이스 생성·owner 멤버십·모든 행 백필**. RLS·앱 불변 → 무중단 |
+| 033 | **팀/워크스페이스 Phase C**(추가 전용): 15개 테이블에 멤버십 SELECT 정책 추가 → `SELECT = owner_id=auth.uid() OR is_workspace_member(workspace_id)`(읽기를 넓히기만 함, 깨지지 않음). `claim_view`의 view 이벤트에 `workspace_id` 태깅(마지막 미태깅 인서트 경로). owner 쓰기 정책·012 교차소유 체크는 방어층으로 유지(앱은 service-role admin 클라이언트로 씀) |
+| 034 | **팀/워크스페이스 Phase D**: `workspace_invitations`(토큰 초대 링크 + admin RLS) + 워크스페이스 단위 분석 RPC `get_workspace_overview`/`get_workspace_top_documents`/`get_workspace_contacts`(020의 워크스페이스판) |
 
 ### 4) Supabase Auth
 
@@ -163,12 +167,14 @@ app/
     contacts                     # 연락처 (이메일 제출 방문자 롤업)
     requests / requests/[id]     # 파일 요청 목록 + 상세(수신 파일)
     automations                  # MCP 키 + webhook/Teams 구독
+    team                         # 팀/워크스페이스: 멤버·역할·초대 링크·전환·생성
     settings                     # 브랜딩(계정) · 비밀번호 · 계정 삭제
     (logo|cover)                 # 계정 브랜딩 이미지 업로드 라우트
     trash                        # 휴지통 (복구 / 영구 삭제)
     upload                       # POST 핸들러 (XHR으로 업로드)
   v/[token]/page.tsx             # viewer (정책·NDA·그룹 평가 → PdfViewer + 사이드바 Q&A)
   r/[token]/page.tsx + upload    # 파일 요청 공개 페이지 + 익명 업로드 라우트
+  invite/[token]/page.tsx        # 워크스페이스 초대 수락 (로그인 후 참여)
   api/
     v/[token]/(document|download|event)  # Range 스트리밍 / 다운로드 / page_view ingest
     owner/files                  # 페이지네이션/검색되는 파일 picker API
@@ -217,6 +223,7 @@ Authorization: Bearer <MCP_API_KEY>
 ## 데이터베이스 요약
 
 **테이블**:
+- `workspaces`, `workspace_members`(역할 owner/admin/member), `workspace_invitations` (팀/워크스페이스 — RBAC 테넌시 루트)
 - `files`, `share_links`, `link_events`
 - `collections`, `collection_files`, `folders` (데이터룸 폴더 트리)
 - `viewer_groups`, `viewer_group_folders` (그룹별 폴더 권한)
@@ -238,6 +245,8 @@ Authorization: Bearer <MCP_API_KEY>
 - `reorder_collection_files` — 데이터룸 파일 순서 일괄 갱신 (UPDATE 전용·원자적)
 - `get_per_page_stats` / `get_link_unique_views` / `get_collection_unique_views` — DB 쪽 집계
 - `get_owner_overview` / `get_owner_top_documents` / `get_owner_contacts` — 계정 단위 집계
+- `get_workspace_overview` / `get_workspace_top_documents` / `get_workspace_contacts` — 워크스페이스 단위 집계
+- `is_workspace_member` / `has_workspace_role` — 워크스페이스 멤버십·역할 검사 (RLS 정책 + 앱 컨텍스트에서 사용)
 - `claim_event_outbox_jobs` — webhook 디스패처용 atomic claim
 
 **핵심 Index**:
@@ -246,7 +255,7 @@ Authorization: Bearer <MCP_API_KEY>
 - `idx_files_owner_created`
 
 **보장**:
-- Owner 기준 RLS 멀티테넌시 격리 (cross-owner 부모 소유권 검증 포함)
+- **워크스페이스 멤버십 기준 RLS 멀티테넌시 격리**: 읽기는 `is_workspace_member(workspace_id)` SELECT 정책(032 백필 + 033 additive), 쓰기는 service-role admin 클라이언트가 `workspace_id`로 스코프(액션은 `requireWorkspace`로 현재 워크스페이스+역할 해석). owner 단위 정책은 방어층으로 유지(cross-owner 부모 소유권 검증 포함)
 - 이벤트 카운터는 트리거가 아닌 RPC에서 원자적으로 처리
 - 부모(파일/컬렉션) 삭제는 자식 활성 링크가 없을 때만 허용
 
@@ -287,8 +296,8 @@ Authorization: Bearer <MCP_API_KEY>
 ## 향후 로드맵
 
 ### P1 — 수익화 / 확장
-- **팀 / 워크스페이스 + 역할(RBAC)**: 현재 owner 단위 RLS를 워크스페이스 단위로 재설계 → 멤버 초대 · 권한 분리
-- **빌링 (Stripe)**: 위 작업 이후 구독/요금제 연동
+- ✅ **팀 / 워크스페이스 + 역할(RBAC)** — **완료** (마이그레이션 032~034): owner 단위 RLS를 워크스페이스 멤버십으로 재설계, 토큰 초대 링크, owner/admin/member 역할, 워크스페이스 단위 분석·스코핑
+- **빌링 (Stripe)**: 워크스페이스 = 빌링 엔티티 → 구독/요금제/시트 연동 (다음 P1)
 
 ### P2 — 프리미엄 / 견고성
 - **파일 요청 업로드 원자성**: DB row ↔ Storage 사이 크래시 대비 — `pending→ready` 상태 또는 고아 row 정리 cron
@@ -303,7 +312,7 @@ Authorization: Bearer <MCP_API_KEY>
 - **비디오 임베드 · SSO · 네이티브 통합** (Salesforce / Zapier)
 
 ### 기술 부채 / 정리
-- `notify/question.ts` ↔ `notify/file-upload.ts` 공용 디스패치 헬퍼로 dedup (~90줄 중복)
+- **워크스페이스 RLS 정리** (런칭 후·비긴급): 중복 owner SELECT 정책 폐기 + 쓰기 정책을 `has_workspace_role`로 전환(012 부모 검증은 cross-workspace로) + 백필·태깅 완료 후 `workspace_id` NOT NULL. 앱은 service-role admin으로 쓰므로 방어층일 뿐
 - `listViewerQuestions` per-render 읽기 캐싱/지연
 - 공개 브랜딩 버킷 SVG 허용 정책 결정
 - 자동화 cron 빈도 (Hobby 1일 1회 → Pro 상향)
