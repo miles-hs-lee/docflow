@@ -1,5 +1,6 @@
 import { Button, Input, Stack } from '@polaris/ui';
 
+import { BrandColorField } from '@/components/brand-color-field';
 import { BrandingImageUploader } from '@/components/branding-image-uploader';
 import { HiddenInput } from '@/components/hidden-input';
 import type { ViewerBranding } from '@/lib/types';
@@ -54,12 +55,7 @@ export function BrandingEditor({
           defaultValue={branding?.company_name ?? ''}
           maxLength={80}
         />
-        <Input
-          name="brandColor"
-          label="브랜드 색상 (HEX)"
-          placeholder="#RRGGBB"
-          defaultValue={branding?.brand_color ?? ''}
-        />
+        <BrandColorField defaultValue={branding?.brand_color ?? ''} />
         <Button type="submit">브랜딩 저장</Button>
       </form>
 

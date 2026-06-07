@@ -1286,6 +1286,31 @@ svg {
   }
 }
 
+/* Native colour-picker swatch in the brand-colour field's leading slot. Override
+   the inherited .form-grid text-input sizing back down to a small square. */
+.branding-editor input.brand-color-swatch {
+  width: 1.875rem;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  min-height: 1.875rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--polaris-radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.brand-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.brand-color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.brand-color-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
 .viewer-title {
   overflow: hidden;
   color: color-mix(in srgb, var(--polaris-label-inverse) 76%, transparent);
