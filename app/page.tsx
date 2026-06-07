@@ -2,10 +2,11 @@ import { Avatar, AvatarFallback, Badge, Button, Card, FileIcon } from '@polaris/
 import { NovaLogo, PolarisLogo } from '@polaris/ui/logos';
 import Link from 'next/link';
 
-// Landing must stay static — no per-request session lookup. Both CTAs are
-// public; /dashboard is gated by requireOwner(), so logged-out clicks
-// fall through to /login automatically.
-export const dynamic = 'force-static';
+import { getOwner } from '@/lib/auth';
+
+// Renders per-request so a logged-in visitor sees "대시보드로 가기" + their
+// avatar instead of the sign-up CTAs. getOwner() never redirects (unlike
+// requireOwner), so anonymous visitors fall through to the marketing CTAs.
 
 const HERO_HEATMAP_FILE = '폴라리스 2026 제안서.pdf';
 const HERO_HEATMAP_PAGES: { page: number; dwellMs: number }[] = [
@@ -20,7 +21,11 @@ const HERO_HEATMAP_PAGES: { page: number; dwellMs: number }[] = [
 ];
 const HERO_HEATMAP_MAX_DWELL = Math.max(...HERO_HEATMAP_PAGES.map((p) => p.dwellMs));
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { user } = await getOwner();
+  const isLoggedIn = Boolean(user);
+  const avatarInitial = (user?.email?.trim()?.[0] ?? 'D').toUpperCase();
+
   return (
     <main className="landing-home-layout">
       <section className="landing-shell">
@@ -31,12 +36,27 @@ export default function HomePage() {
             <span className="landing-brand-product">DocFlow</span>
           </Link>
           <div className="landing-nav">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">로그인</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/signup">무료로 시작</Link>
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <Button asChild size="sm">
+                  <Link href="/dashboard">대시보드로 가기</Link>
+                </Button>
+                <Link href="/dashboard" className="landing-avatar-link" aria-label={user?.email ?? '내 계정'}>
+                  <Avatar size="sm">
+                    <AvatarFallback>{avatarInitial}</AvatarFallback>
+                  </Avatar>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/login">로그인</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/signup">무료로 시작</Link>
+                </Button>
+              </>
+            )}
           </div>
         </header>
 
@@ -50,12 +70,20 @@ export default function HomePage() {
               메일에 첨부하고 잊어버리던 외부 문서를, 영업 · IR · 법무 팀이 보낸 이후까지 한 화면에서 운영합니다.
             </p>
             <div className="landing-cta-row">
-              <Button asChild size="xl">
-                <Link href="/signup">무료로 시작</Link>
-              </Button>
-              <Button asChild variant="secondary" size="xl">
-                <Link href="/login">로그인</Link>
-              </Button>
+              {isLoggedIn ? (
+                <Button asChild size="xl">
+                  <Link href="/dashboard">대시보드로 가기</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild size="xl">
+                    <Link href="/signup">무료로 시작</Link>
+                  </Button>
+                  <Button asChild variant="secondary" size="xl">
+                    <Link href="/login">로그인</Link>
+                  </Button>
+                </>
+              )}
             </div>
             <p className="landing-trust">
               폴라리스오피스 구독만 하면 DocFlow가 무료
@@ -139,23 +167,33 @@ export default function HomePage() {
           <div className="landing-feature-grid">
             <Card className="landing-feature" variant="padded">
               <FileIcon type="pdf" size={36} />
-              <h3>링크 정책</h3>
-              <p>만료, 비밀번호, 이메일 도메인 화이트리스트, 최대 조회수, 다운로드 차단을 링크별로 적용합니다.</p>
+              <h3>링크 정책 · NDA</h3>
+              <p>만료, 비밀번호, 이메일·도메인 제한, 최대 조회수, 다운로드 차단에 더해 열람 전 NDA 동의까지 링크마다 적용합니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <FileIcon type="folder" size={36} />
               <h3>데이터룸</h3>
-              <p>제안서 · 약관 · 소개서를 하나의 데이터룸 링크로 전달하고 파일 단위 통계를 분리해 봅니다.</p>
+              <p>여러 문서를 폴더로 정리해 한 링크로 전달하고, 상대 그룹마다 볼 수 있는 폴더를 다르게 열며, 열람자는 그 자리에서 질문을 남깁니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <Badge variant="info" tone="subtle">실시간</Badge>
               <h3>열람 신호와 통계</h3>
-              <p>열람, 다운로드, 거부 사유, 비밀번호 실패까지 모든 이벤트를 링크 · 파일 · 파트너 축으로 집계합니다.</p>
+              <p>열람, 다운로드, 거부 사유, 페이지별 머문 시간까지 모든 이벤트를 링크 · 파일 · 방문자 축으로 집계합니다.</p>
+            </Card>
+            <Card className="landing-feature" variant="padded">
+              <FileIcon type="pdf" size={36} />
+              <h3>파일 요청</h3>
+              <p>요청 링크 한 줄로 외부에서 계약서 · 증빙 파일을 안전하게 받아오고, 도착하면 바로 알림을 받습니다.</p>
+            </Card>
+            <Card className="landing-feature" variant="padded">
+              <Badge variant="primary" tone="subtle">화이트라벨</Badge>
+              <h3>커스텀 브랜딩</h3>
+              <p>로고 · 브랜드 색상 · 회사명 · 커버 이미지로 공유 화면을 우리 브랜드로 채우고 DocFlow 표기를 숨깁니다.</p>
             </Card>
             <Card className="landing-feature landing-feature-nova" variant="padded">
               <NovaLogo size={32} aria-hidden />
               <h3>MCP 자동화</h3>
-              <p>업로드, 링크 발급, 통계 조회를 MCP API 키 한 줄로 AI Agent · Slack · CRM 워크플로우에 연결합니다.</p>
+              <p>업로드, 링크 발급, 통계 조회, 질문 알림을 MCP API 키 한 줄로 AI Agent · Slack · Teams 워크플로우에 연결합니다.</p>
             </Card>
           </div>
         </section>
@@ -213,14 +251,26 @@ export default function HomePage() {
         <Card className="landing-cta-card" variant="padded">
           <Badge variant="primary" tone="subtle">Get started</Badge>
           <h2>다음 제안서부터 다르게 보내보세요</h2>
-          <p className="landing-lede">계정 생성에 1분, 첫 PDF 링크 발급까지 3분이면 충분합니다.</p>
+          <p className="landing-lede">
+            {isLoggedIn
+              ? '대시보드에서 새 링크를 발급하고 누가 어디까지 읽었는지 바로 확인하세요.'
+              : '계정 생성에 1분, 첫 PDF 링크 발급까지 3분이면 충분합니다.'}
+          </p>
           <div className="landing-cta-row">
-            <Button asChild size="xl">
-              <Link href="/signup">무료로 시작</Link>
-            </Button>
-            <Button asChild variant="secondary" size="xl">
-              <Link href="/login">로그인</Link>
-            </Button>
+            {isLoggedIn ? (
+              <Button asChild size="xl">
+                <Link href="/dashboard">대시보드로 가기</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild size="xl">
+                  <Link href="/signup">무료로 시작</Link>
+                </Button>
+                <Button asChild variant="secondary" size="xl">
+                  <Link href="/login">로그인</Link>
+                </Button>
+              </>
+            )}
           </div>
           <p className="landing-cta-fineprint">
             모든 링크 이벤트는 감사 로그로 보존됩니다 · 폴라리스오피스 보안 기준 적용

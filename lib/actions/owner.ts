@@ -334,7 +334,9 @@ export async function deleteCollectionAction(formData: FormData) {
 
 // ───────────────────────────────────────────────────────────
 // Data room Phase 4: owner answers / removes viewer questions. Scoped by
-// owner_id so a forged/foreign questionId just no-ops.
+// owner_id AND collection_id so a forged/foreign questionId or a tampered
+// collectionId just no-ops (and keeps the redirect/revalidate room consistent
+// with the row actually touched).
 
 export async function answerQuestionAction(formData: FormData) {
   const { user } = await requireOwner();
@@ -345,7 +347,7 @@ export async function answerQuestionAction(formData: FormData) {
   const answer = ((formData.get('answer') as string | null) || '').trim();
   const redirectPath = collectionId ? `/dashboard/collections/${collectionId}` : '/dashboard/collections';
 
-  if (!questionId) {
+  if (!questionId || !collectionId) {
     redirectWithError('/dashboard/collections', '질문 정보가 누락되었습니다.');
   }
   if (!answer) {
@@ -356,6 +358,7 @@ export async function answerQuestionAction(formData: FormData) {
     .from('data_room_questions')
     .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
     .eq('id', questionId)
+    .eq('collection_id', collectionId)
     .eq('owner_id', user.id);
   if (error) {
     redirectWithError(redirectPath, '답변 저장에 실패했습니다.');
@@ -373,7 +376,7 @@ export async function deleteQuestionAction(formData: FormData) {
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
   const redirectPath = collectionId ? `/dashboard/collections/${collectionId}` : '/dashboard/collections';
 
-  if (!questionId) {
+  if (!questionId || !collectionId) {
     redirectWithError('/dashboard/collections', '질문 정보가 누락되었습니다.');
   }
 
@@ -381,6 +384,7 @@ export async function deleteQuestionAction(formData: FormData) {
     .from('data_room_questions')
     .delete()
     .eq('id', questionId)
+    .eq('collection_id', collectionId)
     .eq('owner_id', user.id);
   if (error) {
     redirectWithError(redirectPath, '질문 삭제에 실패했습니다.');
