@@ -22,6 +22,28 @@ export type McpScope =
   | 'automations:read'
   | 'automations:write';
 
+// Teams / workspaces (P1). Resources are tenanted by workspace_id; a user joins
+// a workspace via workspace_members with a role. owner > admin > member.
+export type WorkspaceRole = 'owner' | 'admin' | 'member';
+
+export type WorkspaceRow = {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkspaceMemberRow = {
+  workspace_id: string;
+  user_id: string;
+  role: WorkspaceRole;
+  created_at: string;
+};
+
+// A workspace plus the current user's role in it — what requireWorkspace resolves.
+export type WorkspaceWithRole = WorkspaceRow & { role: WorkspaceRole };
+
 export type DeniedReason =
   | 'expired'
   | 'inactive'
