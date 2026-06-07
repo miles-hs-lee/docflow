@@ -26,6 +26,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: '/dashboard/contacts', label: '연락처' },
   { href: '/dashboard/requests', label: '파일요청', activePrefixes: ['/dashboard/requests'] },
   { href: '/dashboard/automations', label: '자동화' },
+  { href: '/dashboard/team', label: '팀', activePrefixes: ['/dashboard/team'] },
   { href: '/dashboard/trash', label: '휴지통' }
 ];
 

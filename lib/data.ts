@@ -58,6 +58,7 @@ export type ListFilesOptions = {
 
 export async function listFiles(
   ownerClient: OwnerClient,
+  workspaceId: string,
   options: ListFilesOptions = {}
 ): Promise<{ rows: FileRow[]; total: number; limit: number; offset: number }> {
   const limit = Math.min(Math.max(options.limit ?? FILES_PAGE_SIZE_DEFAULT, 1), FILES_PAGE_SIZE_MAX);
@@ -66,7 +67,7 @@ export async function listFiles(
   const sortDir: FilesSortDir = options.sortDir ?? (sortKey === 'original_name' ? 'asc' : 'desc');
   const search = (options.search ?? '').trim();
 
-  let query = ownerClient.from('files').select('*', { count: 'exact' });
+  let query = ownerClient.from('files').select('*', { count: 'exact' }).eq('workspace_id', workspaceId);
   if (search) {
     // ILIKE on original_name. Escape % and _ so user-typed patterns
     // can't accidentally turn into wildcards.
@@ -85,14 +86,23 @@ export async function listFiles(
   };
 }
 
-export async function getFile(ownerClient: OwnerClient, fileId: string): Promise<FileRow | null> {
-  const { data, error } = await ownerClient.from('files').select('*').eq('id', fileId).maybeSingle();
+export async function getFile(ownerClient: OwnerClient, workspaceId: string, fileId: string): Promise<FileRow | null> {
+  const { data, error } = await ownerClient
+    .from('files')
+    .select('*')
+    .eq('id', fileId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
   if (error) throw error;
   return (data as FileRow | null) ?? null;
 }
 
-export async function listCollections(ownerClient: OwnerClient): Promise<CollectionSummaryRow[]> {
-  const { data: collections, error } = await ownerClient.from('collections').select('*').order('created_at', { ascending: false });
+export async function listCollections(ownerClient: OwnerClient, workspaceId: string): Promise<CollectionSummaryRow[]> {
+  const { data: collections, error } = await ownerClient
+    .from('collections')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
 
   const rows = (collections ?? []) as CollectionRow[];
@@ -117,23 +127,31 @@ export async function listCollections(ownerClient: OwnerClient): Promise<Collect
   }));
 }
 
-export async function listMcpApiKeys(ownerClient: OwnerClient): Promise<McpApiKeyRow[]> {
+export async function listMcpApiKeys(ownerClient: OwnerClient, workspaceId: string): Promise<McpApiKeyRow[]> {
   const { data, error } = await ownerClient
     .from('mcp_api_keys')
     .select('id, owner_id, label, key_prefix, scopes, last_used_at, revoked_at, created_at')
+    .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data ?? []) as McpApiKeyRow[];
 }
 
-export async function listAutomationSubscriptions(ownerClient: OwnerClient): Promise<AutomationSubscriptionRow[]> {
-  const { data, error } = await ownerClient.from('automation_subscriptions').select('*').order('created_at', { ascending: false });
+export async function listAutomationSubscriptions(
+  ownerClient: OwnerClient,
+  workspaceId: string
+): Promise<AutomationSubscriptionRow[]> {
+  const { data, error } = await ownerClient
+    .from('automation_subscriptions')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as AutomationSubscriptionRow[];
 }
 
-export async function listLinkEventsForOwner(ownerClient: OwnerClient, options?: {
+export async function listLinkEventsForOwner(ownerClient: OwnerClient, workspaceId: string, options?: {
   linkId?: string;
   afterId?: number;
   limit?: number;
@@ -142,6 +160,7 @@ export async function listLinkEventsForOwner(ownerClient: OwnerClient, options?:
   let query = ownerClient
     .from('link_events')
     .select('*')
+    .eq('workspace_id', workspaceId)
     .order('id', { ascending: true })
     .limit(limit);
 
@@ -158,8 +177,17 @@ export async function listLinkEventsForOwner(ownerClient: OwnerClient, options?:
   return (data ?? []) as LinkEventRow[];
 }
 
-export async function getCollection(ownerClient: OwnerClient, collectionId: string): Promise<CollectionRow | null> {
-  const { data, error } = await ownerClient.from('collections').select('*').eq('id', collectionId).maybeSingle();
+export async function getCollection(
+  ownerClient: OwnerClient,
+  workspaceId: string,
+  collectionId: string
+): Promise<CollectionRow | null> {
+  const { data, error } = await ownerClient
+    .from('collections')
+    .select('*')
+    .eq('id', collectionId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
   if (error) throw error;
   return (data as CollectionRow | null) ?? null;
 }
@@ -314,10 +342,11 @@ export function computeVisibleFolderIds(
   return visible;
 }
 
-export async function listTrashLinks(ownerClient: OwnerClient): Promise<ShareLinkTrashRow[]> {
+export async function listTrashLinks(ownerClient: OwnerClient, workspaceId: string): Promise<ShareLinkTrashRow[]> {
   const { data, error } = await ownerClient
     .from('share_links')
     .select('*')
+    .eq('workspace_id', workspaceId)
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false });
 
@@ -363,8 +392,13 @@ export async function listTrashLinks(ownerClient: OwnerClient): Promise<ShareLin
   }));
 }
 
-export async function getLink(ownerClient: OwnerClient, linkId: string): Promise<ShareLinkRow | null> {
-  const { data, error } = await ownerClient.from('share_links').select('*').eq('id', linkId).maybeSingle();
+export async function getLink(ownerClient: OwnerClient, workspaceId: string, linkId: string): Promise<ShareLinkRow | null> {
+  const { data, error } = await ownerClient
+    .from('share_links')
+    .select('*')
+    .eq('id', linkId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
   if (error) throw error;
   return (data as ShareLinkRow | null) ?? null;
 }
@@ -873,9 +907,9 @@ export async function listLinkVisitors(args: {
 // 020). All degrade to empty/zero on error so the pages render before the
 // migration is applied (same pattern as listPerPageStats / listLinkVisitors).
 
-export async function getOwnerOverview(ownerId: string): Promise<OwnerOverview> {
+export async function getWorkspaceOverview(workspaceId: string): Promise<OwnerOverview> {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('get_owner_overview', { p_owner_id: ownerId });
+  const { data, error } = await admin.rpc('get_workspace_overview', { p_workspace_id: workspaceId });
   if (error || !data) {
     if (error) console.error('[getOwnerOverview] degraded to zero', error);
     return { opens: 0, unique_viewers: 0, downloads: 0, denied: 0 };
@@ -891,9 +925,9 @@ export async function getOwnerOverview(ownerId: string): Promise<OwnerOverview> 
   };
 }
 
-export async function listTopDocuments(ownerId: string, limit = 5): Promise<TopDocument[]> {
+export async function listWorkspaceTopDocuments(workspaceId: string, limit = 5): Promise<TopDocument[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('get_owner_top_documents', { p_owner_id: ownerId, p_limit: limit });
+  const { data, error } = await admin.rpc('get_workspace_top_documents', { p_workspace_id: workspaceId, p_limit: limit });
   if (error || !data) {
     if (error) console.error('[listTopDocuments] degraded to empty', error);
     return [];
@@ -908,9 +942,9 @@ export async function listTopDocuments(ownerId: string, limit = 5): Promise<TopD
   }));
 }
 
-export async function listOwnerContacts(ownerId: string, limit = 200): Promise<OwnerContact[]> {
+export async function listWorkspaceContacts(workspaceId: string, limit = 200): Promise<OwnerContact[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('get_owner_contacts', { p_owner_id: ownerId, p_limit: limit });
+  const { data, error } = await admin.rpc('get_workspace_contacts', { p_workspace_id: workspaceId, p_limit: limit });
   if (error || !data) {
     if (error) console.error('[listOwnerContacts] degraded to empty', error);
     return [];
@@ -941,11 +975,13 @@ export async function listOwnerContacts(ownerId: string, limit = 200): Promise<O
 // Recent activity feed for the overview (page_view excluded — too noisy).
 export async function listRecentEvents(
   ownerClient: OwnerClient,
+  workspaceId: string,
   limit = 12
 ): Promise<Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>> {
   const { data, error } = await ownerClient
     .from('link_events')
     .select('id, event_type, reason, viewer_email, created_at')
+    .eq('workspace_id', workspaceId)
     .in('event_type', OWNER_FEED_EVENT_TYPES)
     .order('id', { ascending: false })
     .limit(limit);
@@ -1069,21 +1105,27 @@ export async function removeRequestObject(path: string) {
   if (error) throw error;
 }
 
-export async function listFileRequests(ownerClient: OwnerClient): Promise<FileRequestRow[]> {
+export async function listFileRequests(ownerClient: OwnerClient, workspaceId: string): Promise<FileRequestRow[]> {
   const { data, error } = await ownerClient
     .from('file_requests')
     .select('*')
+    .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as FileRequestRow[];
 }
 
-export async function getFileRequest(ownerClient: OwnerClient, requestId: string): Promise<FileRequestRow | null> {
+export async function getFileRequest(
+  ownerClient: OwnerClient,
+  workspaceId: string,
+  requestId: string
+): Promise<FileRequestRow | null> {
   const { data, error } = await ownerClient
     .from('file_requests')
     .select('*')
     .eq('id', requestId)
+    .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
     .maybeSingle();
   if (error) throw error;

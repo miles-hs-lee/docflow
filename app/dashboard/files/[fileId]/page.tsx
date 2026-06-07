@@ -32,7 +32,7 @@ import {
 } from '@/lib/actions/owner';
 import { DEFAULT_AGREEMENT_TEXT } from '@/lib/agreement';
 import { publicEnv } from '@/lib/env-public';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { getFile, getMetricsForFile, listLinksForFile, listPerPageStats } from '@/lib/data';
 import { linkStatus, statusVariant } from '@/lib/link-status';
 
@@ -43,9 +43,9 @@ type FileLinksPageProps = {
 export default async function FileLinksPage({ params }: FileLinksPageProps) {
   const { fileId } = await params;
 
-  const { supabase, user } = await requireOwner();
+  const { supabase, user, workspace } = await requireWorkspace();
   const [file, links, metricsMap, pageStats] = await Promise.all([
-    getFile(supabase, fileId),
+    getFile(supabase, workspace.id, fileId),
     listLinksForFile(supabase, fileId),
     getMetricsForFile(supabase, fileId),
     listPerPageStats({ ownerId: user.id, fileId })

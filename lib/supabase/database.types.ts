@@ -804,6 +804,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      workspace_invitations: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          email: string;
+          role: 'owner' | 'admin' | 'member';
+          token: string;
+          invited_by: string | null;
+          status: 'pending' | 'accepted' | 'revoked';
+          accepted_by: string | null;
+          accepted_at: string | null;
+          expires_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          email: string;
+          role?: 'owner' | 'admin' | 'member';
+          token: string;
+          invited_by?: string | null;
+          status?: 'pending' | 'accepted' | 'revoked';
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          workspace_id?: string;
+          email?: string;
+          role?: 'owner' | 'admin' | 'member';
+          token?: string;
+          invited_by?: string | null;
+          status?: 'pending' | 'accepted' | 'revoked';
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1089,6 +1131,45 @@ export type Database = {
       get_owner_contacts: {
         Args: {
           p_owner_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          viewer_email: string;
+          documents: number;
+          sessions: number;
+          opens: number;
+          downloads: number;
+          agreed: boolean;
+          first_seen: string;
+          last_seen: string;
+        }[];
+      };
+      get_workspace_overview: {
+        Args: {
+          p_workspace_id: string;
+        };
+        Returns: {
+          opens: number;
+          unique_viewers: number;
+          downloads: number;
+          denied: number;
+        }[];
+      };
+      get_workspace_top_documents: {
+        Args: {
+          p_workspace_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          file_id: string;
+          original_name: string;
+          viewers: number;
+          views: number;
+        }[];
+      };
+      get_workspace_contacts: {
+        Args: {
+          p_workspace_id: string;
           p_limit?: number;
         };
         Returns: {

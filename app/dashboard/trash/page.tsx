@@ -12,13 +12,13 @@ import Link from 'next/link';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { hardDeleteLinkAction, restoreLinkAction } from '@/lib/actions/owner';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { listTrashLinks } from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
 
 export default async function TrashPage() {
-  const { supabase } = await requireOwner();
-  const links = await listTrashLinks(supabase);
+  const { supabase, workspace } = await requireWorkspace();
+  const links = await listTrashLinks(supabase, workspace.id);
 
   return (
     <Stack asChild gap={5}>

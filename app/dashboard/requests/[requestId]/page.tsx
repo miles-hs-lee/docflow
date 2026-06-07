@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { LocalDate } from '@/components/local-date';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { getFileRequest, listRequestUploads } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { formatBytes } from '@/lib/format';
@@ -30,9 +30,9 @@ type RequestDetailPageProps = {
 
 export default async function RequestDetailPage({ params }: RequestDetailPageProps) {
   const { requestId } = await params;
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
 
-  const request = await getFileRequest(supabase, requestId);
+  const request = await getFileRequest(supabase, workspace.id, requestId);
   if (!request) {
     notFound();
   }

@@ -46,7 +46,7 @@ import {
   updateShareLinkAction
 } from '@/lib/actions/owner';
 import { DEFAULT_AGREEMENT_TEXT } from '@/lib/agreement';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import {
   getCollection,
   getCollectionBranding,
@@ -67,9 +67,9 @@ type CollectionLinksPageProps = {
 export default async function CollectionLinksPage({ params }: CollectionLinksPageProps) {
   const { collectionId } = await params;
 
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
   const [collection, space, links, viewerGroups, roomBranding, questions] = await Promise.all([
-    getCollection(supabase, collectionId),
+    getCollection(supabase, workspace.id, collectionId),
     listSpaceContents(supabase, collectionId),
     listLinksForCollection(supabase, collectionId),
     listViewerGroups(supabase, collectionId),

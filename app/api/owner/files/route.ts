@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getOwner } from '@/lib/auth';
+import { getCurrentWorkspace, getOwner } from '@/lib/auth';
 import { listFiles, type FilesSortDir, type FilesSortKey } from '@/lib/data';
 
 const SORT_KEYS: ReadonlyArray<FilesSortKey> = ['created_at', 'original_name', 'size_bytes'];
@@ -9,6 +9,10 @@ const SORT_DIRS: ReadonlyArray<FilesSortDir> = ['asc', 'desc'];
 export async function GET(request: NextRequest) {
   const { user, supabase } = await getOwner();
   if (!user) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  const workspace = await getCurrentWorkspace(user.id);
+  if (!workspace) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -22,7 +26,7 @@ export async function GET(request: NextRequest) {
   const sortDir = SORT_DIRS.includes(sortDirParam) ? sortDirParam : undefined;
 
   try {
-    const result = await listFiles(supabase, {
+    const result = await listFiles(supabase, workspace.id, {
       search,
       limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
       offset: Number.isFinite(offset) && offset >= 0 ? offset : undefined,

@@ -18,16 +18,16 @@ import {
 import Link from 'next/link';
 
 import { LocalDate } from '@/components/local-date';
-import { requireOwner } from '@/lib/auth';
-import { getOwnerOverview, listRecentEvents, listTopDocuments } from '@/lib/data';
+import { requireWorkspace } from '@/lib/auth';
+import { getWorkspaceOverview, listRecentEvents, listWorkspaceTopDocuments } from '@/lib/data';
 import { EVENT_META } from '@/lib/event-labels';
 
 export default async function OverviewPage() {
-  const { supabase, user } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
   const [overview, topDocs, recent] = await Promise.all([
-    getOwnerOverview(user.id),
-    listTopDocuments(user.id, 5),
-    listRecentEvents(supabase, 12)
+    getWorkspaceOverview(workspace.id),
+    listWorkspaceTopDocuments(workspace.id, 5),
+    listRecentEvents(supabase, workspace.id, 12)
   ]);
 
   return (

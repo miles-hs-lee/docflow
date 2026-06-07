@@ -44,6 +44,30 @@ export type WorkspaceMemberRow = {
 // A workspace plus the current user's role in it — what requireWorkspace resolves.
 export type WorkspaceWithRole = WorkspaceRow & { role: WorkspaceRole };
 
+export type WorkspaceInvitationStatus = 'pending' | 'accepted' | 'revoked';
+
+export type WorkspaceInvitationRow = {
+  id: string;
+  workspace_id: string;
+  email: string;
+  role: WorkspaceRole;
+  token: string;
+  invited_by: string | null;
+  status: WorkspaceInvitationStatus;
+  accepted_by: string | null;
+  accepted_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+};
+
+// A roster row joined with the member's email (resolved via the admin auth API).
+export type WorkspaceMemberWithUser = {
+  user_id: string;
+  role: WorkspaceRole;
+  email: string | null;
+  created_at: string;
+};
+
 export type DeniedReason =
   | 'expired'
   | 'inactive'

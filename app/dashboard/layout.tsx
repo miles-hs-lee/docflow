@@ -6,10 +6,10 @@ import { DashboardNav } from '@/components/dashboard-nav';
 import { FlashToast } from '@/components/flash-toast';
 import { PolarisProvider } from '@/components/polaris-provider';
 import { UserMenu } from '@/components/user-menu';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
 
   return (
     <PolarisProvider>
@@ -26,6 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <DashboardNav />
         </NavbarNav>
         <NavbarActions className="dashboard-actions">
+          <Link href="/dashboard/team" className="ws-indicator" title="팀 / 워크스페이스 관리">
+            {workspace.name}
+          </Link>
           <UserMenu email={user.email ?? ''} />
         </NavbarActions>
       </Navbar>

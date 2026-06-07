@@ -20,13 +20,13 @@ import Link from 'next/link';
 
 import { HiddenInput } from '@/components/hidden-input';
 import { createCollectionAction, deleteCollectionAction } from '@/lib/actions/owner';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { listCollections } from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
 
 export default async function DataRoomsPage() {
-  const { supabase } = await requireOwner();
-  const collections = await listCollections(supabase);
+  const { supabase, workspace } = await requireWorkspace();
+  const collections = await listCollections(supabase, workspace.id);
 
   return (
     <Stack asChild gap={5}>

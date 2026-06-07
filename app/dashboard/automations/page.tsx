@@ -30,7 +30,7 @@ import {
   revokeMcpApiKeyAction,
   toggleAutomationSubscriptionAction
 } from '@/lib/actions/owner';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { listAutomationSubscriptions, listMcpApiKeys } from '@/lib/data';
 import { formatDateTime } from '@/lib/format';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
@@ -57,10 +57,10 @@ const eventTypeOptions = [
 ];
 
 export default async function AutomationsPage() {
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
   const [apiKeys, subscriptions] = await Promise.all([
-    listMcpApiKeys(supabase),
-    listAutomationSubscriptions(supabase)
+    listMcpApiKeys(supabase, workspace.id),
+    listAutomationSubscriptions(supabase, workspace.id)
   ]);
 
   // Read once from the short-lived HttpOnly flash cookie. Cookie auto-expires

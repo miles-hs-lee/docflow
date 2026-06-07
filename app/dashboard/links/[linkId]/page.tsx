@@ -24,7 +24,7 @@ import { DailyViewsChart } from '@/components/daily-views-chart';
 import { LocalDate } from '@/components/local-date';
 import { PageHeatmap } from '@/components/page-heatmap';
 import { VisitorList } from '@/components/visitor-list';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import {
   getDeniedBreakdown,
   getLink,
@@ -59,9 +59,9 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
   const { before } = await searchParams;
   const beforeId = before && /^\d+$/.test(before) ? Number(before) : undefined;
 
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
 
-  const link = await getLink(supabase, linkId);
+  const link = await getLink(supabase, workspace.id, linkId);
   if (!link) {
     notFound();
   }

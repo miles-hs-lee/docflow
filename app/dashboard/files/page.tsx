@@ -11,7 +11,7 @@ import {
 import { FileBrowser } from '@/components/file-browser';
 import { UploadForm } from '@/components/upload-form';
 import { deleteFileAction } from '@/lib/actions/owner';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import {
   FILES_PAGE_SIZE_DEFAULT,
   FILES_PAGE_SIZE_MAX,
@@ -34,7 +34,7 @@ function pickString(value: string | string[] | undefined): string | undefined {
 
 export default async function ContentPage({ searchParams }: ContentPageProps) {
   const params = await searchParams;
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
 
   // URL contract: fp = page, fz = size, fq = search, fs = sort key, fd = dir.
   const search = pickString(params.fq)?.trim() ?? '';
@@ -49,7 +49,7 @@ export default async function ContentPage({ searchParams }: ContentPageProps) {
   const sortDir: FilesSortDir =
     sortDirParam && SORT_DIRS.includes(sortDirParam) ? sortDirParam : sortKey === 'original_name' ? 'asc' : 'desc';
 
-  const { rows: files, total: filesTotal } = await listFiles(supabase, {
+  const { rows: files, total: filesTotal } = await listFiles(supabase, workspace.id, {
     limit: pageSize,
     offset: (page - 1) * pageSize,
     search,

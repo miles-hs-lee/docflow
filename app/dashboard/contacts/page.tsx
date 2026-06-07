@@ -16,12 +16,12 @@ import {
 } from '@polaris/ui';
 
 import { LocalDate } from '@/components/local-date';
-import { requireOwner } from '@/lib/auth';
-import { listOwnerContacts } from '@/lib/data';
+import { requireWorkspace } from '@/lib/auth';
+import { listWorkspaceContacts } from '@/lib/data';
 
 export default async function ContactsPage() {
-  const { user } = await requireOwner();
-  const contacts = await listOwnerContacts(user.id, 200);
+  const { workspace } = await requireWorkspace();
+  const contacts = await listWorkspaceContacts(workspace.id, 200);
 
   return (
     <Stack asChild gap={5}>

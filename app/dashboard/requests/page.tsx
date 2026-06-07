@@ -19,13 +19,13 @@ import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LocalDate } from '@/components/local-date';
 import { createFileRequestAction, deleteFileRequestAction, toggleFileRequestAction } from '@/lib/actions/owner';
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { listFileRequests } from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 
 export default async function FileRequestsPage() {
-  const { supabase } = await requireOwner();
-  const requests = await listFileRequests(supabase);
+  const { supabase, workspace } = await requireWorkspace();
+  const requests = await listFileRequests(supabase, workspace.id);
   const appOrigin = publicEnv.appUrl;
 
   return (

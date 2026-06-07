@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { requireOwner } from '@/lib/auth';
+import { requireWorkspace } from '@/lib/auth';
 import { getLink } from '@/lib/data';
 import type { LinkEventRow } from '@/lib/types';
 
@@ -43,9 +43,9 @@ function csvCell(value: unknown): string {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { linkId } = await context.params;
-  const { supabase } = await requireOwner();
+  const { supabase, workspace } = await requireWorkspace();
 
-  const link = await getLink(supabase, linkId);
+  const link = await getLink(supabase, workspace.id, linkId);
   if (!link) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
