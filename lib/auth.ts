@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -46,7 +47,7 @@ export async function getOwner() {
 
 // Every workspace the user belongs to, with their role, earliest first. Read via
 // the service-role client (a trusted internal lookup, no RLS edge cases).
-export async function listUserWorkspaces(userId: string): Promise<WorkspaceWithRole[]> {
+export const listUserWorkspaces = cache(async (userId: string): Promise<WorkspaceWithRole[]> => {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('workspace_members')
@@ -72,7 +73,7 @@ export async function listUserWorkspaces(userId: string): Promise<WorkspaceWithR
   )
     .filter((row) => row.workspaces)
     .map((row) => ({ ...(row.workspaces as NonNullable<typeof row.workspaces>), role: row.role }));
-}
+});
 
 // The owner shell entry point: resolves the authed user AND their current
 // workspace + role. The current workspace = the WORKSPACE_COOKIE value when it

@@ -154,6 +154,13 @@ export async function acceptInviteAction(formData: FormData) {
   if (invite!.expires_at && new Date(invite!.expires_at) < new Date()) {
     redirectWithError('/dashboard', '만료된 초대입니다.');
   }
+  // Bind the invite to its intended recipient: the logged-in account's email
+  // must match the invited email (the team UI shows that email as the
+  // recipient). Token possession alone must NOT grant membership — otherwise a
+  // leaked link lets any account join at the invited role (up to owner).
+  if ((user.email ?? '').trim().toLowerCase() !== invite!.email.trim().toLowerCase()) {
+    redirectWithError('/dashboard', `이 초대는 ${invite!.email} 주소로 발급되었습니다. 해당 이메일로 로그인 후 다시 시도해주세요.`);
+  }
 
   const admin = createAdminClient();
   // Idempotent: if already a member, keep the existing role (don't downgrade).
@@ -196,6 +203,10 @@ export async function changeMemberRoleAction(formData: FormData) {
   if (!currentRole) {
     redirectWithError(TEAM, '멤버를 찾을 수 없습니다.');
   }
+  // Only an owner may change ANOTHER owner's role (admins must not touch owners).
+  if (currentRole === 'owner' && role !== 'owner') {
+    redirectWithError(TEAM, '소유자의 역할은 소유자만 변경할 수 있습니다.');
+  }
   if (currentRole === 'owner' && newRole !== 'owner' && (await countWorkspaceOwners(workspace.id)) <= 1) {
     redirectWithError(TEAM, '마지막 소유자의 권한은 변경할 수 없습니다.');
   }
@@ -227,6 +238,10 @@ export async function removeMemberAction(formData: FormData) {
     .eq('user_id', targetUserId)
     .maybeSingle();
   const currentRole = (current as { role: WorkspaceRole } | null)?.role;
+  // Only an owner may remove another owner (admins must not evict owners).
+  if (currentRole === 'owner' && !isSelf && role !== 'owner') {
+    redirectWithError(TEAM, '소유자는 소유자만 제거할 수 있습니다.');
+  }
   if (currentRole === 'owner' && (await countWorkspaceOwners(workspace.id)) <= 1) {
     redirectWithError(TEAM, '마지막 소유자는 제거할 수 없습니다.');
   }

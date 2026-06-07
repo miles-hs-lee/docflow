@@ -636,6 +636,19 @@ async function handleToolCall(
       throw new Error('invalid_params');
     }
 
+    // get_link_*_for_owner RPCs scope by owner_id only, so gate the link to the
+    // key's workspace first — otherwise a key for one workspace could read a
+    // link's analytics in another of the same owner's workspaces.
+    const { data: linkInWorkspace } = await admin
+      .from('share_links')
+      .select('id')
+      .eq('id', linkId)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (!linkInWorkspace) {
+      throw new Error('link_not_found');
+    }
+
     const [{ data: summaryRows, error: summaryError }, { data: breakdownRows, error: breakdownError }] = await Promise.all([
       admin.rpc('get_link_summary_for_owner', {
         p_owner_id: ownerId,

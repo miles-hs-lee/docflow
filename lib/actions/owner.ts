@@ -1575,13 +1575,16 @@ export async function saveBrandingAction(formData: FormData) {
 }
 
 export async function removeBrandingLogoAction() {
-  const { workspace } = await requireWorkspace();
+  const { user } = await requireWorkspace();
   const admin = createAdminClient();
 
+  // owner_branding is account-level (PK owner_id; read by getOwnerBranding(ownerId)),
+  // so write/remove must scope by owner_id — NOT workspace_id. (Workspace-level
+  // branding is the deferred Phase E remodel.)
   const { data } = await admin
     .from('owner_branding')
     .select('logo_path')
-    .eq('workspace_id', workspace.id)
+    .eq('owner_id', user.id)
     .maybeSingle();
   const logoPath = (data as { logo_path: string | null } | null)?.logo_path ?? null;
 
@@ -1591,7 +1594,7 @@ export async function removeBrandingLogoAction() {
   const { error: updateError } = await admin
     .from('owner_branding')
     .update({ logo_path: null })
-    .eq('workspace_id', workspace.id);
+    .eq('owner_id', user.id);
   if (updateError) {
     redirectWithError('/dashboard/settings', '로고 제거에 실패했습니다.');
   }
@@ -1608,13 +1611,13 @@ export async function removeBrandingLogoAction() {
 }
 
 export async function removeBrandingCoverAction() {
-  const { workspace } = await requireWorkspace();
+  const { user } = await requireWorkspace();
   const admin = createAdminClient();
 
   const { data } = await admin
     .from('owner_branding')
     .select('cover_image_path')
-    .eq('workspace_id', workspace.id)
+    .eq('owner_id', user.id)
     .maybeSingle();
   const coverPath = (data as { cover_image_path: string | null } | null)?.cover_image_path ?? null;
 
@@ -1623,7 +1626,7 @@ export async function removeBrandingCoverAction() {
   const { error: updateError } = await admin
     .from('owner_branding')
     .update({ cover_image_path: null })
-    .eq('workspace_id', workspace.id);
+    .eq('owner_id', user.id);
   if (updateError) {
     redirectWithError('/dashboard/settings', '커버 이미지 제거에 실패했습니다.');
   }
