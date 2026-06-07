@@ -312,6 +312,10 @@ async function handleToolCall(
 ) {
   const admin = createAdminClient();
 
+  if (!workspaceId) {
+    throw new Error('이 API 키에 연결된 워크스페이스를 찾을 수 없습니다.');
+  }
+
   if (name === 'docflow.files.upload') {
     ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'files:write');
     const schema = z.object({
@@ -364,7 +368,7 @@ async function handleToolCall(
       upsert: false
     });
     if (uploadError) {
-      await admin.from('files').delete().eq('id', fileId).eq('owner_id', ownerId);
+      await admin.from('files').delete().eq('id', fileId).eq('workspace_id', workspaceId);
       throw uploadError;
     }
 
@@ -372,7 +376,7 @@ async function handleToolCall(
       .from('files')
       .select('id, original_name, size_bytes, mime_type, created_at, updated_at')
       .eq('id', fileId)
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .maybeSingle();
     if (fileError || !fileRow) {
       throw fileError ?? new Error('file_create_failed');
@@ -390,7 +394,7 @@ async function handleToolCall(
     const { data, error } = await admin
       .from('files')
       .select('id, original_name, size_bytes, mime_type, created_at, updated_at')
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -405,7 +409,7 @@ async function handleToolCall(
     const { data: collections, error } = await admin
       .from('collections')
       .select('id, name, description, created_at, updated_at')
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -438,7 +442,7 @@ async function handleToolCall(
     const targetType = typeof args.targetType === 'string' ? args.targetType : undefined;
     const targetId = typeof args.targetId === 'string' ? args.targetId : undefined;
 
-    let query = admin.from('share_links').select('*').eq('owner_id', ownerId).order('created_at', { ascending: false }).limit(limit);
+    let query = admin.from('share_links').select('*').eq('workspace_id', workspaceId).order('created_at', { ascending: false }).limit(limit);
     if (!includeDeleted) {
       query = query.is('deleted_at', null);
     }
@@ -488,7 +492,7 @@ async function handleToolCall(
         .from('files')
         .select('id')
         .eq('id', payload.targetId)
-        .eq('owner_id', ownerId)
+        .eq('workspace_id', workspaceId)
         .maybeSingle();
       if (fileError || !file) {
         throw new Error('file_not_found');
@@ -498,7 +502,7 @@ async function handleToolCall(
         .from('collections')
         .select('id')
         .eq('id', payload.targetId)
-        .eq('owner_id', ownerId)
+        .eq('workspace_id', workspaceId)
         .maybeSingle();
       if (collectionError || !collection) {
         throw new Error('collection_not_found');
@@ -556,7 +560,7 @@ async function handleToolCall(
       .from('share_links')
       .select('id, owner_id, password_hash')
       .eq('id', linkId)
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .maybeSingle();
 
     if (existingError || !existing) {
@@ -609,7 +613,7 @@ async function handleToolCall(
       .from('share_links')
       .update(updatePayload)
       .eq('id', linkId)
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .select('*')
       .maybeSingle();
 
@@ -666,7 +670,7 @@ async function handleToolCall(
     let query = admin
       .from('link_events')
       .select('id, link_id, file_id, event_type, reason, session_id, viewer_email, created_at')
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .order('id', { ascending: true })
       .limit(limit);
 
@@ -743,7 +747,7 @@ async function handleToolCall(
     let query = admin
       .from('automation_subscriptions')
       .select('*')
-      .eq('owner_id', ownerId)
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     if (!includeInactive) {
       query = query.eq('is_active', true);
@@ -767,7 +771,7 @@ async function handleToolCall(
       .from('automation_subscriptions')
       .delete()
       .eq('id', subscriptionId)
-      .eq('owner_id', ownerId);
+      .eq('workspace_id', workspaceId);
 
     if (error) throw error;
     return {

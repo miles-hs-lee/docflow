@@ -671,7 +671,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
     admin,
     formData,
     collectionId,
-    user.id,
+    workspace.id,
     `/dashboard/collections/${collectionId}`
   );
 
@@ -705,7 +705,7 @@ export async function createCollectionShareLinkAction(formData: FormData) {
 }
 
 export async function updateShareLinkAction(formData: FormData) {
-  const { user, workspace } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -751,7 +751,7 @@ export async function updateShareLinkAction(formData: FormData) {
   // The collection-link edit form always submits the current group so this is a
   // no-op unless the owner actually changed it (changing it bumps policy_version).
   const viewerGroupId = existingLink.collection_id
-    ? await resolveViewerGroupId(admin, formData, existingLink.collection_id, user.id, redirectPath)
+    ? await resolveViewerGroupId(admin, formData, existingLink.collection_id, workspace.id, redirectPath)
     : null;
 
   const { error } = await admin
@@ -1248,7 +1248,7 @@ async function resolveViewerGroupId(
   admin: ReturnType<typeof createAdminClient>,
   formData: FormData,
   collectionId: string | null,
-  ownerId: string,
+  workspaceId: string,
   redirectPath: string
 ): Promise<string | null> {
   const raw = ((formData.get('viewerGroupId') as string | null) || '').trim();
@@ -1258,7 +1258,7 @@ async function resolveViewerGroupId(
     .select('id')
     .eq('id', raw)
     .eq('collection_id', collectionId)
-    .eq('owner_id', ownerId)
+    .eq('workspace_id', workspaceId)
     .maybeSingle();
   // A non-empty, non-'all' group id that doesn't resolve to one of THIS
   // collection's groups is rejected — never silently coerced to null, which
