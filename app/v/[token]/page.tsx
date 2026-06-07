@@ -138,6 +138,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
           linkId: link.id,
           fileId: eventFileId,
           ownerId: link.owner_id,
+          workspaceId: link.workspace_id,
           eventType: 'denied',
           reason: baseDenied,
           sessionId,

@@ -303,11 +303,17 @@ function isPdfBuffer(buffer: Buffer) {
   return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
 }
 
-async function handleToolCall(ownerId: string, principalScopes: string[], name: string, args: Record<string, unknown>) {
+async function handleToolCall(
+  ownerId: string,
+  workspaceId: string | null,
+  principalScopes: string[],
+  name: string,
+  args: Record<string, unknown>
+) {
   const admin = createAdminClient();
 
   if (name === 'docflow.files.upload') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'files:write');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'files:write');
     const schema = z.object({
       filename: z.string().min(1),
       contentBase64: z.string().min(1),
@@ -343,6 +349,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
     const { error: insertError } = await admin.from('files').insert({
       id: fileId,
       owner_id: ownerId,
+      workspace_id: workspaceId,
       original_name: fileName,
       mime_type: 'application/pdf',
       size_bytes: buffer.length,
@@ -378,7 +385,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.files.list') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'files:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'files:read');
     const limit = Math.min(Math.max(typeof args.limit === 'number' ? args.limit : 100, 1), 200);
     const { data, error } = await admin
       .from('files')
@@ -392,7 +399,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.collections.list') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'files:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'files:read');
     const limit = Math.min(Math.max(typeof args.limit === 'number' ? args.limit : 100, 1), 200);
 
     const { data: collections, error } = await admin
@@ -425,7 +432,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.links.list') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'links:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'links:read');
     const limit = Math.min(Math.max(typeof args.limit === 'number' ? args.limit : 100, 1), 200);
     const includeDeleted = args.includeDeleted === true;
     const targetType = typeof args.targetType === 'string' ? args.targetType : undefined;
@@ -454,7 +461,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.links.create') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'links:write');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'links:write');
     const schema = z.object({
       targetType: z.enum(['file', 'collection']),
       targetId: z.string().min(1),
@@ -508,6 +515,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
       .from('share_links')
       .insert({
         owner_id: ownerId,
+        workspace_id: workspaceId,
         file_id: payload.targetType === 'file' ? payload.targetId : null,
         collection_id: payload.targetType === 'collection' ? payload.targetId : null,
         label: payload.label,
@@ -538,7 +546,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.links.update') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'links:write');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'links:write');
     const linkId = typeof args.linkId === 'string' ? args.linkId : '';
     if (!linkId) {
       throw new Error('invalid_params');
@@ -618,7 +626,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.analytics.summary') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'analytics:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'analytics:read');
     const linkId = typeof args.linkId === 'string' ? args.linkId : '';
     if (!linkId) {
       throw new Error('invalid_params');
@@ -650,7 +658,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.analytics.events') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'analytics:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'analytics:read');
     const limit = Math.min(Math.max(typeof args.limit === 'number' ? args.limit : 100, 1), 500);
     const afterId = typeof args.afterId === 'number' ? args.afterId : null;
     const linkId = typeof args.linkId === 'string' ? args.linkId : null;
@@ -680,7 +688,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.automations.subscribe') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'automations:write');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'automations:write');
     const nameValue = typeof args.name === 'string' ? args.name.trim() : '';
     const webhookUrlRaw = typeof args.webhookUrl === 'string' ? args.webhookUrl.trim() : '';
     const signingSecret = typeof args.signingSecret === 'string' ? args.signingSecret.trim() : '';
@@ -709,6 +717,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
       .from('automation_subscriptions')
       .insert({
         owner_id: ownerId,
+        workspace_id: workspaceId,
         name: nameValue,
         webhook_url: webhookUrl.toString(),
         signing_secret: signingSecret || null,
@@ -728,7 +737,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.automations.list') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'automations:read');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'automations:read');
     const includeInactive = args.includeInactive === true;
 
     let query = admin
@@ -748,7 +757,7 @@ async function handleToolCall(ownerId: string, principalScopes: string[], name: 
   }
 
   if (name === 'docflow.automations.unsubscribe') {
-    ensureScope({ keyId: '', ownerId, scopes: principalScopes, label: '' }, 'automations:write');
+    ensureScope({ keyId: '', ownerId, workspaceId, scopes: principalScopes, label: '' }, 'automations:write');
     const subscriptionId = typeof args.subscriptionId === 'string' ? args.subscriptionId : '';
     if (!subscriptionId) {
       throw new Error('invalid_params');
@@ -839,7 +848,13 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const result = await handleToolCall(principal.ownerId, principal.scopes, parsed.data.name, parsed.data.arguments ?? {});
+      const result = await handleToolCall(
+        principal.ownerId,
+        principal.workspaceId,
+        principal.scopes,
+        parsed.data.name,
+        parsed.data.arguments ?? {}
+      );
       return rpcResult(payload.id, toToolResult(result));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'tool_call_failed';

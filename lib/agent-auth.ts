@@ -18,6 +18,7 @@ export const MCP_DEFAULT_SCOPES: McpScope[] = [...MCP_SCOPES];
 export type McpPrincipal = {
   keyId: string;
   ownerId: string;
+  workspaceId: string | null;
   scopes: string[];
   label: string;
 };
@@ -41,7 +42,7 @@ export async function authenticateMcpBearerToken(rawToken: string): Promise<McpP
 
   const { data, error } = await admin
     .from('mcp_api_keys')
-    .select('id, owner_id, scopes, label')
+    .select('id, owner_id, workspace_id, scopes, label')
     .eq('key_hash', tokenHash)
     .is('revoked_at', null)
     .maybeSingle();
@@ -60,6 +61,7 @@ export async function authenticateMcpBearerToken(rawToken: string): Promise<McpP
   return {
     keyId: data.id,
     ownerId: data.owner_id,
+    workspaceId: data.workspace_id,
     scopes: (data.scopes ?? []) as string[],
     label: data.label
   };

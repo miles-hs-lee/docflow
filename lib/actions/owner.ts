@@ -1547,7 +1547,7 @@ export async function deleteFileRequestAction(formData: FormData) {
 // (app/dashboard/logo); these handle the text fields + logo removal.
 
 export async function saveBrandingAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const companyName = ((formData.get('companyName') as string | null) || '').trim().slice(0, 80) || null;
@@ -1562,7 +1562,10 @@ export async function saveBrandingAction(formData: FormData) {
   // Upsert only the text fields → an existing logo_path is preserved.
   const { error } = await admin
     .from('owner_branding')
-    .upsert({ owner_id: user.id, company_name: companyName, brand_color: brandColor }, { onConflict: 'owner_id' });
+    .upsert(
+      { owner_id: user.id, workspace_id: workspace.id, company_name: companyName, brand_color: brandColor },
+      { onConflict: 'owner_id' }
+    );
   if (error) {
     redirectWithError('/dashboard/settings', '브랜딩 저장에 실패했습니다.');
   }
@@ -1640,7 +1643,7 @@ export async function removeBrandingCoverAction() {
 // Per-data-room branding (mirrors account branding, scoped to a collection).
 
 export async function saveCollectionBrandingAction(formData: FormData) {
-  const { user } = await requireOwner();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -1670,7 +1673,13 @@ export async function saveCollectionBrandingAction(formData: FormData) {
 
   // Upsert only the text fields → an existing logo_path is preserved.
   const { error } = await admin.from('collection_branding').upsert(
-    { collection_id: collectionId, owner_id: user.id, company_name: companyName, brand_color: brandColor },
+    {
+      collection_id: collectionId,
+      owner_id: user.id,
+      workspace_id: workspace.id,
+      company_name: companyName,
+      brand_color: brandColor
+    },
     { onConflict: 'collection_id' }
   );
   if (error) {

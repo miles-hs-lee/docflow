@@ -147,6 +147,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       linkId: link.id,
       fileId: targetFileId,
       ownerId: link.owner_id,
+      workspaceId: link.workspace_id,
       sessionId,
       viewerEmail,
       ipHash,

@@ -31,6 +31,7 @@ async function logDenied(args: {
   linkId: string;
   fileId: string;
   ownerId: string;
+  workspaceId: string | null;
   sessionId: string;
   viewerEmail?: string;
   ipHash?: string | null;
@@ -40,6 +41,7 @@ async function logDenied(args: {
     linkId: args.linkId,
     fileId: args.fileId,
     ownerId: args.ownerId,
+    workspaceId: args.workspaceId,
     eventType: 'denied',
     reason: args.reason,
     sessionId: args.sessionId,
@@ -54,6 +56,7 @@ async function safeLogDenied(args: {
   linkId: string;
   fileId: string;
   ownerId: string;
+  workspaceId: string | null;
   sessionId: string;
   viewerEmail?: string;
   ipHash?: string | null;
@@ -118,6 +121,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       linkId: bundle.id,
       fileId: targetFile.id,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId,
       viewerEmail: grant?.email,
       ipHash,
@@ -134,6 +138,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       linkId: bundle.id,
       fileId: targetFile.id,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId,
       viewerEmail: grant?.email,
       ipHash,
@@ -156,6 +161,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       linkId: bundle.id,
       fileId: targetFile.id,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId,
       viewerEmail: grant?.email,
       ipHash,
@@ -177,6 +183,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       linkId: bundle.id,
       fileId: targetFile.id,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId,
       viewerEmail: grant?.email,
       ipHash,
@@ -192,6 +199,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       linkId: bundle.id,
       fileId: targetFile.id,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId,
       viewerEmail: grant?.email,
       ipHash,
@@ -235,6 +243,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         linkId: bundle.id,
         fileId: targetFile.id,
         ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
         sessionId,
         viewerEmail: grant?.email,
         ipHash,

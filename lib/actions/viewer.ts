@@ -49,6 +49,7 @@ async function recordDeniedEvent(input: {
   linkId: string;
   fileId: string;
   ownerId: string;
+  workspaceId: string | null;
   sessionId: string;
   viewerEmail?: string;
   ipHash?: string | null;
@@ -58,6 +59,7 @@ async function recordDeniedEvent(input: {
     linkId: input.linkId,
     fileId: input.fileId,
     ownerId: input.ownerId,
+    workspaceId: input.workspaceId,
     eventType: 'denied',
     reason: input.reason,
     sessionId: input.sessionId,
@@ -86,6 +88,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       linkId: bundle.id,
       fileId: eventFileId,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       sessionId: ctx.sessionId,
       ipHash: ctx.ipHash,
       userAgent: ctx.userAgent
@@ -107,6 +110,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         sessionId: ctx.sessionId,
         ipHash: ctx.ipHash,
         userAgent: ctx.userAgent
@@ -120,6 +124,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       linkId: bundle.id,
       fileId: eventFileId,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       eventType: 'email_submitted',
       sessionId: ctx.sessionId,
       viewerEmail: normalizedEmail,
@@ -136,6 +141,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
           linkId: bundle.id,
           fileId: eventFileId,
           ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
           sessionId: ctx.sessionId,
           viewerEmail: normalizedEmail,
           ipHash: ctx.ipHash,
@@ -158,6 +164,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,
         ipHash: ctx.ipHash,
@@ -172,6 +179,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,
         ipHash: ctx.ipHash,
@@ -187,6 +195,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         eventType: 'password_failed',
         reason: 'wrong_password',
         sessionId: ctx.sessionId,
@@ -200,6 +209,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,
         ipHash: ctx.ipHash,
@@ -225,6 +235,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
         linkId: bundle.id,
         fileId: eventFileId,
         ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
         sessionId: ctx.sessionId,
         viewerEmail: normalizedEmail,
         ipHash: ctx.ipHash,
@@ -242,6 +253,7 @@ export async function submitViewerAccessAction(token: string, formData: FormData
       linkId: bundle.id,
       fileId: eventFileId,
       ownerId: bundle.owner_id,
+      workspaceId: bundle.workspace_id,
       eventType: 'agreement',
       sessionId: ctx.sessionId,
       viewerEmail: normalizedEmail,
@@ -284,6 +296,7 @@ export async function submitViewerQuestionAction(token: string, formData: FormDa
   const collectionId = bundle.collection_id;
   const ownerId = bundle.owner_id;
   const linkId = bundle.id;
+  const workspaceId = bundle.workspace_id;
 
   const cookieStore = await cookies();
   const grant = decodeGrantCookie(cookieStore.get(getGrantCookieName(linkId))?.value, linkId);
@@ -325,6 +338,7 @@ export async function submitViewerQuestionAction(token: string, formData: FormDa
     collectionId,
     linkId,
     ownerId,
+    workspaceId,
     sessionId: ctx.sessionId,
     askerEmail,
     body: trimmedBody,

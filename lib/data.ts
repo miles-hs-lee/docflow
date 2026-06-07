@@ -684,6 +684,7 @@ export async function recordLinkEvent(input: {
   linkId: string;
   fileId: string;
   ownerId: string;
+  workspaceId: string | null;
   eventType: LinkEventType;
   reason?: DeniedReason;
   sessionId?: string;
@@ -700,6 +701,7 @@ export async function recordLinkEvent(input: {
     link_id: input.linkId,
     file_id: input.fileId,
     owner_id: input.ownerId,
+    workspace_id: input.workspaceId,
     event_type: input.eventType,
     reason: input.reason,
     session_id: input.sessionId,
@@ -732,6 +734,7 @@ export async function recordPageViewBatch(input: {
   viewerEmail?: string;
   ipHash?: string | null;
   userAgent?: string | null;
+  workspaceId: string | null;
   events: { pageNumber: number; dwellMs: number }[];
 }) {
   if (input.events.length === 0) return;
@@ -741,6 +744,7 @@ export async function recordPageViewBatch(input: {
     link_id: input.linkId,
     file_id: input.fileId,
     owner_id: input.ownerId,
+    workspace_id: input.workspaceId,
     event_type: 'page_view' as const,
     session_id: input.sessionId,
     viewer_email: input.viewerEmail,
@@ -1179,6 +1183,7 @@ export async function insertDataRoomQuestion(input: {
   collectionId: string;
   linkId: string;
   ownerId: string;
+  workspaceId: string | null;
   sessionId: string | null;
   askerEmail: string | null;
   body: string;
@@ -1191,6 +1196,7 @@ export async function insertDataRoomQuestion(input: {
       collection_id: input.collectionId,
       link_id: input.linkId,
       owner_id: input.ownerId,
+      workspace_id: input.workspaceId,
       session_id: input.sessionId,
       asker_email: input.askerEmail,
       body: input.body,

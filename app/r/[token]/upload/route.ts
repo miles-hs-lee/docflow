@@ -124,7 +124,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   // unconfirmed by a crash between the insert and here.
   const { error: confirmError } = await admin
     .from('file_request_uploads')
-    .update({ confirmed_at: new Date().toISOString() })
+    .update({ confirmed_at: new Date().toISOString(), workspace_id: req.workspace_id })
     .eq('id', uploadId)
     .eq('owner_id', req.owner_id);
   if (confirmError) {

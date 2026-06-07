@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getCurrentWorkspace } from '@/lib/auth';
 import { handleLogoUpload } from '@/lib/logo-upload';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -14,6 +15,9 @@ export async function POST(request: Request) {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const workspace = await getCurrentWorkspace(user.id);
+  if (!workspace) return NextResponse.json({ error: 'no_workspace' }, { status: 403 });
 
   const admin = createAdminClient();
   return handleLogoUpload({
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
     persist: async (path) => {
       const { error } = await admin
         .from('owner_branding')
-        .upsert({ owner_id: user.id, cover_image_path: path }, { onConflict: 'owner_id' });
+        .upsert({ owner_id: user.id, workspace_id: workspace.id, cover_image_path: path }, { onConflict: 'owner_id' });
       return { error };
     }
   });

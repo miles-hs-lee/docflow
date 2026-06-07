@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getCurrentWorkspace } from '@/lib/auth';
 import { handleLogoUpload } from '@/lib/logo-upload';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -26,6 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ col
     .maybeSingle();
   if (!owned) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
+  const workspace = await getCurrentWorkspace(user.id);
+  if (!workspace) return NextResponse.json({ error: 'no_workspace' }, { status: 403 });
+
   return handleLogoUpload({
     request,
     pathPrefix: `${user.id}/room-${collectionId}-`,
@@ -40,7 +44,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ col
     persist: async (path) => {
       const { error } = await admin
         .from('collection_branding')
-        .upsert({ collection_id: collectionId, owner_id: user.id, logo_path: path }, { onConflict: 'collection_id' });
+        .upsert(
+          { collection_id: collectionId, owner_id: user.id, workspace_id: workspace.id, logo_path: path },
+          { onConflict: 'collection_id' }
+        );
       return { error };
     }
   });
