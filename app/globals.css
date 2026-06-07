@@ -1361,6 +1361,19 @@ svg {
   margin-top: var(--polaris-spacing-2xs);
 }
 
+/* Data-room detail sub-tabs: space the tab bar from the active panel. Only one
+   TabsContent is visible at a time (Radix hides the rest), so the grid gap sits
+   between the TabsList and the shown panel. */
+.data-room-tabs {
+  display: grid;
+  gap: var(--polaris-spacing-md);
+}
+
+/* Let the 6 triggers wrap instead of overflowing on narrow screens. */
+.data-room-tabs > [role='tablist'] {
+  flex-wrap: wrap;
+}
+
 .viewer-file-link {
   display: block;
   border: 1px solid transparent;

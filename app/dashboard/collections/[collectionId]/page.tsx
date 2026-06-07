@@ -16,6 +16,10 @@ import {
   Stack,
   Stat,
   StatGroup,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea
 } from '@polaris/ui';
 import { ChevronLeftIcon } from '@polaris/ui/icons';
@@ -135,6 +139,24 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           }
         />
 
+        <Tabs defaultValue="overview" className="data-room-tabs">
+          <TabsList>
+            <TabsTrigger value="overview">개요</TabsTrigger>
+            <TabsTrigger value="content">콘텐츠</TabsTrigger>
+            <TabsTrigger value="links">공유 링크</TabsTrigger>
+            <TabsTrigger value="access">접근 권한</TabsTrigger>
+            <TabsTrigger value="qa">
+              질문 &amp; 답변
+              {unansweredCount > 0 ? (
+                <Badge variant="warning" tone="subtle">
+                  {unansweredCount}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="branding">브랜딩</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 요약</CardTitle>
@@ -153,7 +175,10 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             </StatGroup>
           </CardBody>
         </Card>
+          </TabsContent>
 
+          <TabsContent value="content">
+            <Stack gap={4}>
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 구성</CardTitle>
@@ -184,7 +209,10 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             />
           </CardBody>
         </Card>
+            </Stack>
+          </TabsContent>
 
+          <TabsContent value="access">
         {files.length > 0 ? (
           <Card>
             <CardHeader>
@@ -194,8 +222,19 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               <ViewerGroups collectionId={collection.id} folders={folders} groups={viewerGroups} />
             </CardBody>
           </Card>
-        ) : null}
+        ) : (
+          <Card>
+            <CardBody>
+              <EmptyState
+                title="먼저 문서를 추가하세요"
+                description="폴더가 있는 데이터룸에서 뷰어 그룹별로 보이는 폴더를 다르게 설정할 수 있습니다."
+              />
+            </CardBody>
+          </Card>
+        )}
+          </TabsContent>
 
+          <TabsContent value="branding">
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 브랜딩</CardTitle>
@@ -217,10 +256,12 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             />
           </CardBody>
         </Card>
+          </TabsContent>
 
+          <TabsContent value="qa">
         <Card>
           <CardHeader>
-            <CardTitle>질문 &amp; 답변{unansweredCount > 0 ? ` · 미답변 ${unansweredCount}` : ''}</CardTitle>
+            <CardTitle>질문 &amp; 답변</CardTitle>
           </CardHeader>
           <CardBody>
             <p className="muted">
@@ -271,7 +312,10 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             )}
           </CardBody>
         </Card>
+          </TabsContent>
 
+          <TabsContent value="links">
+            <Stack gap={4}>
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 링크 생성</CardTitle>
@@ -433,6 +477,9 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             )}
           </CardBody>
         </Card>
+            </Stack>
+          </TabsContent>
+        </Tabs>
       </section>
     </Stack>
   );
