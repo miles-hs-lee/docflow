@@ -1286,13 +1286,23 @@ svg {
   }
 }
 
-/* Native colour-picker swatch in the brand-colour field's leading slot. Override
-   the inherited .form-grid text-input sizing back down to a small square. */
+/* Brand-colour field: a native colour swatch + the hex input in a row. The
+   outer <label> is a .form-grid direct child so it inherits the shared label +
+   input styling; the swatch overrides that back down to a square button. */
+.brand-color-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--polaris-spacing-2xs);
+}
+.brand-color-row > input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .branding-editor input.brand-color-swatch {
-  width: 1.875rem;
-  min-width: 1.875rem;
-  height: 1.875rem;
-  min-height: 1.875rem;
+  flex: 0 0 auto;
+  width: 2.875rem;
+  min-width: 2.875rem;
+  min-height: 3rem;
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--polaris-radius-sm);
@@ -1304,11 +1314,11 @@ svg {
 }
 .brand-color-swatch::-webkit-color-swatch {
   border: none;
-  border-radius: 3px;
+  border-radius: calc(var(--polaris-radius-sm) - 1px);
 }
 .brand-color-swatch::-moz-color-swatch {
   border: none;
-  border-radius: 3px;
+  border-radius: calc(var(--polaris-radius-sm) - 1px);
 }
 
 .viewer-title {
