@@ -15,6 +15,31 @@
 --      row lock that validates pending + not-expired + email match and inserts
 --      membership + consumes the invite in ONE transaction.
 
+-- ── 0) defensive re-backfill (belt-and-suspenders before SET NOT NULL) ───────
+-- Any row still NULL (e.g. a link_events view recorded in the 032→033 window,
+-- before claim_view tagged workspace_id) maps via owner_id → the owner's personal
+-- workspace, so SET NOT NULL below can't abort on a fresh/lagged apply. Idempotent
+-- — touches 0 rows on an already-tagged DB (this environment's probe showed 0).
+update public.files                    t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.share_links              t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.link_events              t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.collections              t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.collection_files         t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.folders                  t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.viewer_groups            t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.viewer_group_folders     t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.file_requests            t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.file_request_uploads     t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.owner_branding           t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.collection_branding      t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.data_room_questions      t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.mcp_api_keys             t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+update public.automation_subscriptions t set workspace_id = w.id from public.workspaces w where w.created_by = t.owner_id and t.workspace_id is null;
+-- link_events is the only tenanted table with a nullable owner_id (deleted-user
+-- orphans, owner_id SET NULL): any still-NULL workspace_id there is unmappable, so
+-- delete those orphans (already invisible under membership RLS) for a clean NOT NULL.
+delete from public.link_events where workspace_id is null;
+
 -- ── 1) NOT NULL ──────────────────────────────────────────────────────────────
 alter table public.files                    alter column workspace_id set not null;
 alter table public.share_links              alter column workspace_id set not null;
@@ -72,6 +97,10 @@ end $$;
 
 -- share_links: writes also assert the referenced file/collection live in the
 -- SAME workspace (012's cross-owner check, now cross-workspace).
+drop policy if exists "ws_read_share_links" on public.share_links;
+drop policy if exists "ws_insert_share_links" on public.share_links;
+drop policy if exists "ws_update_share_links" on public.share_links;
+drop policy if exists "ws_delete_share_links" on public.share_links;
 create policy "ws_read_share_links" on public.share_links
   for select to authenticated using (public.is_workspace_member(workspace_id));
 create policy "ws_insert_share_links" on public.share_links
@@ -92,6 +121,10 @@ create policy "ws_delete_share_links" on public.share_links
   for delete to authenticated using (public.has_workspace_role(workspace_id, 'member'));
 
 -- collection_files: both parents (collection + file) must share the workspace.
+drop policy if exists "ws_read_collection_files" on public.collection_files;
+drop policy if exists "ws_insert_collection_files" on public.collection_files;
+drop policy if exists "ws_update_collection_files" on public.collection_files;
+drop policy if exists "ws_delete_collection_files" on public.collection_files;
 create policy "ws_read_collection_files" on public.collection_files
   for select to authenticated using (public.is_workspace_member(workspace_id));
 create policy "ws_insert_collection_files" on public.collection_files

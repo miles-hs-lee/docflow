@@ -1300,6 +1300,7 @@ svg {
 }
 .branding-editor input.brand-color-swatch {
   flex: 0 0 auto;
+  order: -1; /* swatch is 2nd in the DOM (so the <label> names the hex) but shows left */
   width: 2.875rem;
   min-width: 2.875rem;
   min-height: 3rem;

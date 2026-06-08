@@ -25,15 +25,10 @@ export function BrandColorField({ defaultValue = '' }: { defaultValue?: string }
     <label className="brand-color-field">
       브랜드 색상 (HEX)
       <span className="brand-color-row">
-        {/* eslint-disable-next-line -- native colour picker; no Polaris equivalent */}
-        <input
-          type="color"
-          className="brand-color-swatch"
-          value={swatch}
-          onChange={(event) => setValue(event.target.value)}
-          aria-label="브랜드 색상 선택"
-        />
-        {/* eslint-disable-next-line -- paired with the swatch; shares its sync state */}
+        {/* Hex input FIRST in the DOM so the wrapping <label> associates with it
+            (clicking the label focuses the hex, and it has an accessible name);
+            CSS `order` moves the swatch to the visual left. */}
+        {/* eslint-disable-next-line -- native input paired with the swatch's sync state */}
         <input
           type="text"
           name="brandColor"
@@ -41,6 +36,14 @@ export function BrandColorField({ defaultValue = '' }: { defaultValue?: string }
           value={value}
           maxLength={7}
           onChange={(event) => setValue(event.target.value)}
+        />
+        {/* eslint-disable-next-line -- native colour picker; no Polaris equivalent */}
+        <input
+          type="color"
+          className="brand-color-swatch"
+          value={swatch}
+          onChange={(event) => setValue(event.target.value)}
+          aria-label="브랜드 색상 선택"
         />
       </span>
     </label>
