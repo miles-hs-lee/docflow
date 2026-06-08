@@ -199,19 +199,37 @@ Authorization: Bearer <MCP_API_KEY>
 
 지원 RPC: `initialize`, `tools/list`, `tools/call`
 
-주요 Tools:
-- `docflow.files.upload` — PDF base64 업로드
-- `docflow.files.list`
-- `docflow.links.list` / `create` / `update`
-- `docflow.analytics.summary` / `events`
-- `docflow.automations.subscribe` / `list` / `unsubscribe`
+주요 Tools (MCP·REST 공통 — 같은 `lib/api/operations.ts` 구현 공유):
+- `files.upload` / `files.list`
+- `links.list` / `create` / `update` / `delete`
+- `collections.list` / `create` / `addFiles` / `removeFile`
+- `requests.list` / `requests.uploads`
+- `questions.list` / `questions.answer`
+- `contacts.list`
+- `analytics.summary` / `events`
+- `automations.subscribe` / `list` / `unsubscribe`
+
+---
+
+## REST API (`/api/v1`)
+
+MCP가 AI 에이전트용이라면, REST는 Zapier·Make·스크립트·SDK 등 전통적 통합용입니다. **동일한 API 키·스코프**(자동화 탭에서 발급)로 인증하고, MCP와 **같은 오퍼레이션 구현**(`lib/api/operations.ts`)을 공유합니다 — 한 곳만 고치면 양쪽에 반영됩니다.
+
+```http
+Authorization: Bearer <API_KEY>
+```
+
+- **OpenAPI 3.0 스펙**: `/api/v1/openapi.json` (Postman/Insomnia import·SDK 생성)
+- **인터랙티브 문서(Swagger UI)**: `/api/v1/docs`
+- 엔드포인트: `GET/POST /files` · `GET/POST /links` · `PATCH/DELETE /links/{id}` · `GET/POST /collections` · `POST /collections/{id}/files` · `DELETE /collections/{id}/files/{fileId}` · `GET /requests` · `GET /requests/{id}/uploads` · `GET /questions` · `PATCH /questions/{id}` · `GET /contacts` · `GET /analytics/summary|events` · `GET/POST /automations` · `DELETE /automations/{id}`
+- 에러는 `{ error: { code, message } }` + 적절한 HTTP 상태. 레이트리밋은 MCP와 동일 버킷.
 
 ---
 
 ## 이벤트 자동화 (Webhook)
 
 - 모든 `link_events` 기록은 `automation_event_outbox`에 큐잉되어 비동기 전달됩니다 (QStash 즉시 kick + cron 백스톱).
-- `file_uploaded` · `question_asked`는 link_event가 아니라서 outbox를 타지 않고 **직접 디스패치**됩니다 (`lib/notify/file-upload.ts` · `lib/notify/question.ts` — 동일한 Teams 포맷터 + HMAC 서명 + SSRF 가드 재사용, best-effort·무재시도).
+- `file_uploaded` · `question_asked` · `question_answered` · `request_created` · `member_invited` · `member_joined` · `member_removed`는 link_event가 아니라서 outbox를 타지 않고 **직접 디스패치**됩니다 (`lib/notify/dispatch.ts` 공유 — 동일한 Teams 포맷터 + HMAC 서명 + SSRF 가드 재사용, best-effort·무재시도). 워크스페이스 라이프사이클 이벤트(`member_*` · `request_created` · `question_answered`)는 **워크스페이스 단위로 스코프**됩니다(`lib/notify/workspace-events.ts`) — 한 멤버가 만든 구독이라도 워크스페이스의 해당 이벤트를 모두 받습니다.
 - 디스패처: `/api/automation/dispatch` (Vercel cron)
 - `AUTOMATION_CRON_SECRET` 또는 `CRON_SECRET` 설정 시 Bearer 인증 강제
 - 시크릿 미설정 시 본 서비스는 정상 동작, **자동화 전달만 비활성화**
