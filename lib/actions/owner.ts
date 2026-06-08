@@ -299,7 +299,7 @@ export async function reorderCollectionFilesAction(formData: FormData) {
 }
 
 export async function deleteCollectionAction(formData: FormData) {
-  const { user } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
@@ -312,7 +312,7 @@ export async function deleteCollectionAction(formData: FormData) {
   // single PL/pgSQL transaction. Returns 'not_found' / 'active_links_exist' / 'ok'.
   const { data, error: rpcError } = await admin.rpc('delete_collection_cascade', {
     p_collection_id: collectionId,
-    p_owner_id: user.id
+    p_workspace_id: workspace.id
   });
 
   const status = Array.isArray(data) ? data[0]?.status : null;
@@ -875,7 +875,7 @@ export async function restoreLinkAction(formData: FormData) {
 }
 
 export async function hardDeleteLinkAction(formData: FormData) {
-  const { user, workspace } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const linkId = ((formData.get('linkId') as string | null) || '').trim();
@@ -907,7 +907,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
   // failed.
   const { data: deleted, error: rpcError } = await admin.rpc('hard_delete_link', {
     p_link_id: linkId,
-    p_owner_id: user.id
+    p_workspace_id: workspace.id
   });
 
   if (rpcError || deleted !== true) {
@@ -921,7 +921,7 @@ export async function hardDeleteLinkAction(formData: FormData) {
 }
 
 export async function deleteFileAction(formData: FormData) {
-  const { user, workspace } = await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const fileId = ((formData.get('fileId') as string | null) || '').trim();
@@ -950,7 +950,7 @@ export async function deleteFileAction(formData: FormData) {
   // PL/pgSQL transaction.
   const { data, error: rpcError } = await admin.rpc('delete_file_cascade', {
     p_file_id: fileId,
-    p_owner_id: user.id
+    p_workspace_id: workspace.id
   });
 
   const status = Array.isArray(data) ? data[0]?.status : null;

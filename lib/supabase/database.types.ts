@@ -854,14 +854,14 @@ export type Database = {
       hard_delete_link: {
         Args: {
           p_link_id: string;
-          p_owner_id: string;
+          p_workspace_id: string;
         };
         Returns: boolean;
       };
       delete_file_cascade: {
         Args: {
           p_file_id: string;
-          p_owner_id: string;
+          p_workspace_id: string;
         };
         Returns: {
           status: 'not_found' | 'active_links_exist' | 'active_collection_links_exist' | 'ok';
@@ -870,7 +870,7 @@ export type Database = {
       delete_collection_cascade: {
         Args: {
           p_collection_id: string;
-          p_owner_id: string;
+          p_workspace_id: string;
         };
         Returns: {
           status: 'not_found' | 'active_links_exist' | 'ok';
