@@ -20,9 +20,12 @@ function jsonError(status: number, code: string, message: string, extraHeaders?:
 export function coerceQuery(searchParams: URLSearchParams): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of searchParams.entries()) {
+    // Only booleans are coerced. Numeric-looking IDs must stay strings — the
+    // operations read string params with `typeof === 'string'` guards, so an
+    // id like "123" coerced to a number would be silently dropped. The few
+    // genuine number params (limit, afterId) coerce defensively on their own.
     if (value === 'true') out[key] = true;
     else if (value === 'false') out[key] = false;
-    else if (value !== '' && !Number.isNaN(Number(value))) out[key] = Number(value);
     else out[key] = value;
   }
   return out;

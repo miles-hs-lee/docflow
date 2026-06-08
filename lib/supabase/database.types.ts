@@ -858,6 +858,19 @@ export type Database = {
         };
         Returns: boolean;
       };
+      ensure_personal_workspace: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: {
+          id: string;
+          name: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          role: 'owner' | 'admin' | 'member';
+        }[];
+      };
       delete_file_cascade: {
         Args: {
           p_file_id: string;

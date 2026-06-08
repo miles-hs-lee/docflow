@@ -356,13 +356,16 @@ export async function answerQuestionAction(formData: FormData) {
     redirectWithError(redirectPath, '답변 내용을 입력해주세요.');
   }
 
-  const { error } = await admin
+  const { data: answered, error } = await admin
     .from('data_room_questions')
     .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
     .eq('id', questionId)
     .eq('collection_id', collectionId)
-    .eq('workspace_id', workspace.id);
-  if (error) {
+    .eq('workspace_id', workspace.id)
+    .select('id')
+    .maybeSingle();
+  // No matching row (stale/tampered id) → don't fire question_answered on a no-op.
+  if (error || !answered) {
     redirectWithError(redirectPath, '답변 저장에 실패했습니다.');
   }
 

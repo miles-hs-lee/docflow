@@ -82,25 +82,20 @@ export const listUserWorkspaces = cache(async (userId: string): Promise<Workspac
 // only on a DB error, in which case the caller falls back to /login.
 const ensurePersonalWorkspace = cache(async (userId: string): Promise<WorkspaceWithRole | null> => {
   const admin = createAdminClient();
-  const { data: ws, error } = await admin
-    .from('workspaces')
-    .insert({ name: '개인 워크스페이스', created_by: userId })
-    .select('id, name, created_by, created_at, updated_at')
-    .maybeSingle();
-  if (error || !ws) return null;
-
-  const { error: memberError } = await admin
-    .from('workspace_members')
-    .insert({ workspace_id: ws.id, user_id: userId, role: 'owner' });
-  if (memberError) return null;
-
+  // Atomic + race-safe (per-user advisory lock + membership re-check, all in one
+  // transaction — migration 037). Replaces the old 2-step insert that could make
+  // duplicate personal workspaces on a concurrent first-load or orphan a
+  // workspace if the membership insert failed.
+  const { data, error } = await admin.rpc('ensure_personal_workspace', { p_user_id: userId });
+  const row = Array.isArray(data) ? data[0] : null;
+  if (error || !row) return null;
   return {
-    id: ws.id,
-    name: ws.name,
-    created_by: ws.created_by,
-    created_at: ws.created_at,
-    updated_at: ws.updated_at,
-    role: 'owner'
+    id: row.id,
+    name: row.name,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    role: row.role
   };
 });
 

@@ -74,7 +74,13 @@ function redactSubscription<T extends Record<string, unknown>>(
 }
 
 function parseOptionalIsoDate(value: unknown): string | null {
-  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  // null/undefined/empty = "clear the field". A non-string (e.g. a number or
+  // boolean from an untyped PATCH body) is a client error, not a silent clear.
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new ApiError('invalid_expires_at', 400);
+  }
+  if (value.trim().length === 0) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     throw new ApiError('invalid_expires_at', 400);
@@ -108,12 +114,12 @@ function parseDomainInput(value: unknown): string[] {
 }
 
 function parsePdfBase64(raw: string): Buffer {
+  // Buffer.from never throws on bad base64 (it drops invalid chars), so guard on
+  // an empty result instead — that's the only signal of garbage/empty input.
   const cleaned = raw.includes(',') ? raw.slice(raw.indexOf(',') + 1) : raw;
-  try {
-    return Buffer.from(cleaned, 'base64');
-  } catch {
-    throw new ApiError('invalid_base64', 400);
-  }
+  const buffer = Buffer.from(cleaned, 'base64');
+  if (buffer.length === 0) throw new ApiError('invalid_base64', 400);
+  return buffer;
 }
 
 function isPdfBuffer(buffer: Buffer): boolean {
@@ -381,15 +387,17 @@ export async function analyticsSummary(ctx: ApiContext, input: Record<string, un
   // Gate the link to this workspace before the owner-scoped RPCs.
   const { data: link } = await ctx.admin
     .from('share_links')
-    .select('id')
+    .select('id, owner_id')
     .eq('id', linkId)
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (!link) throw new ApiError('link_not_found', 404);
 
+  // Use the LINK's owner (the get_link_*_for_owner RPCs are owner-scoped), so a
+  // teammate-created link in this workspace is still readable via the key.
   const [{ data: summaryRows, error: e1 }, { data: breakdownRows, error: e2 }] = await Promise.all([
-    ctx.admin.rpc('get_link_summary_for_owner', { p_owner_id: ctx.ownerId, p_link_id: linkId }),
-    ctx.admin.rpc('get_link_denied_breakdown_for_owner', { p_owner_id: ctx.ownerId, p_link_id: linkId })
+    ctx.admin.rpc('get_link_summary_for_owner', { p_owner_id: link.owner_id, p_link_id: linkId }),
+    ctx.admin.rpc('get_link_denied_breakdown_for_owner', { p_owner_id: link.owner_id, p_link_id: linkId })
   ]);
   if (e1 || e2) throw new ApiError('internal_error', 500);
   const summary = (summaryRows ?? [])[0];
@@ -400,7 +408,10 @@ export async function analyticsSummary(ctx: ApiContext, input: Record<string, un
 export async function analyticsEvents(ctx: ApiContext, input: Record<string, unknown>) {
   requireScope(ctx, 'analytics:read');
   const limit = clampLimit(input.limit, 100, 500);
-  const afterId = typeof input.afterId === 'number' ? input.afterId : null;
+  // afterId arrives as a number over MCP, a string over REST — accept both.
+  const afterIdNum =
+    input.afterId === undefined || input.afterId === null || input.afterId === '' ? NaN : Number(input.afterId);
+  const afterId = Number.isFinite(afterIdNum) ? afterIdNum : null;
   const linkId = typeof input.linkId === 'string' ? input.linkId : null;
 
   let query = ctx.admin
