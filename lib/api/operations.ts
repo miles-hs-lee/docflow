@@ -480,3 +480,191 @@ export async function automationsUnsubscribe(ctx: ApiContext, input: Record<stri
   if (error) throw new ApiError('internal_error', 500);
   return { deleted: true, subscriptionId };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3 — data rooms, file requests, Q&A, contacts, link trash
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function linksDelete(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'links:write');
+  const linkId = typeof input.linkId === 'string' ? input.linkId : '';
+  if (!linkId) throw new ApiError('invalid_params', 400);
+  const { data: existing } = await ctx.admin
+    .from('share_links')
+    .select('id')
+    .eq('id', linkId)
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!existing) throw new ApiError('link_not_found', 404);
+  const { error } = await ctx.admin
+    .from('share_links')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', linkId)
+    .eq('workspace_id', ctx.workspaceId);
+  if (error) throw new ApiError('internal_error', 500);
+  return { deleted: true, linkId };
+}
+
+export async function collectionsCreate(ctx: ApiContext, input: unknown) {
+  requireScope(ctx, 'files:write');
+  const schema = z.object({ name: z.string().min(1), description: z.string().optional() });
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) throw new ApiError('invalid_params', 400);
+  const name = parsed.data.name.trim();
+  if (!name) throw new ApiError('invalid_params', 400);
+  const description = parsed.data.description?.trim() || null;
+  const { data, error } = await ctx.admin
+    .from('collections')
+    .insert({ owner_id: ctx.ownerId, workspace_id: ctx.workspaceId, name, description })
+    .select('id, name, description, created_at, updated_at')
+    .maybeSingle();
+  if (error || !data) throw new ApiError('collection_create_failed', 500);
+  return { collection: data, dashboardUrl: `${publicEnv.appUrl}/dashboard/collections/${data.id}` };
+}
+
+export async function collectionsAddFiles(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : '';
+  const fileIds = Array.isArray(input.fileIds)
+    ? input.fileIds.filter((id): id is string => typeof id === 'string')
+    : [];
+  if (!collectionId || fileIds.length === 0) throw new ApiError('invalid_params', 400);
+
+  const { data: collection } = await ctx.admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!collection) throw new ApiError('collection_not_found', 404);
+
+  const { data: ownedFiles } = await ctx.admin
+    .from('files')
+    .select('id')
+    .in('id', fileIds)
+    .eq('workspace_id', ctx.workspaceId);
+  if ((ownedFiles?.length ?? 0) !== fileIds.length) throw new ApiError('file_not_found', 404);
+
+  const { data: existing } = await ctx.admin
+    .from('collection_files')
+    .select('file_id, sort_order')
+    .eq('collection_id', collectionId)
+    .eq('workspace_id', ctx.workspaceId);
+  const existingRows = (existing ?? []) as Array<{ file_id: string; sort_order: number }>;
+  const existingIds = new Set(existingRows.map((row) => row.file_id));
+  const maxSort = existingRows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1);
+  const toAdd = fileIds.filter((id) => !existingIds.has(id));
+
+  if (toAdd.length > 0) {
+    const rows = toAdd.map((fileId, index) => ({
+      collection_id: collectionId,
+      file_id: fileId,
+      owner_id: ctx.ownerId,
+      workspace_id: ctx.workspaceId,
+      sort_order: maxSort + 1 + index
+    }));
+    const { error } = await ctx.admin.from('collection_files').insert(rows);
+    if (error) throw new ApiError('internal_error', 500);
+  }
+  return { added: toAdd.length, collectionId };
+}
+
+export async function collectionsRemoveFile(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : '';
+  const fileId = typeof input.fileId === 'string' ? input.fileId : '';
+  if (!collectionId || !fileId) throw new ApiError('invalid_params', 400);
+  const { error } = await ctx.admin
+    .from('collection_files')
+    .delete()
+    .eq('collection_id', collectionId)
+    .eq('file_id', fileId)
+    .eq('workspace_id', ctx.workspaceId);
+  if (error) throw new ApiError('internal_error', 500);
+  return { removed: true, collectionId, fileId };
+}
+
+export async function requestsList(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:read');
+  const limit = clampLimit(input.limit, 100, 200);
+  const { data, error } = await ctx.admin
+    .from('file_requests')
+    .select('id, title, slug, instructions, is_active, max_uploads, allow_multiple, created_at, updated_at')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new ApiError('internal_error', 500);
+  return { requests: data ?? [] };
+}
+
+export async function requestUploadsList(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:read');
+  const requestId = typeof input.requestId === 'string' ? input.requestId : '';
+  if (!requestId) throw new ApiError('invalid_params', 400);
+  const { data: req } = await ctx.admin
+    .from('file_requests')
+    .select('id')
+    .eq('id', requestId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!req) throw new ApiError('request_not_found', 404);
+  const { data, error } = await ctx.admin
+    .from('file_request_uploads')
+    .select('id, request_id, original_name, size_bytes, uploader_email, confirmed_at, created_at')
+    .eq('request_id', requestId)
+    .eq('workspace_id', ctx.workspaceId)
+    .order('created_at', { ascending: false });
+  if (error) throw new ApiError('internal_error', 500);
+  return { uploads: data ?? [] };
+}
+
+export async function questionsList(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'analytics:read');
+  const limit = clampLimit(input.limit, 100, 200);
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : null;
+  let query = ctx.admin
+    .from('data_room_questions')
+    .select('id, collection_id, question, answer, answered_at, session_id, created_at')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (collectionId) query = query.eq('collection_id', collectionId);
+  const { data, error } = await query;
+  if (error) throw new ApiError('internal_error', 500);
+  return { questions: data ?? [] };
+}
+
+export async function questionsAnswer(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const questionId = typeof input.questionId === 'string' ? input.questionId : '';
+  const answer = typeof input.answer === 'string' ? input.answer.trim() : '';
+  if (!questionId || !answer) throw new ApiError('invalid_params', 400);
+  const { data: existing } = await ctx.admin
+    .from('data_room_questions')
+    .select('id')
+    .eq('id', questionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!existing) throw new ApiError('question_not_found', 404);
+  const { data, error } = await ctx.admin
+    .from('data_room_questions')
+    .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
+    .eq('id', questionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id, collection_id, question, answer, answered_at, created_at')
+    .maybeSingle();
+  if (error || !data) throw new ApiError('internal_error', 500);
+  return { question: data };
+}
+
+export async function contactsList(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'analytics:read');
+  const limit = clampLimit(input.limit, 100, 500);
+  const { data, error } = await ctx.admin.rpc('get_workspace_contacts', {
+    p_workspace_id: ctx.workspaceId,
+    p_limit: limit
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  return { contacts: data ?? [] };
+}

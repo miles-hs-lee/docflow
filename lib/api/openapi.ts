@@ -40,7 +40,10 @@ export function buildOpenApiSpec(): Record<string, unknown> {
       { name: 'Links' },
       { name: 'Collections' },
       { name: 'Analytics' },
-      { name: 'Automations' }
+      { name: 'Automations' },
+      { name: 'Requests' },
+      { name: 'Q&A' },
+      { name: 'Contacts' }
     ],
     paths: {
       '/files': {
@@ -176,6 +179,13 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             },
             '404': errorResponse('Link not found')
           }
+        },
+        delete: {
+          tags: ['Links'],
+          summary: 'Move a share link to the trash',
+          operationId: 'deleteLink',
+          parameters: [{ name: 'linkId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Trashed' }, '404': errorResponse('Link not found') }
         }
       },
       '/collections': {
@@ -199,6 +209,24 @@ export function buildOpenApiSpec(): Record<string, unknown> {
               }
             }
           }
+        },
+        post: {
+          tags: ['Collections'],
+          summary: 'Create an empty data room',
+          operationId: 'createCollection',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name'],
+                  properties: { name: { type: 'string' }, description: { type: 'string' } }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Created collection' } }
         }
       },
       '/analytics/summary': {
@@ -272,6 +300,92 @@ export function buildOpenApiSpec(): Record<string, unknown> {
           operationId: 'unsubscribeAutomation',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
           responses: { '200': { description: 'Deleted' } }
+        }
+      },
+      '/collections/{collectionId}/files': {
+        post: {
+          tags: ['Collections'],
+          summary: 'Add existing files to a data room',
+          operationId: 'addFilesToCollection',
+          parameters: [{ name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['fileIds'],
+                  properties: { fileIds: { type: 'array', items: { type: 'string' } } }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Added' }, '404': errorResponse('Collection or file not found') }
+        }
+      },
+      '/collections/{collectionId}/files/{fileId}': {
+        delete: {
+          tags: ['Collections'],
+          summary: 'Remove (unlink) one file from a data room',
+          operationId: 'removeFileFromCollection',
+          parameters: [
+            { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'fileId', in: 'path', required: true, schema: { type: 'string' } }
+          ],
+          responses: { '200': { description: 'Removed' } }
+        }
+      },
+      '/requests': {
+        get: {
+          tags: ['Requests'],
+          summary: 'List file-request inboxes',
+          operationId: 'listRequests',
+          parameters: [limitParam],
+          responses: { '200': { description: 'Requests' } }
+        }
+      },
+      '/requests/{requestId}/uploads': {
+        get: {
+          tags: ['Requests'],
+          summary: 'List uploads received by a file request',
+          operationId: 'listRequestUploads',
+          parameters: [{ name: 'requestId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Uploads' }, '404': errorResponse('Request not found') }
+        }
+      },
+      '/questions': {
+        get: {
+          tags: ['Q&A'],
+          summary: 'List data-room questions',
+          operationId: 'listQuestions',
+          parameters: [{ name: 'collectionId', in: 'query', schema: { type: 'string' } }, limitParam],
+          responses: { '200': { description: 'Questions' } }
+        }
+      },
+      '/questions/{questionId}': {
+        patch: {
+          tags: ['Q&A'],
+          summary: 'Answer one data-room question',
+          operationId: 'answerQuestion',
+          parameters: [{ name: 'questionId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object', required: ['answer'], properties: { answer: { type: 'string' } } }
+              }
+            }
+          },
+          responses: { '200': { description: 'Answered' }, '404': errorResponse('Question not found') }
+        }
+      },
+      '/contacts': {
+        get: {
+          tags: ['Contacts'],
+          summary: 'List captured viewer contacts',
+          operationId: 'listContacts',
+          parameters: [limitParam],
+          responses: { '200': { description: 'Contacts' } }
         }
       }
     },

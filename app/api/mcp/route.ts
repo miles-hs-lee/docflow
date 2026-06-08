@@ -11,12 +11,21 @@ import {
   automationsList,
   automationsSubscribe,
   automationsUnsubscribe,
+  collectionsAddFiles,
+  collectionsCreate,
   collectionsList,
+  collectionsRemoveFile,
+  contactsList,
   filesList,
   filesUpload,
   linksCreate,
+  linksDelete,
   linksList,
-  linksUpdate
+  linksUpdate,
+  questionsAnswer,
+  questionsList,
+  requestUploadsList,
+  requestsList
 } from '@/lib/api/operations';
 
 type RpcRequest = {
@@ -177,6 +186,90 @@ const tools = [
         subscriptionId: { type: 'string' }
       }
     }
+  },
+  {
+    name: 'docflow.links.delete',
+    description: 'Move a share link to the trash (soft delete)',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: { linkId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.collections.create',
+    description: 'Create an empty data room (collection)',
+    inputSchema: {
+      type: 'object',
+      required: ['name'],
+      properties: { name: { type: 'string' }, description: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.collections.addFiles',
+    description: 'Add existing files to a data room',
+    inputSchema: {
+      type: 'object',
+      required: ['collectionId', 'fileIds'],
+      properties: {
+        collectionId: { type: 'string' },
+        fileIds: { type: 'array', items: { type: 'string' } }
+      }
+    }
+  },
+  {
+    name: 'docflow.collections.removeFile',
+    description: 'Remove (unlink) one file from a data room',
+    inputSchema: {
+      type: 'object',
+      required: ['collectionId', 'fileId'],
+      properties: { collectionId: { type: 'string' }, fileId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.requests.list',
+    description: 'List file-request inboxes',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 200 } }
+    }
+  },
+  {
+    name: 'docflow.requests.uploads',
+    description: 'List uploads received by one file request',
+    inputSchema: {
+      type: 'object',
+      required: ['requestId'],
+      properties: { requestId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.questions.list',
+    description: 'List data-room questions (optionally one room)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectionId: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 200 }
+      }
+    }
+  },
+  {
+    name: 'docflow.questions.answer',
+    description: 'Answer one data-room question',
+    inputSchema: {
+      type: 'object',
+      required: ['questionId', 'answer'],
+      properties: { questionId: { type: 'string' }, answer: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.contacts.list',
+    description: 'List captured viewer contacts',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 500 } }
+    }
   }
 ] as const;
 
@@ -221,7 +314,16 @@ const OPERATIONS: Record<string, (ctx: ApiContext, input: Record<string, unknown
   'docflow.analytics.events': analyticsEvents,
   'docflow.automations.subscribe': automationsSubscribe,
   'docflow.automations.list': automationsList,
-  'docflow.automations.unsubscribe': automationsUnsubscribe
+  'docflow.automations.unsubscribe': automationsUnsubscribe,
+  'docflow.links.delete': linksDelete,
+  'docflow.collections.create': collectionsCreate,
+  'docflow.collections.addFiles': collectionsAddFiles,
+  'docflow.collections.removeFile': collectionsRemoveFile,
+  'docflow.requests.list': requestsList,
+  'docflow.requests.uploads': requestUploadsList,
+  'docflow.questions.list': questionsList,
+  'docflow.questions.answer': questionsAnswer,
+  'docflow.contacts.list': contactsList
 };
 
 async function handleToolCall(
@@ -354,7 +456,9 @@ export async function POST(request: NextRequest) {
       if (
         message === 'file_not_found' ||
         message === 'collection_not_found' ||
-        message === 'link_not_found'
+        message === 'link_not_found' ||
+        message === 'request_not_found' ||
+        message === 'question_not_found'
       ) {
         // Caller referenced a parent/link that doesn't exist (or doesn't
         // belong to this owner). Distinct from a server fault — the MCP
