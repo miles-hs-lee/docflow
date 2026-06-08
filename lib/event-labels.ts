@@ -15,7 +15,14 @@ export const EVENT_META: Record<string, { short: string; emoji: string; title: s
   file_uploaded: { short: '파일 수신', emoji: '📥', title: '파일이 업로드되었습니다' },
   // Data room Q&A — a viewer asked a question. Not a link_event either, so it is
   // likewise absent from OWNER_FEED_EVENT_TYPES.
-  question_asked: { short: '질문', emoji: '❓', title: '새 질문이 등록되었습니다' }
+  question_asked: { short: '질문', emoji: '❓', title: '새 질문이 등록되었습니다' },
+  // Workspace + content lifecycle events (Phase 2). Workspace-scoped, direct
+  // dispatch (not link_events) — absent from OWNER_FEED_EVENT_TYPES below.
+  question_answered: { short: '답변', emoji: '💬', title: '질문에 답변했습니다' },
+  request_created: { short: '파일 요청', emoji: '📨', title: '파일 요청이 생성되었습니다' },
+  member_invited: { short: '멤버 초대', emoji: '✉️', title: '워크스페이스에 멤버를 초대했습니다' },
+  member_joined: { short: '멤버 합류', emoji: '🎉', title: '새 멤버가 합류했습니다' },
+  member_removed: { short: '멤버 제거', emoji: '👋', title: '멤버가 제거되었습니다' }
 };
 
 // Meaningful events for the owner activity feed (page_view excluded — too noisy).

@@ -53,7 +53,12 @@ const eventTypeOptions = [
   { value: 'password_failed', label: '비밀번호 실패(password_failed)' },
   { value: 'agreement', label: 'NDA 동의(agreement)' },
   { value: 'file_uploaded', label: '파일 수신(file_uploaded)' },
-  { value: 'question_asked', label: '데이터룸 질문(question_asked)' }
+  { value: 'question_asked', label: '데이터룸 질문(question_asked)' },
+  { value: 'question_answered', label: '질문 답변(question_answered)' },
+  { value: 'request_created', label: '파일 요청 생성(request_created)' },
+  { value: 'member_invited', label: '멤버 초대(member_invited)' },
+  { value: 'member_joined', label: '멤버 합류(member_joined)' },
+  { value: 'member_removed', label: '멤버 제거(member_removed)' }
 ];
 
 export default async function AutomationsPage() {

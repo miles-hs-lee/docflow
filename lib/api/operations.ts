@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 
 import { publicEnv } from '@/lib/env-public';
+import { notifyQuestionAnswered } from '@/lib/notify/workspace-events';
 import { generateShareToken, hashPassword, sanitizeFileName } from '@/lib/security';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { assertSafePublicUrl } from '@/lib/url-safety';
@@ -127,13 +128,11 @@ export const SUBSCRIBABLE_EVENTS = [
   'email_submitted',
   'password_failed',
   'download',
-  'page_view',
   'agreement',
   'file_uploaded',
   'question_asked',
   'question_answered',
   'request_created',
-  'request_closed',
   'member_invited',
   'member_joined',
   'member_removed'
@@ -625,7 +624,7 @@ export async function questionsList(ctx: ApiContext, input: Record<string, unkno
   const collectionId = typeof input.collectionId === 'string' ? input.collectionId : null;
   let query = ctx.admin
     .from('data_room_questions')
-    .select('id, collection_id, question, answer, answered_at, session_id, created_at')
+    .select('id, collection_id, body, answer, answered_at, session_id, created_at')
     .eq('workspace_id', ctx.workspaceId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -652,9 +651,16 @@ export async function questionsAnswer(ctx: ApiContext, input: Record<string, unk
     .update({ answer: answer.slice(0, 4000), answered_at: new Date().toISOString() })
     .eq('id', questionId)
     .eq('workspace_id', ctx.workspaceId)
-    .select('id, collection_id, question, answer, answered_at, created_at')
+    .select('id, collection_id, body, answer, answered_at, created_at')
     .maybeSingle();
   if (error || !data) throw new ApiError('internal_error', 500);
+  await notifyQuestionAnswered({
+    actorId: ctx.ownerId,
+    workspaceId: ctx.workspaceId,
+    collectionId: data.collection_id,
+    questionId,
+    createdAt: new Date().toISOString()
+  });
   return { question: data };
 }
 

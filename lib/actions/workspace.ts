@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { WORKSPACE_COOKIE, listUserWorkspaces, requireOwner, requireWorkspace } from '@/lib/auth';
 import { countWorkspaceOwners } from '@/lib/data-workspace';
+import { notifyMemberEvent } from '@/lib/notify/workspace-events';
 import { generateShareToken } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { WorkspaceRole } from '@/lib/types';
@@ -122,6 +123,14 @@ export async function createInviteAction(formData: FormData) {
     redirectWithError(TEAM, '초대 생성에 실패했습니다.');
   }
   revalidatePath(TEAM);
+  await notifyMemberEvent({
+    actorId: user.id,
+    workspaceId: workspace.id,
+    eventType: 'member_invited',
+    memberEmail: email,
+    actorEmail: user.email ?? null,
+    createdAt: new Date().toISOString()
+  });
   redirectWithSuccess(buildRedirectPath(TEAM, { invited: token }), '초대 링크를 만들었습니다. 아래에서 복사해 전달하세요.');
 }
 
@@ -171,6 +180,14 @@ export async function acceptInviteAction(formData: FormData) {
   }
 
   await setWorkspaceCookie(result!.workspace_id!);
+  await notifyMemberEvent({
+    actorId: user.id,
+    workspaceId: result!.workspace_id!,
+    eventType: 'member_joined',
+    memberEmail: user.email ?? null,
+    actorEmail: user.email ?? null,
+    createdAt: new Date().toISOString()
+  });
   redirectWithSuccess('/dashboard', '워크스페이스에 참여했습니다.');
 }
 
@@ -247,6 +264,14 @@ export async function removeMemberAction(formData: FormData) {
     .eq('workspace_id', workspace.id)
     .eq('user_id', targetUserId);
   revalidatePath(TEAM);
+  await notifyMemberEvent({
+    actorId: user.id,
+    workspaceId: workspace.id,
+    eventType: 'member_removed',
+    memberUserId: targetUserId,
+    actorEmail: user.email ?? null,
+    createdAt: new Date().toISOString()
+  });
 
   if (isSelf) {
     // Left the workspace — clear the cookie so the next request picks another.

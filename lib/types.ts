@@ -6,7 +6,15 @@ export type LinkEventType =
   | 'download'
   | 'page_view'
   | 'agreement';
-export type AutomationEventType = LinkEventType;
+export type AutomationEventType =
+  | LinkEventType
+  | 'file_uploaded'
+  | 'question_asked'
+  | 'question_answered'
+  | 'request_created'
+  | 'member_invited'
+  | 'member_joined'
+  | 'member_removed';
 
 // Where a subscription delivers. 'webhook' POSTs DocFlow's native JSON
 // (optionally HMAC-signed); 'teams' POSTs an Adaptive Card envelope to a

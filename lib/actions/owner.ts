@@ -8,6 +8,7 @@ import { MCP_DEFAULT_SCOPES, normalizeMcpScopes } from '@/lib/agent-auth';
 import { requireWorkspace } from '@/lib/auth';
 import { removeLogoObject, removePdfObject } from '@/lib/data';
 import { MCP_NEW_KEY_COOKIE } from '@/lib/mcp-key-cookie';
+import { notifyQuestionAnswered, notifyRequestCreated } from '@/lib/notify/workspace-events';
 import { normalizeBrandColor } from '@/lib/branding';
 import { assertSafePublicUrl } from '@/lib/url-safety';
 import {
@@ -340,7 +341,7 @@ export async function deleteCollectionAction(formData: FormData) {
 // with the row actually touched).
 
 export async function answerQuestionAction(formData: FormData) {
-  const { workspace } = await requireWorkspace();
+  const { user, workspace } = await requireWorkspace();
   const admin = createAdminClient();
 
   const questionId = ((formData.get('questionId') as string | null) || '').trim();
@@ -366,6 +367,13 @@ export async function answerQuestionAction(formData: FormData) {
   }
 
   revalidatePath(redirectPath);
+  await notifyQuestionAnswered({
+    actorId: user.id,
+    workspaceId: workspace.id,
+    collectionId,
+    questionId,
+    createdAt: new Date().toISOString()
+  });
   redirectWithSuccess(redirectPath, '답변을 저장했습니다.');
 }
 
@@ -1465,22 +1473,33 @@ export async function createFileRequestAction(formData: FormData) {
   }
   const maxUploads = rawMaxUploads ? Number.parseInt(rawMaxUploads, 10) : null;
 
-  const { error } = await admin.from('file_requests').insert({
-    owner_id: user.id,
-    workspace_id: workspace.id,
-    token: generateShareToken(),
-    title: title.slice(0, 200),
-    instructions,
-    require_email: parseBoolean(formData, 'requireEmail'),
-    is_active: parseBoolean(formData, 'isActive'),
-    expires_at: parseOptionalDate(formData, 'expiresAt'),
-    max_uploads: maxUploads
-  });
-  if (error) {
+  const { data: created, error } = await admin
+    .from('file_requests')
+    .insert({
+      owner_id: user.id,
+      workspace_id: workspace.id,
+      token: generateShareToken(),
+      title: title.slice(0, 200),
+      instructions,
+      require_email: parseBoolean(formData, 'requireEmail'),
+      is_active: parseBoolean(formData, 'isActive'),
+      expires_at: parseOptionalDate(formData, 'expiresAt'),
+      max_uploads: maxUploads
+    })
+    .select('id')
+    .maybeSingle();
+  if (error || !created) {
     redirectWithError('/dashboard/requests', '파일 요청 생성에 실패했습니다.');
   }
 
   revalidatePath('/dashboard/requests');
+  await notifyRequestCreated({
+    actorId: user.id,
+    workspaceId: workspace.id,
+    requestId: created!.id,
+    title: title.slice(0, 200),
+    createdAt: new Date().toISOString()
+  });
   redirectWithSuccess('/dashboard/requests', '파일 요청을 만들었습니다.');
 }
 

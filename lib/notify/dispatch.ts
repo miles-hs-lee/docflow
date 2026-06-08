@@ -24,6 +24,9 @@ type SubscriptionRow = {
 export async function dispatchDirectNotification(opts: {
   ownerId: string;
   eventType: string;
+  /** When set, only subscriptions in this workspace receive the event (so an
+   *  owner's other workspaces don't get it). Omit for legacy owner-wide events. */
+  workspaceId?: string;
   /** Becomes the Teams card's '방문자' fact; null → 익명. */
   viewerEmail: string | null;
   createdAt: string;
@@ -34,11 +37,19 @@ export async function dispatchDirectNotification(opts: {
 }): Promise<void> {
   try {
     const admin = createAdminClient();
-    const { data, error } = await admin
+    let query = admin
       .from('automation_subscriptions')
       .select('id, webhook_url, signing_secret, destination_type, event_types')
-      .eq('owner_id', opts.ownerId)
       .eq('is_active', true);
+    // Workspace-scoped events (membership, requests, answers) fire to EVERY
+    // subscription in the workspace, whichever member created it. Legacy events
+    // (file_uploaded, question_asked) stay owner-scoped.
+    if (opts.workspaceId) {
+      query = query.eq('workspace_id', opts.workspaceId);
+    } else {
+      query = query.eq('owner_id', opts.ownerId);
+    }
+    const { data, error } = await query;
     if (error || !data) return;
 
     const subs = (data as SubscriptionRow[]).filter(
