@@ -75,6 +75,35 @@ export const listUserWorkspaces = cache(async (userId: string): Promise<Workspac
     .map((row) => ({ ...(row.workspaces as NonNullable<typeof row.workspaces>), role: row.role }));
 });
 
+// Create a personal workspace + owner membership for a user who has none yet — a
+// brand-new account that signed up AFTER migration 032's one-time backfill.
+// cache()'d so the dashboard layout + page (which both call requireWorkspace in a
+// single render) share ONE creation instead of racing to make two. Returns null
+// only on a DB error, in which case the caller falls back to /login.
+const ensurePersonalWorkspace = cache(async (userId: string): Promise<WorkspaceWithRole | null> => {
+  const admin = createAdminClient();
+  const { data: ws, error } = await admin
+    .from('workspaces')
+    .insert({ name: '개인 워크스페이스', created_by: userId })
+    .select('id, name, created_by, created_at, updated_at')
+    .maybeSingle();
+  if (error || !ws) return null;
+
+  const { error: memberError } = await admin
+    .from('workspace_members')
+    .insert({ workspace_id: ws.id, user_id: userId, role: 'owner' });
+  if (memberError) return null;
+
+  return {
+    id: ws.id,
+    name: ws.name,
+    created_by: ws.created_by,
+    created_at: ws.created_at,
+    updated_at: ws.updated_at,
+    role: 'owner'
+  };
+});
+
 // The owner shell entry point: resolves the authed user AND their current
 // workspace + role. The current workspace = the WORKSPACE_COOKIE value when it
 // names one the user belongs to, else the earliest membership. Redirects to
@@ -91,11 +120,11 @@ export async function requireWorkspace(): Promise<{
     redirect('/login');
   }
 
-  const workspace = await getCurrentWorkspace(user.id);
+  // A brand-new account (signed up after the 032 backfill) has no workspace yet —
+  // lazily create a personal one so the dashboard is reachable, instead of looping
+  // back to /login → "already logged in" → dashboard → /login forever.
+  const workspace = (await getCurrentWorkspace(user.id)) ?? (await ensurePersonalWorkspace(user.id));
   if (!workspace) {
-    // Post-backfill every user has a personal workspace, so this only fires for
-    // a brand-new account before its workspace exists — send to login (a future
-    // onboarding flow can create one here).
     redirect('/login');
   }
 
