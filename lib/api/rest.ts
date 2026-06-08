@@ -15,8 +15,8 @@ function jsonError(status: number, code: string, message: string, extraHeaders?:
   return NextResponse.json({ error: { code, message } }, { status, headers: extraHeaders });
 }
 
-// Coerce query-string values into the JSON-ish shapes operations expect
-// ('true'/'false' → boolean, numeric strings → number, else string).
+// Coerce query-string values into the shapes operations expect: ONLY
+// 'true'/'false' → boolean. Numeric-looking values stay strings (see below).
 export function coerceQuery(searchParams: URLSearchParams): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of searchParams.entries()) {
