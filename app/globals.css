@@ -1557,42 +1557,6 @@ svg {
 
 /* ── Engagement charts (server-rendered CSS/SVG, theme via --primary) ── */
 
-/* Reach (drop-off) curve above the page heatmap. */
-.reach-curve svg {
-  display: block;
-}
-
-.reach-curve-area {
-  fill: color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-.reach-curve-line {
-  stroke: var(--primary);
-  stroke-width: 2;
-}
-
-.reach-curve-drop {
-  stroke: var(--polaris-error, #d85a30);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-
-.reach-curve-annotation {
-  font-size: 11px;
-  fill: var(--polaris-error, #d85a30);
-}
-
-.reach-curve-label {
-  font-size: 11px;
-  fill: var(--polaris-label-default, currentColor);
-}
-
-.reach-curve-axis {
-  font-size: 10px;
-  fill: var(--polaris-label-muted, currentColor);
-  opacity: 0.7;
-}
-
 /* Inline bar inside table cells. */
 .inline-bar {
   display: inline-flex;
@@ -1665,83 +1629,9 @@ svg {
   color: var(--polaris-label-muted, inherit);
 }
 
-.device-donut {
-  display: flex;
-  align-items: center;
-  gap: var(--polaris-spacing-md);
-}
-
-.device-donut-track {
-  stroke: color-mix(in srgb, var(--primary) 10%, transparent);
-}
-
-.device-donut-arc {
-  stroke: var(--primary);
-}
-
-.device-donut-center {
-  font-size: 13px;
-  font-weight: 600;
-  fill: var(--polaris-label-default, currentColor);
-}
-
-.device-donut-legend {
-  display: grid;
-  gap: 4px;
-  font-size: 0.78rem;
-}
-
-.device-donut-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.device-donut-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--primary);
-  flex: none;
-}
-
-/* Gate funnel. */
-.gate-funnel {
-  display: grid;
-  gap: 6px;
-}
-
-.gate-funnel-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.82rem;
-}
-
-.gate-funnel-label {
-  width: 86px;
-  flex: none;
-  color: var(--polaris-label-muted, inherit);
-}
-
-.gate-funnel-track {
-  flex: 1;
-  height: 18px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
-  overflow: hidden;
-}
-
-.gate-funnel-fill {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-}
-
-.gate-funnel-value {
-  flex: none;
-  min-width: 80px;
-  text-align: right;
+.device-donut-chart {
+  flex: 0 0 240px;
+  min-width: 220px;
 }
 
 /* Overview sparkline strip. */
@@ -1764,87 +1654,6 @@ svg {
 
 .sparkline-dot {
   fill: var(--primary);
-}
-
-/* 요일×시간 punch card. */
-.punchcard-grid {
-  display: grid;
-  gap: 3px;
-}
-
-.punchcard-row {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.punchcard-dow {
-  width: 22px;
-  flex: none;
-  font-size: 0.72rem;
-  color: var(--polaris-label-muted, inherit);
-}
-
-.punchcard-cell {
-  flex: 1;
-  aspect-ratio: 1;
-  min-width: 0;
-  max-height: 18px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--primary) 4%, transparent);
-}
-
-.punchcard-hour {
-  flex: 1;
-  font-size: 0.66rem;
-  color: var(--polaris-label-muted, inherit);
-  text-align: left;
-  white-space: nowrap;
-}
-
-/* Stacked daily chart (신규/재방문). */
-.daily-chart-stack {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.daily-chart-stack .daily-chart-bar {
-  border-radius: 0;
-}
-
-.daily-chart-stack .daily-chart-bar:first-child {
-  border-radius: var(--polaris-radius-sm) var(--polaris-radius-sm) 0 0;
-}
-
-.daily-chart-bar.returning {
-  background: color-mix(in srgb, var(--primary) 28%, transparent);
-}
-
-.daily-chart-legend {
-  display: flex;
-  gap: 14px;
-  margin-top: var(--polaris-spacing-2xs);
-}
-
-.daily-chart-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.daily-chart-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--primary);
-  flex: none;
-}
-
-.daily-chart-swatch.returning {
-  background: color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 /* Visitor × document matrix heat cells. */
@@ -2016,39 +1825,6 @@ svg {
 .event-log-pager {
   margin-top: var(--polaris-spacing-sm);
   justify-content: flex-end;
-}
-
-/* Daily engagement sparkline (review finding #7). */
-.daily-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 88px;
-  width: 100%;
-}
-
-.daily-chart-col {
-  flex: 1 1 0;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.daily-chart-track {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-  background: var(--surface-soft);
-  border-radius: var(--polaris-radius-sm);
-  overflow: hidden;
-}
-
-.daily-chart-bar {
-  width: 100%;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ai) 70%, var(--primary)), var(--primary));
-  border-radius: var(--polaris-radius-sm) var(--polaris-radius-sm) 0 0;
-  min-height: 0;
 }
 
 @media (max-width: 980px) {

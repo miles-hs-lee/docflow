@@ -1,5 +1,9 @@
-import { EmptyState } from '@polaris/ui';
+'use client';
 
+import { EmptyState } from '@polaris/ui';
+import { useCallback } from 'react';
+
+import { EChart, type ChartTheme } from '@/components/echart';
 import type { LinkDailyView } from '@/lib/types';
 import { formatDateOnly } from '@/lib/format';
 
@@ -7,12 +11,70 @@ type DailyViewsChartProps = {
   data: LinkDailyView[];
 };
 
-// Daily engagement, split into 신규 (first-time view sessions, solid) and
-// 재방문 (returning sessions = active minus new, lighter). The split is the
-// signal a plain bar hides: returning visits mean the document is being
-// re-read — interest deepening — while a tall all-new bar is reach, not
-// engagement. The RPC has always returned both; this finally renders both.
+// Daily engagement, stacked into 신규 (first-time view sessions) and 재방문
+// (returning = active minus new). Returning visits are the deepening-interest
+// signal a flat bar hides. ECharts stacked bars + hover tooltip.
 export function DailyViewsChart({ data }: DailyViewsChartProps) {
+  const buildOption = useCallback(
+    (theme: ChartTheme) => {
+      const days = data.map((d) => formatDateOnly(d.day).slice(5));
+      const fresh = data.map((d) => Math.min(d.new_viewers, d.sessions));
+      const returning = data.map((d) => Math.max(d.sessions - Math.min(d.new_viewers, d.sessions), 0));
+      return {
+        grid: { left: 28, right: 8, top: 28, bottom: 22 },
+        legend: {
+          top: 0,
+          left: 0,
+          itemWidth: 10,
+          itemHeight: 10,
+          icon: 'roundRect',
+          textStyle: { color: theme.muted, fontSize: 11 }
+        },
+        tooltip: {
+          trigger: 'axis',
+          confine: true,
+          formatter: (params: Array<{ dataIndex: number }>) => {
+            const i = params[0]?.dataIndex ?? 0;
+            const d = data[i];
+            return `${formatDateOnly(d.day)}<br/>세션 ${d.sessions} (신규 ${fresh[i]} · 재방문 ${returning[i]})`;
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: days,
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: `${theme.muted}55` } },
+          axisLabel: { color: theme.muted, fontSize: 10, interval: Math.ceil(data.length / 10) - 1 }
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          splitLine: { lineStyle: { color: `${theme.muted}22` } },
+          axisLabel: { color: theme.muted, fontSize: 10 }
+        },
+        series: [
+          {
+            name: '신규',
+            type: 'bar',
+            stack: 'sessions',
+            data: fresh,
+            itemStyle: { color: theme.primary, borderRadius: [0, 0, 0, 0] },
+            barMaxWidth: 18
+          },
+          {
+            name: '재방문',
+            type: 'bar',
+            stack: 'sessions',
+            data: returning,
+            itemStyle: { color: `${theme.primary}55`, borderRadius: [3, 3, 0, 0] },
+            barMaxWidth: 18
+          }
+        ]
+      };
+    },
+    [data]
+  );
+
   const total = data.reduce((sum, d) => sum + d.sessions, 0);
   if (data.length === 0 || total === 0) {
     return (
@@ -23,45 +85,5 @@ export function DailyViewsChart({ data }: DailyViewsChartProps) {
     );
   }
 
-  const max = Math.max(...data.map((d) => d.sessions), 1);
-
-  return (
-    <>
-      <div className="daily-chart" role="img" aria-label="최근 일별 열람 세션 추세 (신규/재방문)">
-        {data.map((d) => {
-          const newCount = Math.min(d.new_viewers, d.sessions);
-          const returning = Math.max(d.sessions - newCount, 0);
-          // Min 3% so a 1-session day on a busy link stays visible; cap the
-          // pair at 100% so the stack never overflows its track.
-          const newPct = newCount === 0 ? 0 : Math.max(3, Math.round((newCount / max) * 100));
-          const returningPct =
-            returning === 0 ? 0 : Math.min(Math.max(3, Math.round((returning / max) * 100)), 100 - newPct);
-          return (
-            <div
-              key={d.day}
-              className="daily-chart-col"
-              title={`${formatDateOnly(d.day)} · ${d.sessions}세션 (신규 ${newCount} · 재방문 ${returning})`}
-            >
-              <div className="daily-chart-track">
-                <div className="daily-chart-stack">
-                  {returningPct > 0 ? (
-                    <div className="daily-chart-bar returning" style={{ height: `${returningPct}%` }} />
-                  ) : null}
-                  {newPct > 0 ? <div className="daily-chart-bar" style={{ height: `${newPct}%` }} /> : null}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="daily-chart-legend muted small">
-        <span className="daily-chart-legend-item">
-          <span className="daily-chart-swatch" aria-hidden /> 신규
-        </span>
-        <span className="daily-chart-legend-item">
-          <span className="daily-chart-swatch returning" aria-hidden /> 재방문
-        </span>
-      </div>
-    </>
-  );
+  return <EChart buildOption={buildOption} height={200} ariaLabel="최근 일별 열람 세션 추세 (신규/재방문 스택)" />;
 }

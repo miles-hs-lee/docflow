@@ -23,7 +23,7 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 - **커스텀 브랜딩(화이트라벨)**: 로고 · 브랜드 색상 · 회사명 · **커버 이미지**를 계정 전역 + **데이터룸별**로 설정(필드 단위 병합) → 공개 화면에서 DocFlow 표기 숨김
 - **데이터룸 Q&A**: 열람자가 남긴 질문을 룸 페이지에서 확인 · 답변 · 삭제 (방문자는 본인 스레드만 비공개로 열람)
 - **연락처**: 이메일을 제출한 모든 방문자를 링크 전반에서 롤업
-- **분석**: 링크별 view / unique(세션 기준) / **평균 체류 시간** / download / denied, denied 사유 집계, **페이지 도달(드롭오프) 곡선 + dwell heatmap + 완독률**(첫 열람자가 보고한 `page_count` 기준), 일별 추세(**신규/재방문 스택**, 타임존 설정 가능), **접근 게이트 퍼널**(방문→이메일→NDA→열람→다운로드), **열람 시간대 펀치카드**(요일×시간, 90일), 방문자별 롤업(**완독률 바·디바이스·국가**), **국가 비율 바 + 디바이스 도넛**(원본 IP 미저장), 개요 **14일 스파크라인**, 이벤트 로그. 전 차트가 의존성 없는 서버 렌더 CSS/SVG. **봇/링크 프리뷰 크롤러는 조회수·거부 집계에서 제외**, 열람 수는 세션당 30분 윈도우로 dedup
+- **분석**: 링크별 view / unique(세션 기준) / **평균 체류 시간** / download / denied, denied 사유 집계, **페이지 도달(드롭오프) 곡선**(급락 페이지 마커) + dwell heatmap + **완독률**, 일별 추세(**신규/재방문 스택**, 타임존 설정 가능), **접근 게이트 퍼널**, **열람 시간대 히트맵**(요일×시간, 90일), 방문자별 롤업(**완독률 바·디바이스·국가**), **국가별 열람 세계지도(choropleth) + 비율 바 + 디바이스 도넛**(원본 IP 미저장 — geo 헤더 2자리 코드만), 개요 **14일 스파크라인**, 이벤트 로그. 차트는 ECharts(SVG·툴팁·브랜드 테마 자동), 표 내부 바·매트릭스 셀은 경량 CSS. **봇/링크 프리뷰 크롤러는 조회수·거부 집계에서 제외**, 열람 수는 세션당 30분 윈도우로 dedup
 - **자동화**: MCP API 키 발급/비활성화, 이벤트 웹훅 구독 + HMAC 서명, **Microsoft Teams 알림**(Adaptive Card) — 구독 이벤트에 `file_uploaded` · `question_asked` 포함
 - **계정 관리**: 비밀번호 재설정, 자가 계정 삭제 (스토리지 + DB 캐스케이드 정리)
 
@@ -46,6 +46,7 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 - **UI**: Polaris Design System v0.8.0-rc.9 (`@polaris/ui`, `@polaris/lint`)
 - **Auth / DB / Storage**: Supabase (Postgres + RLS + storage)
 - **PDF**: react-pdf 10.x (pdfjs-dist 5.4.296, worker self-hosted)
+- **Charts**: ECharts 6 (모듈러 빌드 + SVG 렌더러, 차트 페이지 청크에만 포함) — 세계지도 TopoJSON은 `public/geo/` 셀프호스팅
 - **Validation**: zod
 - **Deploy**: Vercel (cron 포함)
 

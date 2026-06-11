@@ -29,6 +29,7 @@ import { PageHeatmap } from '@/components/page-heatmap';
 import { Punchcard } from '@/components/punchcard';
 import { ReachCurve } from '@/components/reach-curve';
 import { VisitorList } from '@/components/visitor-list';
+import { WorldMapChart } from '@/components/world-map-chart';
 import { requireWorkspace } from '@/lib/auth';
 import {
   getDeniedBreakdown,
@@ -340,6 +341,7 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
             </CardHeader>
             <CardBody>
               <p className="muted">유니크 방문자(세션)의 접속 국가와 사용 기기입니다. 원본 IP는 저장하지 않습니다.</p>
+              <WorldMapChart countries={countries} />
               <div className="geo-device-grid">
                 <CountryBars countries={countries} />
                 <DeviceDonut visitors={visitors} />
