@@ -36,13 +36,18 @@ export function parseBearerToken(authorization: string | null | undefined) {
   return token;
 }
 
+// last_used_at powers the dashboard's "마지막 사용" column — minute-level
+// precision is plenty, so skip the write when the stamp is fresh instead of
+// adding one UPDATE to every API call.
+const LAST_USED_WRITE_INTERVAL_MS = 5 * 60 * 1000;
+
 export async function authenticateMcpBearerToken(rawToken: string): Promise<McpPrincipal | null> {
   const tokenHash = hashMcpApiKey(rawToken);
   const admin = createAdminClient();
 
   const { data, error } = await admin
     .from('mcp_api_keys')
-    .select('id, owner_id, workspace_id, scopes, label')
+    .select('id, owner_id, workspace_id, scopes, label, last_used_at')
     .eq('key_hash', tokenHash)
     .is('revoked_at', null)
     .maybeSingle();
@@ -51,12 +56,15 @@ export async function authenticateMcpBearerToken(rawToken: string): Promise<McpP
     return null;
   }
 
-  await admin
-    .from('mcp_api_keys')
-    .update({
-      last_used_at: new Date().toISOString()
-    })
-    .eq('id', data.id);
+  const lastUsedAt = data.last_used_at ? new Date(data.last_used_at).getTime() : 0;
+  if (!Number.isFinite(lastUsedAt) || Date.now() - lastUsedAt > LAST_USED_WRITE_INTERVAL_MS) {
+    await admin
+      .from('mcp_api_keys')
+      .update({
+        last_used_at: new Date().toISOString()
+      })
+      .eq('id', data.id);
+  }
 
   return {
     keyId: data.id,

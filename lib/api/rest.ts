@@ -55,7 +55,8 @@ export async function runRestOperation(
     admin: createAdminClient(),
     ownerId: principal.ownerId,
     workspaceId: principal.workspaceId,
-    scopes: principal.scopes
+    scopes: principal.scopes,
+    keyLabel: principal.label
   };
 
   try {

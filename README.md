@@ -209,14 +209,17 @@ Authorization: Bearer <MCP_API_KEY>
 지원 RPC: `initialize`, `tools/list`, `tools/call`
 
 주요 Tools (MCP·REST 공통 — 같은 `lib/api/operations.ts` 구현 공유):
-- `files.upload` / `files.list`
-- `links.list` / `create` / `update` / `delete`
-- `collections.list` / `create` / `addFiles` / `removeFile`
-- `requests.list` / `requests.uploads`
-- `questions.list` / `questions.answer`
+- `workspace.info` — 키 컨텍스트(워크스페이스·라벨·스코프) 확인. **에이전트 첫 호출 권장**
+- `files.upload` / `list` / `get`(+서명 다운로드 URL) / `delete`
+- `links.list` / `get` / `create` / `update` / `delete`(휴지통) / `restore` / `hardDelete` / `preview`(오너 미리보기 URL)
+- `collections.list` / `get`(폴더+파일 포함) / `create` / `update` / `delete` / `addFiles` / `removeFile`
+- `requests.list` / `create` / `uploads`
+- `questions.list` / `answer` / `delete`
 - `contacts.list`
-- `analytics.summary` / `events`
+- `analytics.summary`(+체류·국가) / `events`(+페이지·체류·국가 컬럼) / `visitors` / `pages` / `daily`
 - `automations.subscribe` / `list` / `unsubscribe`
+
+링크 생성·수정은 NDA 게이트(`requireAgreement`/`agreementText`)와 뷰어 그룹(`viewerGroupId`)까지 — 대시보드와 동일한 정책 표면을 커버합니다. MCP 게이트웨이는 `notifications/*`(202 무응답)·`ping`·클라이언트 protocolVersion 협상을 지원합니다.
 
 ---
 
@@ -230,7 +233,7 @@ Authorization: Bearer <API_KEY>
 
 - **OpenAPI 3.0 스펙**: `/api/v1/openapi.json` (Postman/Insomnia import·SDK 생성)
 - **인터랙티브 문서(Swagger UI)**: `/api/v1/docs`
-- 엔드포인트: `GET/POST /files` · `GET/POST /links` · `PATCH/DELETE /links/{id}` · `GET/POST /collections` · `POST /collections/{id}/files` · `DELETE /collections/{id}/files/{fileId}` · `GET /requests` · `GET /requests/{id}/uploads` · `GET /questions` · `PATCH /questions/{id}` · `GET /contacts` · `GET /analytics/summary|events` · `GET/POST /automations` · `DELETE /automations/{id}`
+- 엔드포인트: `GET /workspace` · `GET/POST /files` · `GET/DELETE /files/{id}` · `GET/POST /links` · `GET/PATCH/DELETE /links/{id}`(`?permanent=true` 영구 삭제) · `POST /links/{id}/restore` · `GET /links/{id}/preview` · `GET/POST /collections` · `GET/PATCH/DELETE /collections/{id}` · `POST /collections/{id}/files` · `DELETE /collections/{id}/files/{fileId}` · `GET/POST /requests` · `GET /requests/{id}/uploads` · `GET /questions` · `PATCH/DELETE /questions/{id}` · `GET /contacts` · `GET /analytics/summary|events|visitors|pages|daily` · `GET/POST /automations` · `DELETE /automations/{id}`
 - 에러는 `{ error: { code, message } }` + 적절한 HTTP 상태. 레이트리밋은 MCP와 동일 버킷.
 
 ---

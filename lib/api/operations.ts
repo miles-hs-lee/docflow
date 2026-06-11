@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { publicEnv } from '@/lib/env-public';
 import { notifyQuestionAnswered } from '@/lib/notify/workspace-events';
+import { createLinkPreviewToken } from '@/lib/preview-token';
 import { generateShareToken, hashPassword, sanitizeFileName } from '@/lib/security';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { assertSafePublicUrl } from '@/lib/url-safety';
@@ -30,6 +31,8 @@ export type ApiContext = {
   ownerId: string;
   workspaceId: string;
   scopes: string[];
+  /** API key label, surfaced by workspace.info so agents can identify the credential. */
+  keyLabel?: string;
 };
 
 export class ApiError extends Error {
@@ -95,6 +98,39 @@ function parseOptionalMaxViews(value: unknown): number | null {
     throw new ApiError('invalid_max_views', 400);
   }
   return n;
+}
+
+// Same floor as the dashboard forms (lib/actions/owner.ts) — keep the two
+// write surfaces consistent so an agent can't mint weaker links than a human.
+const MIN_LINK_PASSWORD_LENGTH = 4;
+
+function parseLinkPassword(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') throw new ApiError('invalid_password', 400);
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length < MIN_LINK_PASSWORD_LENGTH) throw new ApiError('password_too_short', 400);
+  return trimmed;
+}
+
+// Viewer-group scoping is collection-link only; the group must belong to the
+// SAME collection in this workspace. Returns null for empty/'all'.
+async function resolveViewerGroup(
+  ctx: ApiContext,
+  collectionId: string,
+  viewerGroupId: unknown
+): Promise<string | null> {
+  if (viewerGroupId === null || viewerGroupId === undefined) return null;
+  if (typeof viewerGroupId !== 'string' || !viewerGroupId.trim() || viewerGroupId === 'all') return null;
+  const { data: group } = await ctx.admin
+    .from('viewer_groups')
+    .select('id')
+    .eq('id', viewerGroupId)
+    .eq('collection_id', collectionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!group) throw new ApiError('viewer_group_not_found', 404);
+  return group.id;
 }
 
 function parseDomainInput(value: unknown): string[] {
@@ -199,7 +235,7 @@ export async function filesUpload(ctx: ApiContext, input: unknown) {
 
   const { data: fileRow } = await ctx.admin
     .from('files')
-    .select('id, original_name, size_bytes, mime_type, created_at, updated_at')
+    .select('id, original_name, size_bytes, mime_type, page_count, created_at, updated_at')
     .eq('id', fileId)
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
@@ -213,7 +249,7 @@ export async function filesList(ctx: ApiContext, input: Record<string, unknown>)
   const limit = clampLimit(input.limit, 100, 200);
   const { data, error } = await ctx.admin
     .from('files')
-    .select('id, original_name, size_bytes, mime_type, created_at, updated_at')
+    .select('id, original_name, size_bytes, mime_type, page_count, created_at, updated_at')
     .eq('workspace_id', ctx.workspaceId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -281,7 +317,12 @@ export async function linksCreate(ctx: ApiContext, input: unknown) {
     allowDownload: z.boolean().optional(),
     oneTime: z.boolean().optional(),
     watermark: z.boolean().optional(),
-    password: z.string().optional()
+    password: z.string().optional(),
+    // Clickwrap NDA gate — full policy parity with the dashboard form.
+    requireAgreement: z.boolean().optional(),
+    agreementText: z.string().max(5000).optional(),
+    // Collection links only: scope the bundle to one viewer group.
+    viewerGroupId: z.string().optional()
   });
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new ApiError('invalid_params', 400);
@@ -296,6 +337,7 @@ export async function linksCreate(ctx: ApiContext, input: unknown) {
       .eq('workspace_id', ctx.workspaceId)
       .maybeSingle();
     if (!file) throw new ApiError('file_not_found', 404);
+    if (payload.viewerGroupId) throw new ApiError('viewer_group_requires_collection', 400);
   } else {
     const { data: collection } = await ctx.admin
       .from('collections')
@@ -307,8 +349,11 @@ export async function linksCreate(ctx: ApiContext, input: unknown) {
   }
 
   const token = generateShareToken();
-  const passwordHash = payload.password ? await hashPassword(payload.password) : null;
+  const password = parseLinkPassword(payload.password);
+  const passwordHash = password ? await hashPassword(password) : null;
   const requireEmail = payload.requireEmail === true || allowedDomains.length > 0;
+  const viewerGroupId =
+    payload.targetType === 'collection' ? await resolveViewerGroup(ctx, payload.targetId, payload.viewerGroupId) : null;
 
   const { data: created, error } = await ctx.admin
     .from('share_links')
@@ -327,7 +372,10 @@ export async function linksCreate(ctx: ApiContext, input: unknown) {
       password_hash: passwordHash,
       allow_download: payload.allowDownload ?? false,
       one_time: payload.oneTime ?? false,
-      watermark: payload.watermark ?? true
+      watermark: payload.watermark ?? true,
+      require_agreement: payload.requireAgreement ?? false,
+      agreement_text: payload.agreementText?.trim() || null,
+      viewer_group_id: viewerGroupId
     })
     .select('*')
     .maybeSingle();
@@ -343,7 +391,7 @@ export async function linksUpdate(ctx: ApiContext, input: Record<string, unknown
 
   const { data: existing } = await ctx.admin
     .from('share_links')
-    .select('id, owner_id, password_hash')
+    .select('id, owner_id, collection_id, password_hash')
     .eq('id', linkId)
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
@@ -363,9 +411,22 @@ export async function linksUpdate(ctx: ApiContext, input: Record<string, unknown
   if (typeof input.allowDownload === 'boolean') update.allow_download = input.allowDownload;
   if (typeof input.oneTime === 'boolean') update.one_time = input.oneTime;
   if (typeof input.watermark === 'boolean') update.watermark = input.watermark;
+  if (typeof input.requireAgreement === 'boolean') update.require_agreement = input.requireAgreement;
+  if (input.agreementText !== undefined) {
+    if (input.agreementText !== null && typeof input.agreementText !== 'string') {
+      throw new ApiError('invalid_params', 400);
+    }
+    update.agreement_text = typeof input.agreementText === 'string' ? input.agreementText.trim().slice(0, 5000) || null : null;
+  }
+  if (input.viewerGroupId !== undefined) {
+    if (!existing.collection_id) throw new ApiError('viewer_group_requires_collection', 400);
+    update.viewer_group_id = await resolveViewerGroup(ctx, existing.collection_id, input.viewerGroupId);
+  }
   if (input.clearPassword === true) update.password_hash = null;
-  else if (typeof input.password === 'string' && input.password.trim().length > 0)
-    update.password_hash = await hashPassword(input.password.trim());
+  else if (typeof input.password === 'string' && input.password.trim().length > 0) {
+    const password = parseLinkPassword(input.password);
+    if (password) update.password_hash = await hashPassword(password);
+  }
 
   const { data: updated, error } = await ctx.admin
     .from('share_links')
@@ -395,14 +456,24 @@ export async function analyticsSummary(ctx: ApiContext, input: Record<string, un
 
   // Use the LINK's owner (the get_link_*_for_owner RPCs are owner-scoped), so a
   // teammate-created link in this workspace is still readable via the key.
-  const [{ data: summaryRows, error: e1 }, { data: breakdownRows, error: e2 }] = await Promise.all([
+  // engagement / countries are additive (migration 039) — older deployments
+  // degrade them to zero/empty rather than failing the whole summary.
+  const [
+    { data: summaryRows, error: e1 },
+    { data: breakdownRows, error: e2 },
+    { data: engagementRows },
+    { data: countryRows }
+  ] = await Promise.all([
     ctx.admin.rpc('get_link_summary_for_owner', { p_owner_id: link.owner_id, p_link_id: linkId }),
-    ctx.admin.rpc('get_link_denied_breakdown_for_owner', { p_owner_id: link.owner_id, p_link_id: linkId })
+    ctx.admin.rpc('get_link_denied_breakdown_for_owner', { p_owner_id: link.owner_id, p_link_id: linkId }),
+    ctx.admin.rpc('get_link_engagement', { p_owner_id: link.owner_id, p_link_id: linkId }),
+    ctx.admin.rpc('get_link_country_breakdown', { p_owner_id: link.owner_id, p_link_id: linkId, p_limit: 20 })
   ]);
   if (e1 || e2) throw new ApiError('internal_error', 500);
   const summary = (summaryRows ?? [])[0];
   if (!summary) throw new ApiError('link_not_found', 404);
-  return { summary, deniedBreakdown: breakdownRows ?? [] };
+  const engagement = (engagementRows ?? [])[0] ?? { total_dwell_ms: 0, dwell_sessions: 0, avg_dwell_ms: 0 };
+  return { summary, deniedBreakdown: breakdownRows ?? [], engagement, countries: countryRows ?? [] };
 }
 
 export async function analyticsEvents(ctx: ApiContext, input: Record<string, unknown>) {
@@ -416,7 +487,7 @@ export async function analyticsEvents(ctx: ApiContext, input: Record<string, unk
 
   let query = ctx.admin
     .from('link_events')
-    .select('id, link_id, file_id, event_type, reason, session_id, viewer_email, created_at')
+    .select('id, link_id, file_id, event_type, reason, session_id, viewer_email, page_number, dwell_ms, country, created_at')
     .eq('workspace_id', ctx.workspaceId)
     .order('id', { ascending: true })
     .limit(limit);
@@ -598,14 +669,51 @@ export async function collectionsRemoveFile(ctx: ApiContext, input: Record<strin
 export async function requestsList(ctx: ApiContext, input: Record<string, unknown>) {
   requireScope(ctx, 'files:read');
   const limit = clampLimit(input.limit, 100, 200);
+  // The previous select named columns that never existed on file_requests
+  // (slug, allow_multiple) — PostgREST 400s on unknown columns, so this
+  // operation failed on EVERY call. Select the real schema and include the
+  // public inbox URL, which is the actionable piece for an agent.
   const { data, error } = await ctx.admin
     .from('file_requests')
-    .select('id, title, slug, instructions, is_active, max_uploads, allow_multiple, created_at, updated_at')
+    .select('id, title, instructions, token, require_email, is_active, expires_at, max_uploads, upload_count, created_at, updated_at')
     .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new ApiError('internal_error', 500);
-  return { requests: data ?? [] };
+  return {
+    requests: (data ?? []).map((row) => ({ ...row, url: `${publicEnv.appUrl}/r/${row.token}` }))
+  };
+}
+
+export async function requestsCreate(ctx: ApiContext, input: unknown) {
+  requireScope(ctx, 'files:write');
+  const schema = z.object({
+    title: z.string().min(1).max(200),
+    instructions: z.string().max(2000).optional(),
+    requireEmail: z.boolean().optional(),
+    expiresAt: z.string().optional(),
+    maxUploads: z.number().int().positive().optional()
+  });
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) throw new ApiError('invalid_params', 400);
+
+  const { data, error } = await ctx.admin
+    .from('file_requests')
+    .insert({
+      owner_id: ctx.ownerId,
+      workspace_id: ctx.workspaceId,
+      token: generateShareToken(),
+      title: parsed.data.title.trim(),
+      instructions: parsed.data.instructions?.trim() || null,
+      require_email: parsed.data.requireEmail ?? false,
+      expires_at: parseOptionalIsoDate(parsed.data.expiresAt),
+      max_uploads: parseOptionalMaxViews(parsed.data.maxUploads)
+    })
+    .select('id, title, instructions, token, require_email, is_active, expires_at, max_uploads, upload_count, created_at')
+    .maybeSingle();
+  if (error || !data) throw new ApiError('request_create_failed', 500);
+  return { request: { ...data, url: `${publicEnv.appUrl}/r/${data.token}` } };
 }
 
 export async function requestUploadsList(ctx: ApiContext, input: Record<string, unknown>) {
@@ -684,4 +792,323 @@ export async function contactsList(ctx: ApiContext, input: Record<string, unknow
   });
   if (error) throw new ApiError('internal_error', 500);
   return { contacts: data ?? [] };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4 — full-surface coverage: single-resource reads, trash lifecycle,
+// owner preview, file/collection management, rich analytics, key introspection.
+// Goal: an agent can operate the whole share → policy → track → follow-up loop
+// without ever opening the dashboard.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Resolve a link inside this workspace (any trash state) or 404.
+async function getWorkspaceLink(ctx: ApiContext, linkId: unknown, columns = '*') {
+  const id = typeof linkId === 'string' ? linkId : '';
+  if (!id) throw new ApiError('invalid_params', 400);
+  const { data } = await ctx.admin
+    .from('share_links')
+    .select(columns)
+    .eq('id', id)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!data) throw new ApiError('link_not_found', 404);
+  // Dynamic column lists defeat supabase-js's generated row types; callers
+  // only read the columns they asked for.
+  return data as unknown as Record<string, unknown>;
+}
+
+export async function linksGet(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'links:read');
+  const link = await getWorkspaceLink(ctx, input.linkId);
+  return { link: { ...redactShareLink(link), url: viewerUrl(link.token as string) } };
+}
+
+export async function linksRestore(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'links:write');
+  const link = await getWorkspaceLink(ctx, input.linkId, 'id, deleted_at');
+  if (!link.deleted_at) throw new ApiError('link_not_trashed', 409);
+  const { data: restored, error } = await ctx.admin
+    .from('share_links')
+    .update({ deleted_at: null })
+    .eq('id', link.id as string)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('*')
+    .maybeSingle();
+  if (error || !restored) throw new ApiError('internal_error', 500);
+  return { link: { ...redactShareLink(restored), url: viewerUrl(restored.token as string) } };
+}
+
+export async function linksHardDelete(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'links:write');
+  const link = await getWorkspaceLink(ctx, input.linkId, 'id, deleted_at');
+  // Mirror the dashboard's two-step lifecycle: only trashed links can be
+  // permanently destroyed, so a single API call can't skip the safety net.
+  if (!link.deleted_at) throw new ApiError('link_not_trashed', 409);
+  const { data, error } = await ctx.admin.rpc('hard_delete_link', {
+    p_link_id: link.id as string,
+    p_workspace_id: ctx.workspaceId
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  if (data !== true) throw new ApiError('link_not_found', 404);
+  return { deleted: true, permanent: true, linkId: link.id };
+}
+
+export async function linksPreview(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'links:read');
+  const link = await getWorkspaceLink(ctx, input.linkId, 'id, token');
+  // Same signed token the dashboard preview button mints: viewer-identical
+  // render, gates bypassed, nothing counted, no policy slots consumed.
+  const previewToken = createLinkPreviewToken(link.id as string);
+  return {
+    url: `${viewerUrl(link.token as string)}?preview=${encodeURIComponent(previewToken)}`,
+    expiresInSeconds: 15 * 60,
+    countsInAnalytics: false
+  };
+}
+
+export async function filesGet(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:read');
+  const fileId = typeof input.fileId === 'string' ? input.fileId : '';
+  if (!fileId) throw new ApiError('invalid_params', 400);
+  const { data: file } = await ctx.admin
+    .from('files')
+    .select('id, original_name, size_bytes, mime_type, page_count, storage_path, created_at, updated_at')
+    .eq('id', fileId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!file) throw new ApiError('file_not_found', 404);
+
+  // Optional short-lived signed URL so an agent can fetch the bytes without
+  // a share link (files:read already implies content access — uploads come
+  // in through the same scope's files:write).
+  let downloadUrl: string | null = null;
+  if (input.includeDownloadUrl === true) {
+    const { data: signed } = await ctx.admin.storage.from('pdf-files').createSignedUrl(file.storage_path, 300);
+    downloadUrl = signed?.signedUrl ?? null;
+  }
+  // Strip storage_path — internal bucket layout, not part of the API surface.
+  const publicFile = {
+    id: file.id,
+    original_name: file.original_name,
+    size_bytes: file.size_bytes,
+    mime_type: file.mime_type,
+    page_count: file.page_count,
+    created_at: file.created_at,
+    updated_at: file.updated_at
+  };
+  return { file: publicFile, downloadUrl, downloadUrlExpiresInSeconds: downloadUrl ? 300 : null };
+}
+
+export async function filesDelete(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const fileId = typeof input.fileId === 'string' ? input.fileId : '';
+  if (!fileId) throw new ApiError('invalid_params', 400);
+  const { data, error } = await ctx.admin.rpc('delete_file_cascade', {
+    p_file_id: fileId,
+    p_workspace_id: ctx.workspaceId
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  const status = (Array.isArray(data) ? data[0] : data)?.status;
+  if (status === 'not_found') throw new ApiError('file_not_found', 404);
+  if (status === 'active_links_exist' || status === 'active_collection_links_exist') {
+    // Same guard the dashboard enforces: trash/deactivate the links first.
+    throw new ApiError(status, 409);
+  }
+  if (status !== 'ok') throw new ApiError('internal_error', 500);
+  return { deleted: true, fileId };
+}
+
+export async function collectionsGet(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:read');
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : '';
+  if (!collectionId) throw new ApiError('invalid_params', 400);
+  const { data: collection } = await ctx.admin
+    .from('collections')
+    .select('id, name, description, created_at, updated_at')
+    .eq('id', collectionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!collection) throw new ApiError('collection_not_found', 404);
+
+  const [{ data: mapping }, { data: folders }] = await Promise.all([
+    ctx.admin
+      .from('collection_files')
+      .select('file_id, folder_id, sort_order')
+      .eq('collection_id', collectionId)
+      .eq('workspace_id', ctx.workspaceId)
+      .order('sort_order', { ascending: true }),
+    ctx.admin
+      .from('folders')
+      .select('id, name, parent_folder_id, sort_order')
+      .eq('collection_id', collectionId)
+      .eq('workspace_id', ctx.workspaceId)
+      .order('sort_order', { ascending: true })
+  ]);
+
+  const fileIds = (mapping ?? []).map((row) => row.file_id);
+  const { data: files } =
+    fileIds.length === 0
+      ? { data: [] }
+      : await ctx.admin
+          .from('files')
+          .select('id, original_name, size_bytes, mime_type, page_count, created_at')
+          .in('id', fileIds)
+          .eq('workspace_id', ctx.workspaceId);
+  const fileMap = new Map((files ?? []).map((file) => [file.id, file]));
+
+  return {
+    collection,
+    folders: folders ?? [],
+    files: (mapping ?? [])
+      .map((row) => {
+        const file = fileMap.get(row.file_id);
+        return file ? { ...file, folder_id: row.folder_id, sort_order: row.sort_order } : null;
+      })
+      .filter(Boolean)
+  };
+}
+
+export async function collectionsUpdate(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : '';
+  if (!collectionId) throw new ApiError('invalid_params', 400);
+  const update: Record<string, unknown> = {};
+  if (typeof input.name === 'string' && input.name.trim().length > 0) update.name = input.name.trim();
+  if (input.description !== undefined) {
+    if (input.description !== null && typeof input.description !== 'string') throw new ApiError('invalid_params', 400);
+    update.description = typeof input.description === 'string' ? input.description.trim() || null : null;
+  }
+  if (Object.keys(update).length === 0) throw new ApiError('invalid_params', 400);
+  const { data, error } = await ctx.admin
+    .from('collections')
+    .update(update)
+    .eq('id', collectionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id, name, description, created_at, updated_at')
+    .maybeSingle();
+  if (error) throw new ApiError('internal_error', 500);
+  if (!data) throw new ApiError('collection_not_found', 404);
+  return { collection: data };
+}
+
+export async function collectionsDelete(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const collectionId = typeof input.collectionId === 'string' ? input.collectionId : '';
+  if (!collectionId) throw new ApiError('invalid_params', 400);
+  const { data, error } = await ctx.admin.rpc('delete_collection_cascade', {
+    p_collection_id: collectionId,
+    p_workspace_id: ctx.workspaceId
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  const status = (Array.isArray(data) ? data[0] : data)?.status;
+  if (status === 'not_found') throw new ApiError('collection_not_found', 404);
+  if (status === 'active_links_exist') throw new ApiError(status, 409);
+  if (status !== 'ok') throw new ApiError('internal_error', 500);
+  return { deleted: true, collectionId };
+}
+
+export async function questionsDelete(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'files:write');
+  const questionId = typeof input.questionId === 'string' ? input.questionId : '';
+  if (!questionId) throw new ApiError('invalid_params', 400);
+  const { data, error } = await ctx.admin
+    .from('data_room_questions')
+    .delete()
+    .eq('id', questionId)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id')
+    .maybeSingle();
+  if (error) throw new ApiError('internal_error', 500);
+  if (!data) throw new ApiError('question_not_found', 404);
+  return { deleted: true, questionId };
+}
+
+// ── rich analytics (matches the dashboard link detail page) ─────────────────
+
+async function getLinkForAnalytics(ctx: ApiContext, linkId: unknown) {
+  const link = await getWorkspaceLink(ctx, linkId, 'id, owner_id, file_id, collection_id');
+  return link as { id: string; owner_id: string; file_id: string | null; collection_id: string | null };
+}
+
+export async function analyticsVisitors(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'analytics:read');
+  const link = await getLinkForAnalytics(ctx, input.linkId);
+  const limit = clampLimit(input.limit, 100, 200);
+  const { data, error } = await ctx.admin.rpc('get_link_visitors', {
+    p_owner_id: link.owner_id,
+    p_link_id: link.id,
+    p_limit: limit
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  return { visitors: data ?? [] };
+}
+
+export async function analyticsPages(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'analytics:read');
+  const link = await getLinkForAnalytics(ctx, input.linkId);
+
+  // File links default to their file; data-room links span files, so the
+  // caller must say which one (page numbers are file-scoped).
+  let fileId = typeof input.fileId === 'string' && input.fileId ? input.fileId : null;
+  if (link.file_id) {
+    if (fileId && fileId !== link.file_id) throw new ApiError('file_not_found', 404);
+    fileId = link.file_id;
+  } else if (link.collection_id) {
+    if (!fileId) throw new ApiError('file_id_required_for_collection_link', 400);
+    const { data: member } = await ctx.admin
+      .from('collection_files')
+      .select('file_id')
+      .eq('collection_id', link.collection_id)
+      .eq('file_id', fileId)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!member) throw new ApiError('file_not_found', 404);
+  }
+  if (!fileId) throw new ApiError('file_not_found', 404);
+
+  const [{ data: pages, error }, { data: fileRow }] = await Promise.all([
+    ctx.admin.rpc('get_per_page_stats', { p_owner_id: link.owner_id, p_file_id: fileId, p_link_id: link.id }),
+    ctx.admin.from('files').select('page_count').eq('id', fileId).maybeSingle()
+  ]);
+  if (error) throw new ApiError('internal_error', 500);
+  return { fileId, pageCount: fileRow?.page_count ?? null, pages: pages ?? [] };
+}
+
+export async function analyticsDaily(ctx: ApiContext, input: Record<string, unknown>) {
+  requireScope(ctx, 'analytics:read');
+  const link = await getLinkForAnalytics(ctx, input.linkId);
+  const days = clampLimit(input.days, 30, 365);
+  const tz = typeof input.tz === 'string' && input.tz.trim() ? input.tz.trim() : 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+  } catch {
+    throw new ApiError('invalid_timezone', 400);
+  }
+  const { data, error } = await ctx.admin.rpc('get_link_daily_views', {
+    p_owner_id: link.owner_id,
+    p_link_id: link.id,
+    p_days: days,
+    p_tz: tz
+  });
+  if (error) throw new ApiError('internal_error', 500);
+  return { days, tz, series: data ?? [] };
+}
+
+// ── key/workspace introspection ──────────────────────────────────────────────
+// No scope requirement: any authenticated key may inspect its own context.
+// This is the first call an agent should make — it answers "who am I, where
+// am I writing, and what am I allowed to do" without trial-and-error.
+export async function workspaceInfo(ctx: ApiContext) {
+  const { data: workspace } = await ctx.admin
+    .from('workspaces')
+    .select('id, name, created_at')
+    .eq('id', ctx.workspaceId)
+    .maybeSingle();
+  if (!workspace) throw new ApiError('workspace_not_found', 404);
+  return {
+    workspace,
+    keyLabel: ctx.keyLabel ?? null,
+    scopes: ctx.scopes,
+    appUrl: publicEnv.appUrl
+  };
 }

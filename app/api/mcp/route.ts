@@ -6,26 +6,41 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   type ApiContext,
+  analyticsDaily,
   analyticsEvents,
+  analyticsPages,
   analyticsSummary,
+  analyticsVisitors,
   automationsList,
   automationsSubscribe,
   automationsUnsubscribe,
   collectionsAddFiles,
   collectionsCreate,
+  collectionsDelete,
+  collectionsGet,
   collectionsList,
   collectionsRemoveFile,
+  collectionsUpdate,
   contactsList,
+  filesDelete,
+  filesGet,
   filesList,
   filesUpload,
   linksCreate,
   linksDelete,
+  linksGet,
+  linksHardDelete,
   linksList,
+  linksPreview,
+  linksRestore,
   linksUpdate,
   questionsAnswer,
+  questionsDelete,
   questionsList,
   requestUploadsList,
-  requestsList
+  requestsCreate,
+  requestsList,
+  workspaceInfo
 } from '@/lib/api/operations';
 
 type RpcRequest = {
@@ -270,6 +285,160 @@ const tools = [
       type: 'object',
       properties: { limit: { type: 'integer', minimum: 1, maximum: 500 } }
     }
+  },
+  {
+    name: 'docflow.workspace.info',
+    description: 'Identify this API key: workspace, key label, granted scopes. Call this first.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'docflow.links.get',
+    description: 'Read one share link (full policy + viewer URL)',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: { linkId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.links.restore',
+    description: 'Restore a trashed share link',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: { linkId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.links.hardDelete',
+    description: 'Permanently delete a TRASHED share link (must be trashed first via links.delete)',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: { linkId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.links.preview',
+    description: 'Mint a 15-minute owner-preview URL: renders like a viewer but bypasses gates and records no analytics',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: { linkId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.files.get',
+    description: 'Read one file; optionally include a 5-minute signed download URL',
+    inputSchema: {
+      type: 'object',
+      required: ['fileId'],
+      properties: {
+        fileId: { type: 'string' },
+        includeDownloadUrl: { type: 'boolean' }
+      }
+    }
+  },
+  {
+    name: 'docflow.files.delete',
+    description: 'Delete a file (fails with 409 while active links reference it)',
+    inputSchema: {
+      type: 'object',
+      required: ['fileId'],
+      properties: { fileId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.collections.get',
+    description: 'Read one data room: metadata, folders, and contained files',
+    inputSchema: {
+      type: 'object',
+      required: ['collectionId'],
+      properties: { collectionId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.collections.update',
+    description: 'Rename a data room or change its description',
+    inputSchema: {
+      type: 'object',
+      required: ['collectionId'],
+      properties: {
+        collectionId: { type: 'string' },
+        name: { type: 'string' },
+        description: { type: ['string', 'null'] }
+      }
+    }
+  },
+  {
+    name: 'docflow.collections.delete',
+    description: 'Delete a data room (fails with 409 while active links reference it)',
+    inputSchema: {
+      type: 'object',
+      required: ['collectionId'],
+      properties: { collectionId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.requests.create',
+    description: 'Create a public file-request inbox (reverse sharing: receive files from outsiders)',
+    inputSchema: {
+      type: 'object',
+      required: ['title'],
+      properties: {
+        title: { type: 'string' },
+        instructions: { type: 'string' },
+        requireEmail: { type: 'boolean' },
+        expiresAt: { type: 'string', description: 'ISO datetime' },
+        maxUploads: { type: 'integer', minimum: 1 }
+      }
+    }
+  },
+  {
+    name: 'docflow.questions.delete',
+    description: 'Delete one data-room question',
+    inputSchema: {
+      type: 'object',
+      required: ['questionId'],
+      properties: { questionId: { type: 'string' } }
+    }
+  },
+  {
+    name: 'docflow.analytics.visitors',
+    description: 'Per-visitor rollup for one link: sessions, pages read, dwell, downloads, NDA, country, device UA',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: {
+        linkId: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 200 }
+      }
+    }
+  },
+  {
+    name: 'docflow.analytics.pages',
+    description: 'Per-page heatmap for one link (views, distinct viewers, dwell). Collection links require fileId',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: {
+        linkId: { type: 'string' },
+        fileId: { type: 'string' }
+      }
+    }
+  },
+  {
+    name: 'docflow.analytics.daily',
+    description: 'Daily engagement series for one link (sessions + new viewers per day)',
+    inputSchema: {
+      type: 'object',
+      required: ['linkId'],
+      properties: {
+        linkId: { type: 'string' },
+        days: { type: 'integer', minimum: 1, maximum: 365 },
+        tz: { type: 'string', description: 'IANA timezone for day buckets (default UTC)' }
+      }
+    }
   }
 ] as const;
 
@@ -306,30 +475,46 @@ function toToolResult(result: unknown) {
 const OPERATIONS: Record<string, (ctx: ApiContext, input: Record<string, unknown>) => Promise<unknown>> = {
   'docflow.files.upload': filesUpload,
   'docflow.files.list': filesList,
+  'docflow.files.get': filesGet,
+  'docflow.files.delete': filesDelete,
   'docflow.collections.list': collectionsList,
   'docflow.links.list': linksList,
+  'docflow.links.get': linksGet,
   'docflow.links.create': linksCreate,
   'docflow.links.update': linksUpdate,
+  'docflow.links.restore': linksRestore,
+  'docflow.links.hardDelete': linksHardDelete,
+  'docflow.links.preview': linksPreview,
   'docflow.analytics.summary': analyticsSummary,
   'docflow.analytics.events': analyticsEvents,
+  'docflow.analytics.visitors': analyticsVisitors,
+  'docflow.analytics.pages': analyticsPages,
+  'docflow.analytics.daily': analyticsDaily,
   'docflow.automations.subscribe': automationsSubscribe,
   'docflow.automations.list': automationsList,
   'docflow.automations.unsubscribe': automationsUnsubscribe,
   'docflow.links.delete': linksDelete,
   'docflow.collections.create': collectionsCreate,
+  'docflow.collections.get': collectionsGet,
+  'docflow.collections.update': collectionsUpdate,
+  'docflow.collections.delete': collectionsDelete,
   'docflow.collections.addFiles': collectionsAddFiles,
   'docflow.collections.removeFile': collectionsRemoveFile,
   'docflow.requests.list': requestsList,
+  'docflow.requests.create': requestsCreate,
   'docflow.requests.uploads': requestUploadsList,
   'docflow.questions.list': questionsList,
   'docflow.questions.answer': questionsAnswer,
-  'docflow.contacts.list': contactsList
+  'docflow.questions.delete': questionsDelete,
+  'docflow.contacts.list': contactsList,
+  'docflow.workspace.info': workspaceInfo
 };
 
 async function handleToolCall(
   ownerId: string,
   workspaceId: string | null,
   principalScopes: string[],
+  keyLabel: string,
   name: string,
   args: Record<string, unknown>
 ) {
@@ -340,7 +525,7 @@ async function handleToolCall(
   if (!op) {
     throw new Error('tool_not_found');
   }
-  return op({ admin: createAdminClient(), ownerId, workspaceId, scopes: principalScopes }, args);
+  return op({ admin: createAdminClient(), ownerId, workspaceId, scopes: principalScopes, keyLabel }, args);
 }
 
 export async function GET() {
@@ -382,12 +567,36 @@ export async function POST(request: NextRequest) {
     return rpcError(payload.id, -32002, 'Rate limited', `Retry after ${rl.retryAfterSeconds}s`, 429);
   }
 
+  // JSON-RPC notifications (no id, e.g. the spec-mandated
+  // notifications/initialized handshake) expect NO response body. Answering
+  // them with "Method not found" broke strict MCP clients mid-handshake —
+  // acknowledge with 202 and move on.
+  if (payload.method.startsWith('notifications/')) {
+    return new NextResponse(null, { status: 202 });
+  }
+
+  if (payload.method === 'ping') {
+    return rpcResult(payload.id, {});
+  }
+
   if (payload.method === 'initialize') {
+    // Echo a client-proposed protocol version when it's one we can serve;
+    // otherwise answer with our latest supported revision (per MCP spec the
+    // client then decides whether to proceed or disconnect).
+    const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+    const requested =
+      typeof payload.params === 'object' && payload.params !== null
+        ? (payload.params as { protocolVersion?: unknown }).protocolVersion
+        : undefined;
+    const protocolVersion =
+      typeof requested === 'string' && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+        ? requested
+        : SUPPORTED_PROTOCOL_VERSIONS[0];
     return rpcResult(payload.id, {
-      protocolVersion: '2025-03-26',
+      protocolVersion,
       serverInfo: {
         name: 'docflow-mcp-gateway',
-        version: '1.0.0'
+        version: '1.1.0'
       },
       capabilities: {
         tools: {}
@@ -416,6 +625,7 @@ export async function POST(request: NextRequest) {
         principal.ownerId,
         principal.workspaceId,
         principal.scopes,
+        principal.label,
         parsed.data.name,
         parsed.data.arguments ?? {}
       );
@@ -442,10 +652,21 @@ export async function POST(request: NextRequest) {
           'invalid_expires_at',
           'invalid_max_views',
           'invalid_allowed_domains',
-          'invalid_event_types'
+          'invalid_event_types',
+          'invalid_password',
+          'password_too_short',
+          'invalid_timezone',
+          'file_id_required_for_collection_link',
+          'viewer_group_requires_collection'
         ].includes(message)
       ) {
         return rpcError(payload.id, -32602, 'Invalid params', message, 400);
+      }
+      if (['link_not_trashed', 'active_links_exist', 'active_collection_links_exist'].includes(message)) {
+        // The resource exists but its current state forbids the operation
+        // (e.g. hard-deleting a live link, deleting a file with active
+        // links). Conflict — the agent should change state first, not retry.
+        return rpcError(payload.id, -32009, 'Conflict', message, 409);
       }
       if (message === 'file_too_large') {
         return rpcError(payload.id, -32004, 'Payload too large', message, 413);
@@ -458,7 +679,9 @@ export async function POST(request: NextRequest) {
         message === 'collection_not_found' ||
         message === 'link_not_found' ||
         message === 'request_not_found' ||
-        message === 'question_not_found'
+        message === 'question_not_found' ||
+        message === 'viewer_group_not_found' ||
+        message === 'workspace_not_found'
       ) {
         // Caller referenced a parent/link that doesn't exist (or doesn't
         // belong to this owner). Distinct from a server fault — the MCP

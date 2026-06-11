@@ -79,13 +79,39 @@ curl https://<YOUR_DOCFLOW_HOST>/api/v1/files \
 
 | HTTP | 대표 `code` | 의미 |
 |---|---|---|
-| `400` | `invalid_params`, `pdf_extension_required`, `invalid_base64`, `invalid_webhook_url` | 입력 오류 |
+| `400` | `invalid_params`, `pdf_extension_required`, `invalid_base64`, `invalid_webhook_url`, `password_too_short`, `invalid_timezone`, `file_id_required_for_collection_link`, `viewer_group_requires_collection` | 입력 오류 |
 | `401` | `unauthorized` | 토큰 없음/무효 |
 | `403` | `forbidden`, `no_workspace` | 스코프 부족 / 키에 워크스페이스 없음 |
-| `404` | `file_not_found`, `collection_not_found`, `link_not_found`, `request_not_found`, `question_not_found` | 대상 없음(또는 다른 워크스페이스) |
-| `409` | `automation_dispatcher_disabled` | 서버에 디스패처 시크릿 미설정 |
+| `404` | `file_not_found`, `collection_not_found`, `link_not_found`, `request_not_found`, `question_not_found`, `viewer_group_not_found` | 대상 없음(또는 다른 워크스페이스) |
+| `409` | `automation_dispatcher_disabled`, `link_not_trashed`, `active_links_exist`, `active_collection_links_exist` | 상태 충돌 — 선행 작업 필요(휴지통 이동 등) |
 | `413` | `file_too_large` | 50MB 초과 |
 | `429` | `rate_limited` | 레이트리밋 |
+
+---
+
+## v1.1 추가 표면 (전체 시스템 커버리지)
+
+에이전트가 대시보드 없이 **공유 → 정책 → 추적 → 후속 액션** 루프를 완결할 수 있도록 추가된 표면입니다. 모든 항목은 MCP에서도 같은 이름의 tool(`docflow.<리소스>.<동작>`)로 제공됩니다. 상세 파라미터는 Swagger UI(`/api/v1/docs`)를 참고하세요.
+
+| 메서드·경로 | 스코프 | 설명 |
+|---|---|---|
+| `GET /workspace` | (인증만) | 이 키의 워크스페이스·라벨·스코프 — **에이전트가 가장 먼저 호출** |
+| `GET /files/{fileId}` | `files:read` | 파일 단건 (+`?includeDownloadUrl=true` → 5분 서명 URL) |
+| `DELETE /files/{fileId}` | `files:write` | 파일 삭제 (활성 링크 존재 시 `409`) |
+| `GET /links/{linkId}` | `links:read` | 링크 단건 (정책 전체 + 뷰어 URL) |
+| `POST /links/{linkId}/restore` | `links:write` | 휴지통 복구 |
+| `DELETE /links/{linkId}?permanent=true` | `links:write` | **휴지통에 있는** 링크 영구 삭제 (아니면 `409`) |
+| `GET /links/{linkId}/preview` | `links:read` | 15분 오너 미리보기 URL (게이트 우회·무집계) |
+| `GET /analytics/visitors?linkId=` | `analytics:read` | 방문자별 롤업 (세션·페이지·체류·다운로드·NDA·국가·UA) |
+| `GET /analytics/pages?linkId=[&fileId=]` | `analytics:read` | 페이지별 히트맵 (+`pageCount`) — 데이터룸 링크는 `fileId` 필수 |
+| `GET /analytics/daily?linkId=[&days=&tz=]` | `analytics:read` | 일별 추세 (IANA 타임존 버킷) |
+| `GET /collections/{collectionId}` | `files:read` | 데이터룸 단건: 메타 + 폴더 + 파일 목록 |
+| `PATCH /collections/{collectionId}` | `files:write` | 이름/설명 수정 |
+| `DELETE /collections/{collectionId}` | `files:write` | 데이터룸 삭제 (활성 링크 존재 시 `409`) |
+| `POST /requests` | `files:write` | 파일 요청 인박스 생성 (+공개 `/r` URL 반환) |
+| `DELETE /questions/{questionId}` | `files:write` | Q&A 질문 삭제 |
+
+**링크 정책 필드 추가** — `POST /links`·`PATCH /links/{id}`가 이제 `requireAgreement`(클릭랩 NDA)·`agreementText`(≤5000자)·`viewerGroupId`(데이터룸 링크 전용) 를 받으며, `password`는 대시보드와 동일하게 **4자 이상**을 요구합니다. `GET /analytics/summary` 응답에는 `engagement`(총/평균 체류)와 `countries`가 추가됐고, `GET /analytics/events` 행에 `page_number`·`dwell_ms`·`country`가 포함됩니다.
 
 ---
 

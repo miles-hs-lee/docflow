@@ -36,6 +36,7 @@ export function buildOpenApiSpec(): Record<string, unknown> {
     servers: [{ url: `${publicEnv.appUrl}/api/v1` }],
     security: [{ bearerAuth: [] }],
     tags: [
+      { name: 'Workspace' },
       { name: 'Files' },
       { name: 'Links' },
       { name: 'Collections' },
@@ -46,6 +47,35 @@ export function buildOpenApiSpec(): Record<string, unknown> {
       { name: 'Contacts' }
     ],
     paths: {
+      '/workspace': {
+        get: {
+          tags: ['Workspace'],
+          summary: 'Identify this API key (workspace, label, scopes) — call this first',
+          operationId: 'getWorkspaceInfo',
+          responses: {
+            '200': {
+              description: 'Key context',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      workspace: {
+                        type: 'object',
+                        properties: { id: { type: 'string' }, name: { type: 'string' } }
+                      },
+                      keyLabel: { type: 'string', nullable: true },
+                      scopes: { type: 'array', items: { type: 'string' } },
+                      appUrl: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            },
+            '401': errorResponse('Unauthorized')
+          }
+        }
+      },
       '/files': {
         get: {
           tags: ['Files'],
@@ -158,7 +188,64 @@ export function buildOpenApiSpec(): Record<string, unknown> {
           }
         }
       },
+      '/files/{fileId}': {
+        get: {
+          tags: ['Files'],
+          summary: 'Read one file (optionally with a 5-minute signed download URL)',
+          operationId: 'getFile',
+          parameters: [
+            { name: 'fileId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'includeDownloadUrl', in: 'query', schema: { type: 'boolean' } }
+          ],
+          responses: {
+            '200': {
+              description: 'File (+ downloadUrl when requested)',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      file: { $ref: '#/components/schemas/File' },
+                      downloadUrl: { type: 'string', nullable: true },
+                      downloadUrlExpiresInSeconds: { type: 'integer', nullable: true }
+                    }
+                  }
+                }
+              }
+            },
+            '404': errorResponse('File not found')
+          }
+        },
+        delete: {
+          tags: ['Files'],
+          summary: 'Delete a file (409 while active links reference it)',
+          operationId: 'deleteFile',
+          parameters: [{ name: 'fileId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Deleted' },
+            '404': errorResponse('File not found'),
+            '409': errorResponse('Active links exist — trash them first')
+          }
+        }
+      },
       '/links/{linkId}': {
+        get: {
+          tags: ['Links'],
+          summary: 'Read one share link (full policy + viewer URL)',
+          operationId: 'getLink',
+          parameters: [{ name: 'linkId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Link',
+              content: {
+                'application/json': {
+                  schema: { type: 'object', properties: { link: { $ref: '#/components/schemas/ShareLink' } } }
+                }
+              }
+            },
+            '404': errorResponse('Link not found')
+          }
+        },
         patch: {
           tags: ['Links'],
           summary: 'Update a share link’s policy',
@@ -182,10 +269,61 @@ export function buildOpenApiSpec(): Record<string, unknown> {
         },
         delete: {
           tags: ['Links'],
-          summary: 'Move a share link to the trash',
+          summary: 'Trash a share link (recoverable); ?permanent=true destroys a TRASHED link',
           operationId: 'deleteLink',
+          parameters: [
+            { name: 'linkId', in: 'path', required: true, schema: { type: 'string' } },
+            {
+              name: 'permanent',
+              in: 'query',
+              schema: { type: 'boolean', default: false },
+              description: 'true = hard-delete. Only allowed when the link is already trashed (409 otherwise).'
+            }
+          ],
+          responses: {
+            '200': { description: 'Trashed / destroyed' },
+            '404': errorResponse('Link not found'),
+            '409': errorResponse('permanent=true on a live link — trash it first')
+          }
+        }
+      },
+      '/links/{linkId}/restore': {
+        post: {
+          tags: ['Links'],
+          summary: 'Restore a trashed share link',
+          operationId: 'restoreLink',
           parameters: [{ name: 'linkId', in: 'path', required: true, schema: { type: 'string' } }],
-          responses: { '200': { description: 'Trashed' }, '404': errorResponse('Link not found') }
+          responses: {
+            '200': { description: 'Restored link' },
+            '404': errorResponse('Link not found'),
+            '409': errorResponse('Link is not trashed')
+          }
+        }
+      },
+      '/links/{linkId}/preview': {
+        get: {
+          tags: ['Links'],
+          summary: 'Mint a 15-minute owner-preview URL (gates bypassed, nothing counted)',
+          operationId: 'previewLink',
+          parameters: [{ name: 'linkId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Preview URL',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      url: { type: 'string' },
+                      expiresInSeconds: { type: 'integer' },
+                      countsInAnalytics: { type: 'boolean' }
+                    }
+                  }
+                }
+              }
+            },
+            '404': errorResponse('Link not found')
+          }
         }
       },
       '/collections': {
@@ -232,13 +370,54 @@ export function buildOpenApiSpec(): Record<string, unknown> {
       '/analytics/summary': {
         get: {
           tags: ['Analytics'],
-          summary: 'Summary metrics + denied breakdown for one link',
+          summary: 'Summary metrics, denied breakdown, dwell engagement, and country split for one link',
           operationId: 'analyticsSummary',
           parameters: [{ name: 'linkId', in: 'query', required: true, schema: { type: 'string' } }],
           responses: {
-            '200': { description: 'Summary' },
+            '200': { description: 'Summary + engagement + countries' },
             '404': errorResponse('Link not found')
           }
+        }
+      },
+      '/analytics/visitors': {
+        get: {
+          tags: ['Analytics'],
+          summary: 'Per-visitor rollup for one link (sessions, pages, dwell, downloads, NDA, country, UA)',
+          operationId: 'analyticsVisitors',
+          parameters: [
+            { name: 'linkId', in: 'query', required: true, schema: { type: 'string' } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200 } }
+          ],
+          responses: { '200': { description: 'Visitors' }, '404': errorResponse('Link not found') }
+        }
+      },
+      '/analytics/pages': {
+        get: {
+          tags: ['Analytics'],
+          summary: 'Per-page heatmap for one link (views, distinct viewers, dwell). Collection links require fileId',
+          operationId: 'analyticsPages',
+          parameters: [
+            { name: 'linkId', in: 'query', required: true, schema: { type: 'string' } },
+            { name: 'fileId', in: 'query', schema: { type: 'string' } }
+          ],
+          responses: {
+            '200': { description: 'Pages + pageCount' },
+            '400': errorResponse('fileId required for collection links'),
+            '404': errorResponse('Link or file not found')
+          }
+        }
+      },
+      '/analytics/daily': {
+        get: {
+          tags: ['Analytics'],
+          summary: 'Daily engagement series for one link (sessions + new viewers per day)',
+          operationId: 'analyticsDaily',
+          parameters: [
+            { name: 'linkId', in: 'query', required: true, schema: { type: 'string' } },
+            { name: 'days', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 365, default: 30 } },
+            { name: 'tz', in: 'query', schema: { type: 'string', default: 'UTC' }, description: 'IANA timezone' }
+          ],
+          responses: { '200': { description: 'Series' }, '404': errorResponse('Link not found') }
         }
       },
       '/analytics/events': {
@@ -302,6 +481,44 @@ export function buildOpenApiSpec(): Record<string, unknown> {
           responses: { '200': { description: 'Deleted' } }
         }
       },
+      '/collections/{collectionId}': {
+        get: {
+          tags: ['Collections'],
+          summary: 'Read one data room: metadata, folders, contained files',
+          operationId: 'getCollection',
+          parameters: [{ name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Collection contents' }, '404': errorResponse('Collection not found') }
+        },
+        patch: {
+          tags: ['Collections'],
+          summary: 'Rename a data room / change its description',
+          operationId: 'updateCollection',
+          parameters: [{ name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { name: { type: 'string' }, description: { type: 'string', nullable: true } }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Updated' }, '404': errorResponse('Collection not found') }
+        },
+        delete: {
+          tags: ['Collections'],
+          summary: 'Delete a data room (409 while active links reference it)',
+          operationId: 'deleteCollection',
+          parameters: [{ name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Deleted' },
+            '404': errorResponse('Collection not found'),
+            '409': errorResponse('Active links exist — trash them first')
+          }
+        }
+      },
       '/collections/{collectionId}/files': {
         post: {
           tags: ['Collections'],
@@ -341,7 +558,31 @@ export function buildOpenApiSpec(): Record<string, unknown> {
           summary: 'List file-request inboxes',
           operationId: 'listRequests',
           parameters: [limitParam],
-          responses: { '200': { description: 'Requests' } }
+          responses: { '200': { description: 'Requests (each with its public /r URL)' } }
+        },
+        post: {
+          tags: ['Requests'],
+          summary: 'Create a public file-request inbox (receive files from outsiders)',
+          operationId: 'createRequest',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['title'],
+                  properties: {
+                    title: { type: 'string' },
+                    instructions: { type: 'string' },
+                    requireEmail: { type: 'boolean', default: false },
+                    expiresAt: { type: 'string', format: 'date-time' },
+                    maxUploads: { type: 'integer', minimum: 1 }
+                  }
+                }
+              }
+            }
+          },
+          responses: { '200': { description: 'Created request (+ public URL)' } }
         }
       },
       '/requests/{requestId}/uploads': {
@@ -377,6 +618,13 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             }
           },
           responses: { '200': { description: 'Answered' }, '404': errorResponse('Question not found') }
+        },
+        delete: {
+          tags: ['Q&A'],
+          summary: 'Delete one data-room question',
+          operationId: 'deleteQuestion',
+          parameters: [{ name: 'questionId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Deleted' }, '404': errorResponse('Question not found') }
         }
       },
       '/contacts': {
@@ -410,6 +658,7 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             original_name: { type: 'string' },
             size_bytes: { type: 'integer' },
             mime_type: { type: 'string' },
+            page_count: { type: 'integer', nullable: true, description: 'Filled after the first view' },
             created_at: { type: 'string', format: 'date-time' },
             updated_at: { type: 'string', format: 'date-time' }
           }
@@ -437,6 +686,9 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             one_time: { type: 'boolean' },
             watermark: { type: 'boolean' },
             has_password: { type: 'boolean' },
+            require_agreement: { type: 'boolean', description: 'Clickwrap NDA gate' },
+            agreement_text: { type: 'string', nullable: true },
+            viewer_group_id: { type: 'string', nullable: true },
             expires_at: { type: 'string', format: 'date-time', nullable: true },
             max_views: { type: 'integer', nullable: true }
           }
@@ -453,10 +705,13 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             maxViews: { type: 'integer', minimum: 1 },
             requireEmail: { type: 'boolean' },
             allowedDomains: { type: 'array', items: { type: 'string' } },
-            password: { type: 'string' },
+            password: { type: 'string', minLength: 4 },
             allowDownload: { type: 'boolean' },
             oneTime: { type: 'boolean' },
-            watermark: { type: 'boolean' }
+            watermark: { type: 'boolean' },
+            requireAgreement: { type: 'boolean', description: 'Clickwrap NDA gate before viewing' },
+            agreementText: { type: 'string', maxLength: 5000 },
+            viewerGroupId: { type: 'string', description: 'Collection links only — scope to a viewer group' }
           }
         },
         LinkUpdate: {
@@ -468,11 +723,14 @@ export function buildOpenApiSpec(): Record<string, unknown> {
             maxViews: { type: 'integer', nullable: true },
             requireEmail: { type: 'boolean' },
             allowedDomains: { type: 'array', items: { type: 'string' } },
-            password: { type: 'string' },
+            password: { type: 'string', minLength: 4 },
             clearPassword: { type: 'boolean' },
             allowDownload: { type: 'boolean' },
             oneTime: { type: 'boolean' },
-            watermark: { type: 'boolean' }
+            watermark: { type: 'boolean' },
+            requireAgreement: { type: 'boolean' },
+            agreementText: { type: 'string', nullable: true, maxLength: 5000 },
+            viewerGroupId: { type: 'string', nullable: true, description: 'Collection links only; null = all folders' }
           }
         }
       }
