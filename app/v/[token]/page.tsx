@@ -13,7 +13,7 @@ import { DEFAULT_AGREEMENT_TEXT } from '@/lib/agreement';
 import { brandAccentStyle, mergeBranding } from '@/lib/branding';
 import { submitViewerAccessAction } from '@/lib/actions/viewer';
 import {
-  bumpOpenCount,
+  bumpOpenCountDeduped,
   getCollectionBranding,
   getOwnerBranding,
   getViewerLinkByToken,
@@ -22,8 +22,10 @@ import {
   recordLinkEvent
 } from '@/lib/data';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
+import { verifyLinkPreviewToken } from '@/lib/preview-token';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import type { DeniedReason } from '@/lib/types';
+import { isLikelyBotUserAgent } from '@/lib/ua';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
 type ViewerPageProps = {
@@ -95,8 +97,29 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   const grant = decodeGrantCookie(rawGrant, link.id);
   const eventFileId = link.file?.id ?? link.collection_files[0]?.id ?? null;
 
-  const baseDenied = evaluateBasePolicy({ link, grant });
-  const grantDenied = !baseDenied ? evaluateGrantPolicy({ link, grant }) : null;
+  // Unfurl crawlers and mail scanners hit this page the moment a link is
+  // pasted into chat/email. They still get the (branded) landing render —
+  // that's what link previews are for — but they must not count as opens
+  // or pile up phantom 'denied' rows on gated links.
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent');
+  const viewerIsBot = isLikelyBotUserAgent(userAgent);
+  // Session cookie is guaranteed by middleware on every /v/* request — read only.
+  const sessionId = normalizeViewerSessionId(cookieStore.get(VIEWER_SESSION_COOKIE)?.value);
+
+  // Owner preview: a valid signed token (minted by the authed dashboard
+  // route) renders the link exactly as a viewer would see it, but bypasses
+  // the gates (no self-email/password/NDA) and the base policy (an inactive
+  // or expired link can be previewed before activating), and records
+  // NOTHING — no open bump, no view claim, no events. Treating both denials
+  // as null here lets every downstream branch fall through naturally.
+  const previewParam = typeof query.preview === 'string' ? query.preview : null;
+  const isOwnerPreview = Boolean(previewParam && verifyLinkPreviewToken(previewParam, link.id));
+  const previewQuery =
+    isOwnerPreview && previewParam ? `preview=${encodeURIComponent(previewParam)}` : null;
+
+  const baseDenied = isOwnerPreview ? null : evaluateBasePolicy({ link, grant });
+  const grantDenied = !baseDenied && !isOwnerPreview ? evaluateGrantPolicy({ link, grant }) : null;
   const queryDenied = typeof query.denied === 'string' ? query.denied : null;
   const knownReasons = new Set<DeniedReason>([
     'expired',
@@ -106,6 +129,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     'domain_not_allowed',
     'wrong_password',
     'email_required',
+    'invalid_email',
     'password_required',
     'agreement_required',
     'file_missing',
@@ -125,14 +149,11 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   const needsForm = Boolean(grantDenied && (requiresEmail || requiresPassword || requiresAgreement));
 
   if (baseDenied) {
-    const headersList = await headers();
-    // Session cookie is guaranteed by middleware on every /v/* request — read only.
-    const sessionId = normalizeViewerSessionId(cookieStore.get(VIEWER_SESSION_COOKIE)?.value);
-
     const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
-    const userAgent = headersList.get('user-agent');
 
-    if (eventFileId) {
+    // Bots probing expired/gated links would otherwise flood the denied
+    // breakdown ("거부 — 주의") with hits no human made.
+    if (eventFileId && !viewerIsBot) {
       try {
         await recordLinkEvent({
           linkId: link.id,
@@ -224,27 +245,35 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     );
   }
 
-  const docSrc = link.collection_id
-    ? `/api/v/${token}/document?fileId=${encodeURIComponent(activeFile.id)}`
-    : `/api/v/${token}/document`;
-  const downloadSrc = link.collection_id
-    ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
-    : `/api/v/${token}/download`;
-  const eventEndpoint = `/api/v/${token}/event`;
+  const withPreview = (base: string) =>
+    previewQuery ? `${base}${base.includes('?') ? '&' : '?'}${previewQuery}` : base;
+  const docSrc = withPreview(
+    link.collection_id
+      ? `/api/v/${token}/document?fileId=${encodeURIComponent(activeFile.id)}`
+      : `/api/v/${token}/document`
+  );
+  const downloadSrc = withPreview(
+    link.collection_id
+      ? `/api/v/${token}/download?fileId=${encodeURIComponent(activeFile.id)}`
+      : `/api/v/${token}/download`
+  );
+  const eventEndpoint = withPreview(`/api/v/${token}/event`);
   // Branding was resolved once above; the watermark falls back to the company
   // name when no viewer email was collected.
   const watermarkLabel = grant?.email || branding?.company_name || 'DocFlow Viewer';
 
-  // #1: count this open. Bumped once per granted viewer-page render — NOT
-  // per PDF.js byte-range request (those hit the /document route, not this
-  // page) — so open_count tracks real opens (incl. repeat opens by the same
-  // session) and stays distinct from the session-deduped unique count.
-  // Best-effort + non-blocking; bumpOpenCount swallows its own errors.
-  await bumpOpenCount(link.id);
+  // #1: count this open — once per (link, session) within a 30-minute
+  // window, so data-room file switches / Q&A submits / soft reloads (each a
+  // fresh RSC render) read as ONE visit, and unfurl crawlers / owner
+  // previews don't count at all. Repeat visits outside the window still
+  // bump, keeping "조회수" distinct from the session-deduped unique count.
+  // Best-effort + non-blocking; the helper swallows its own errors.
+  if (!viewerIsBot && !isOwnerPreview) {
+    await bumpOpenCountDeduped(link.id, sessionId);
+  }
 
   // Data room Phase 4: load THIS viewer's own Q&A thread (by their session) for
   // a data-room link. Private — never surfaces other viewers' questions.
-  const sessionId = normalizeViewerSessionId(cookieStore.get(VIEWER_SESSION_COOKIE)?.value);
   const viewerQuestions = link.collection_id ? await listViewerQuestions(link.collection_id, sessionId) : [];
   const qaStatus = typeof query.qa === 'string' ? query.qa : null;
 
@@ -259,6 +288,9 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
           </span>
         </div>
         <div className="viewer-actions">
+          {isOwnerPreview ? (
+            <Badge variant="info" tone="subtle">미리보기 — 통계에 집계되지 않음</Badge>
+          ) : null}
           {link.allow_download ? (
             <Button asChild size="sm">
               <a href={downloadSrc}>다운로드</a>
@@ -276,6 +308,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
               folders={link.folders}
               files={link.collection_files}
               activeFileId={activeFile.id}
+              extraQuery={previewQuery}
             />
             <ViewerQuestions token={token} questions={viewerQuestions} status={qaStatus} />
           </aside>

@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { claimViewCached, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
+import { verifyLinkPreviewToken } from '@/lib/preview-token';
 import { checkRateLimit } from '@/lib/rate-limit';
 import type { DeniedReason } from '@/lib/types';
+import { isLikelyBotUserAgent, normalizeCountryCode } from '@/lib/ua';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
 type RouteContext = {
@@ -73,6 +75,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
   const requestedFileId = request.nextUrl.searchParams.get('fileId');
 
+  // Crawlers / link-preview scanners get no document bytes: serving them
+  // would burn a claim_view slot (max_views / one_time) and pollute the
+  // owner's analytics for a fetch no human saw. Real viewers never send a
+  // bot UA; a spoofed bot UA only denies the spoofer, so this cannot be
+  // used to bypass policy. No denied event is logged — that's exactly the
+  // noise this filter removes.
+  if (isLikelyBotUserAgent(request.headers.get('user-agent'))) {
+    return buildDeniedResponse('access_not_granted', 403);
+  }
+
   // Rate limit per viewer session + hashed IP (generous, see lib/rate-limit
   // — PDF.js Range bursts + NAT-shared IPs). Caps a single runaway client.
   const rlSession = normalizeViewerSessionId(request.cookies.get(VIEWER_SESSION_COOKIE)?.value);
@@ -114,38 +126,47 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const rawGrant = request.cookies.get(getGrantCookieName(bundle.id))?.value;
   const grant = decodeGrantCookie(rawGrant, bundle.id);
 
-  const baseDenied = evaluateBasePolicy({ link: bundle, grant });
-  if (baseDenied) {
-    await safeLogDenied({
-      reason: baseDenied,
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
+  // Owner preview (signed token from the authed dashboard route): serve the
+  // bytes like a viewer would receive them, but skip policy gates (an
+  // inactive link can be previewed), skip the view claim (no max_views /
+  // one_time slot is consumed), and log nothing. The token is link-scoped,
+  // HMAC-signed and 15-minute — possession is the authorization.
+  const isOwnerPreview = verifyLinkPreviewToken(request.nextUrl.searchParams.get('preview'), bundle.id);
 
-    return buildDeniedResponse(baseDenied);
-  }
+  if (!isOwnerPreview) {
+    const baseDenied = evaluateBasePolicy({ link: bundle, grant });
+    if (baseDenied) {
+      await safeLogDenied({
+        reason: baseDenied,
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
 
-  const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
-  if (grantDenied) {
-    await safeLogDenied({
-      reason: grantDenied,
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
+      return buildDeniedResponse(baseDenied);
+    }
 
-    return buildDeniedResponse(grantDenied);
+    const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
+    if (grantDenied) {
+      await safeLogDenied({
+        reason: grantDenied,
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+
+      return buildDeniedResponse(grantDenied);
+    }
   }
 
   // Sign a short-lived URL pointing at the storage object. The actual
@@ -217,8 +238,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   // first request to read the whole document without ever consuming a
   // max_views / one_time slot — a policy bypass. The dedup makes the
   // per-chunk lock cheap (lock + one indexed existence check, no write)
-  // for an already-claimed session.
-  {
+  // for an already-claimed session. Owner previews never claim — that's
+  // the whole point of preview mode.
+  if (!isOwnerPreview) {
     let claim;
     try {
       claim = await claimViewCached({
@@ -228,7 +250,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         sessionId,
         viewerEmail: grant?.email,
         ipHash,
-        userAgent
+        userAgent,
+        // Platform geo header → 2-letter code on the view event. Raw IP is
+        // still never stored.
+        country: normalizeCountryCode(request.headers.get('x-vercel-ip-country'))
       });
     } catch {
       upstream.body?.cancel().catch(() => {});

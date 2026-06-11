@@ -2,7 +2,7 @@ import { cache } from 'react';
 
 import { OWNER_FEED_EVENT_TYPES } from '@/lib/event-labels';
 import { kickWebhookDispatch } from '@/lib/qstash';
-import { getRedis, isRedisConfigured } from '@/lib/redis';
+import { getRedis, isRedisConfigured, withRedisTimeout } from '@/lib/redis';
 import { publicEnv } from '@/lib/env-public';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { createClient as createOwnerClient } from '@/lib/supabase/server';
@@ -17,7 +17,9 @@ import type {
   FileRequestUploadRow,
   FileRow,
   FolderRow,
+  LinkCountryCount,
   LinkDailyView,
+  LinkEngagement,
   LinkEventRow,
   LinkEventType,
   LinkMetrics,
@@ -603,6 +605,8 @@ export async function claimView(input: {
   viewerEmail?: string;
   ipHash?: string | null;
   userAgent?: string | null;
+  /** ISO 3166-1 alpha-2 from the platform geo header (never raw IP). */
+  country?: string | null;
 }): Promise<{ allowed: boolean; reason: DeniedReason | null }> {
   const admin = createAdminClient();
 
@@ -612,7 +616,8 @@ export async function claimView(input: {
     p_session_id: input.sessionId ?? null,
     p_viewer_email: input.viewerEmail ?? null,
     p_ip_hash: input.ipHash ?? null,
-    p_user_agent: input.userAgent ?? null
+    p_user_agent: input.userAgent ?? null,
+    p_country: input.country ?? null
   });
 
   if (error) {
@@ -660,6 +665,8 @@ export async function claimViewCached(input: {
   viewerEmail?: string;
   ipHash?: string | null;
   userAgent?: string | null;
+  /** ISO 3166-1 alpha-2 from the platform geo header (never raw IP). */
+  country?: string | null;
 }): Promise<{ allowed: boolean; reason: DeniedReason | null }> {
   const canCache = isRedisConfigured() && Boolean(input.sessionId);
   const key = input.sessionId ? viewClaimMarkerKey(input.linkId, input.sessionId) : null;
@@ -699,8 +706,24 @@ export async function claimViewCached(input: {
 // can't pollute per-page analytics without ever opening the document.
 // Fails OPEN on error — analytics integrity is not worth dropping legit
 // dwell data during a transient DB hiccup.
+//
+// Fast path: claimViewCached already writes a `claim:<link>:<session>`
+// marker to Redis after every successful Postgres claim — the exact
+// predicate this function checks. A marker hit answers the hottest
+// ingest query (once per dwell batch) without a Postgres round trip;
+// any miss/error falls through to the authoritative check, and a
+// Postgres-confirmed claim re-warms the marker for the next batch.
 export async function hasViewForSession(linkId: string, sessionId: string): Promise<boolean> {
   if (!sessionId) return false;
+  const markerKey = viewClaimMarkerKey(linkId, sessionId);
+  if (isRedisConfigured()) {
+    try {
+      const marked = await withRedisTimeout(getRedis().get(markerKey), 400, null);
+      if (marked) return true;
+    } catch {
+      // fall through to Postgres
+    }
+  }
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('link_events')
@@ -711,7 +734,15 @@ export async function hasViewForSession(linkId: string, sessionId: string): Prom
     .limit(1)
     .maybeSingle();
   if (error) return true; // fail open
-  return Boolean(data);
+  const claimed = Boolean(data);
+  if (claimed && isRedisConfigured()) {
+    try {
+      await getRedis().set(markerKey, '1', { ex: VIEW_CLAIM_MARKER_TTL_SECONDS });
+    } catch {
+      // marker re-warm is best-effort
+    }
+  }
+  return claimed;
 }
 
 export async function recordLinkEvent(input: {
@@ -755,6 +786,21 @@ export async function recordLinkEvent(input: {
   // webhook-eligible (page_view goes through recordPageViewBatch and is
   // not). Kick the near-real-time dispatcher; coalesced + best-effort.
   await kickWebhookDispatch(input.ownerId);
+}
+
+// Record a file's total page count the first time a viewer reports it.
+// The viewer already parses the PDF client-side (react-pdf onLoadSuccess),
+// so this costs no server-side PDF parsing. Only-set-while-NULL makes the
+// value effectively first-writer-wins; a malicious viewer can't overwrite
+// an established count, and the 1..10000 clamp happens at the zod layer.
+export async function maybeSetFilePageCount(fileId: string, pageCount: number): Promise<void> {
+  const admin = createAdminClient();
+  try {
+    await admin.from('files').update({ page_count: pageCount }).eq('id', fileId).is('page_count', null);
+  } catch {
+    // Best-effort — completion metrics simply stay unavailable until the
+    // next viewer reports.
+  }
 }
 
 // Batched page_view ingest: one multi-row INSERT instead of N single-row
@@ -834,9 +880,26 @@ export async function listPerPageStats(args: {
   return [];
 }
 
-// Per-day engagement series for a link (migration 017). Used by the link
-// detail "열람 추세" card. Service-role RPC; falls back to [] on error so
-// the card renders an empty state instead of throwing.
+// Day buckets for the trend chart follow the deployment's reporting
+// timezone (ANALYTICS_TIMEZONE, IANA name e.g. "Asia/Seoul") instead of
+// UTC midnight. Validated once at module load; bad values degrade to UTC
+// rather than erroring every RPC call.
+const ANALYTICS_TIMEZONE = (() => {
+  const tz = process.env.ANALYTICS_TIMEZONE?.trim();
+  if (!tz) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    console.error(`[analytics] invalid ANALYTICS_TIMEZONE "${tz}" — falling back to UTC`);
+    return 'UTC';
+  }
+})();
+
+// Per-day engagement series for a link (migration 017, rewritten in 039 as
+// a single range scan with timezone-aware buckets). Used by the link detail
+// "열람 추세" card. Service-role RPC; falls back to [] on error so the card
+// renders an empty state instead of throwing.
 export async function listLinkDailyViews(args: {
   ownerId: string;
   linkId: string;
@@ -846,7 +909,8 @@ export async function listLinkDailyViews(args: {
   const { data, error } = await admin.rpc('get_link_daily_views', {
     p_owner_id: args.ownerId,
     p_link_id: args.linkId,
-    p_days: args.days ?? 30
+    p_days: args.days ?? 30,
+    p_tz: ANALYTICS_TIMEZONE
   });
   if (error || !data) {
     if (error) console.error('[listLinkDailyViews] degraded to empty', error);
@@ -889,6 +953,8 @@ export async function listLinkVisitors(args: {
       total_dwell_ms: number | string;
       downloads: number | string;
       agreed: boolean;
+      country?: string | null;
+      last_user_agent?: string | null;
     }>
   ).map((row) => ({
     visitor_key: row.visitor_key,
@@ -899,7 +965,55 @@ export async function listLinkVisitors(args: {
     pages_viewed: Number(row.pages_viewed),
     total_dwell_ms: Number(row.total_dwell_ms),
     downloads: Number(row.downloads),
-    agreed: Boolean(row.agreed)
+    agreed: Boolean(row.agreed),
+    // Pre-039 envs don't return these; render as unknown.
+    country: row.country ?? null,
+    last_user_agent: row.last_user_agent ?? null
+  }));
+}
+
+// Dwell totals + per-engaged-session average for the link summary tiles
+// (migration 039; rollup-aware since 040). Degrades to zeros on error.
+export async function getLinkEngagement(args: { ownerId: string; linkId: string }): Promise<LinkEngagement> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_engagement', {
+    p_owner_id: args.ownerId,
+    p_link_id: args.linkId
+  });
+  if (error || !data) {
+    if (error) console.error('[getLinkEngagement] degraded to zero', error);
+    return { total_dwell_ms: 0, dwell_sessions: 0, avg_dwell_ms: 0 };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { total_dwell_ms: number | string; dwell_sessions: number | string; avg_dwell_ms: number | string }
+    | undefined;
+  return {
+    total_dwell_ms: Number(row?.total_dwell_ms ?? 0),
+    dwell_sessions: Number(row?.dwell_sessions ?? 0),
+    avg_dwell_ms: Number(row?.avg_dwell_ms ?? 0)
+  };
+}
+
+// Distinct view sessions per country for a link (migration 039). NULL
+// country = geo header absent or pre-039 rows; the UI labels the bucket.
+export async function listLinkCountryBreakdown(args: {
+  ownerId: string;
+  linkId: string;
+  limit?: number;
+}): Promise<LinkCountryCount[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_country_breakdown', {
+    p_owner_id: args.ownerId,
+    p_link_id: args.linkId,
+    p_limit: args.limit ?? 20
+  });
+  if (error || !data) {
+    if (error) console.error('[listLinkCountryBreakdown] degraded to empty', error);
+    return [];
+  }
+  return (data as Array<{ country: string | null; viewers: number | string }>).map((row) => ({
+    country: row.country,
+    viewers: Number(row.viewers)
   }));
 }
 
@@ -925,9 +1039,19 @@ export async function getWorkspaceOverview(workspaceId: string): Promise<OwnerOv
   };
 }
 
-export async function listWorkspaceTopDocuments(workspaceId: string, limit = 5): Promise<TopDocument[]> {
+// Recent-window ranking by default (migration 039) — pass days: null for
+// the old all-time behavior.
+export async function listWorkspaceTopDocuments(
+  workspaceId: string,
+  limit = 5,
+  days: number | null = 30
+): Promise<TopDocument[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('get_workspace_top_documents', { p_workspace_id: workspaceId, p_limit: limit });
+  const { data, error } = await admin.rpc('get_workspace_top_documents', {
+    p_workspace_id: workspaceId,
+    p_limit: limit,
+    p_days: days
+  });
   if (error || !data) {
     if (error) console.error('[listTopDocuments] degraded to empty', error);
     return [];
@@ -1033,6 +1157,59 @@ export async function bumpOpenCount(linkId: string): Promise<void> {
   } catch {
     // Swallow — opens analytics must never break document rendering.
   }
+}
+
+// "한 번의 열람"을 의미 있게: the viewer page is an RSC that re-renders on
+// every navigation within it (data-room file switches, Q&A submits, soft
+// reloads) — each render would bump open_count. Dedup per (link, session)
+// inside a short window so an open means "a visit", not "a render". Redis
+// SET NX is one round trip; when Redis is absent/slow we fall back to the
+// raw bump (the pre-dedup behavior) rather than losing the signal.
+const OPEN_COUNT_DEDUP_TTL_SECONDS = 30 * 60;
+
+export async function bumpOpenCountDeduped(linkId: string, sessionId?: string): Promise<void> {
+  if (isRedisConfigured() && sessionId) {
+    try {
+      const first = await withRedisTimeout(
+        getRedis().set(`open:${linkId}:${sessionId}`, '1', {
+          nx: true,
+          ex: OPEN_COUNT_DEDUP_TTL_SECONDS
+        }),
+        400,
+        'timeout' as const
+      );
+      if (first === null) {
+        // Marker already present — this session was counted within the window.
+        return;
+      }
+      // 'OK' (fresh marker) or 'timeout' → count the open.
+    } catch {
+      // Redis failure → degrade to the raw bump.
+    }
+  }
+  await bumpOpenCount(linkId);
+}
+
+// Compact page_view rows older than the cutoff into page_view_rollups
+// (migration 040). Batch-limited; the daily dispatch cron calls this and
+// reruns make incremental progress. Degrades to zeros on error.
+export async function compactPageViewEvents(): Promise<{ compacted: number; rolledUp: number }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('compact_page_view_events', {
+    p_older_than_days: 90,
+    p_limit: 50000
+  });
+  if (error || !data) {
+    if (error) console.error('[compactPageViewEvents] skipped', error);
+    return { compacted: 0, rolledUp: 0 };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { compacted_rows: number | string; rollup_rows: number | string }
+    | undefined;
+  return {
+    compacted: Number(row?.compacted_rows ?? 0),
+    rolledUp: Number(row?.rollup_rows ?? 0)
+  };
 }
 
 export async function uploadPdfObject(args: {

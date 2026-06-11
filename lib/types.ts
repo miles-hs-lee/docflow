@@ -84,6 +84,7 @@ export type DeniedReason =
   | 'domain_not_allowed'
   | 'wrong_password'
   | 'email_required'
+  | 'invalid_email'
   | 'password_required'
   | 'agreement_required'
   | 'file_missing'
@@ -149,6 +150,9 @@ export type FileRow = {
   mime_type: string;
   size_bytes: number;
   storage_path: string;
+  // Total pages, reported once by the first viewer (migration 039).
+  // NULL until a viewer opens the document; powers completion metrics.
+  page_count: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -388,12 +392,32 @@ export type LinkVisitor = {
   sessions: number;
   first_seen: string;
   last_seen: string;
-  // Distinct pages read across all of this visitor's sessions.
+  // Distinct (file, page) pairs read across all of this visitor's sessions.
   pages_viewed: number;
   total_dwell_ms: number;
   downloads: number;
   // Whether this visitor accepted the clickwrap NDA on this link.
   agreed: boolean;
+  // Latest geo (2-letter code, from the platform header) — null pre-039 /
+  // header absent.
+  country: string | null;
+  // Latest user agent, for coarse device display (classifyDevice).
+  last_user_agent: string | null;
+};
+
+// Dwell totals for a link's summary tiles (migration 039).
+export type LinkEngagement = {
+  total_dwell_ms: number;
+  // Distinct sessions that produced at least one dwell segment.
+  dwell_sessions: number;
+  avg_dwell_ms: number;
+};
+
+// Distinct view sessions per country (migration 039). country NULL = geo
+// header absent / pre-039 events.
+export type LinkCountryCount = {
+  country: string | null;
+  viewers: number;
 };
 
 // Account-wide rollups for the overview dashboard + contacts (migration 020).

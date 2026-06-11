@@ -32,6 +32,16 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+// Pragmatic RFC-lite shape check for viewer-submitted emails. The gate form
+// has type="email", but the server action is independently invocable — and a
+// garbage "email" flows into contacts, the visitor identity rollup, and the
+// on-page watermark label, so the server must validate its own input.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export function isValidEmailShape(email: string) {
+  return email.length <= 254 && EMAIL_SHAPE.test(email);
+}
+
 export function getEmailDomain(email: string) {
   const normalized = normalizeEmail(email);
   const atIndex = normalized.lastIndexOf('@');

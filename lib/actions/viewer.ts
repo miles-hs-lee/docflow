@@ -11,6 +11,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import {
   getEmailDomain,
   hashIp,
+  isValidEmailShape,
   normalizeEmail,
   normalizeViewerSessionId,
   verifyPassword
@@ -120,6 +121,26 @@ export async function submitViewerAccessAction(token: string, formData: FormData
     }
 
     normalizedEmail = normalizeEmail(rawEmail);
+
+    // Server-side shape check — the form's type="email" doesn't bind a curl
+    // caller, and a garbage value would flow into contacts / visitor identity
+    // / the watermark label. Rejected BEFORE the email_submitted event so the
+    // contacts rollup only ever sees plausible addresses.
+    if (!isValidEmailShape(normalizedEmail)) {
+      await recordDeniedEvent({
+        reason: 'invalid_email',
+        linkId: bundle.id,
+        fileId: eventFileId,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId: ctx.sessionId,
+        ipHash: ctx.ipHash,
+        userAgent: ctx.userAgent
+      });
+
+      redirect(`/v/${token}?denied=invalid_email`);
+    }
+
     await recordLinkEvent({
       linkId: bundle.id,
       fileId: eventFileId,

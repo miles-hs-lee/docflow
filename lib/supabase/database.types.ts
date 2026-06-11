@@ -375,6 +375,7 @@ export type Database = {
           mime_type: string;
           size_bytes: number;
           storage_path: string;
+          page_count: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -386,6 +387,7 @@ export type Database = {
           mime_type: string;
           size_bytes: number;
           storage_path: string;
+          page_count?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -397,6 +399,7 @@ export type Database = {
           mime_type?: string;
           size_bytes?: number;
           storage_path?: string;
+          page_count?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -505,6 +508,7 @@ export type Database = {
           viewer_email: string | null;
           ip_hash: string | null;
           user_agent: string | null;
+          country: string | null;
           page_number: number | null;
           dwell_ms: number | null;
           agreement_name: string | null;
@@ -522,6 +526,7 @@ export type Database = {
           viewer_email?: string | null;
           ip_hash?: string | null;
           user_agent?: string | null;
+          country?: string | null;
           page_number?: number | null;
           dwell_ms?: number | null;
           agreement_name?: string | null;
@@ -539,10 +544,56 @@ export type Database = {
           viewer_email?: string | null;
           ip_hash?: string | null;
           user_agent?: string | null;
+          country?: string | null;
           page_number?: number | null;
           dwell_ms?: number | null;
           agreement_name?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      page_view_rollups: {
+        Row: {
+          id: number;
+          link_id: string;
+          file_id: string;
+          owner_id: string;
+          workspace_id: string | null;
+          session_id: string;
+          viewer_email: string | null;
+          page_number: number;
+          views: number;
+          total_dwell_ms: number;
+          first_seen: string;
+          last_seen: string;
+        };
+        Insert: {
+          id?: number;
+          link_id: string;
+          file_id: string;
+          owner_id: string;
+          workspace_id?: string | null;
+          session_id: string;
+          viewer_email?: string | null;
+          page_number: number;
+          views: number;
+          total_dwell_ms?: number;
+          first_seen: string;
+          last_seen: string;
+        };
+        Update: {
+          id?: number;
+          link_id?: string;
+          file_id?: string;
+          owner_id?: string;
+          workspace_id?: string | null;
+          session_id?: string;
+          viewer_email?: string | null;
+          page_number?: number;
+          views?: number;
+          total_dwell_ms?: number;
+          first_seen?: string;
+          last_seen?: string;
         };
         Relationships: [];
       };
@@ -897,6 +948,7 @@ export type Database = {
           p_viewer_email: string | null;
           p_ip_hash: string | null;
           p_user_agent: string | null;
+          p_country?: string | null;
         };
         Returns: {
           allowed: boolean;
@@ -1048,11 +1100,44 @@ export type Database = {
           p_owner_id: string;
           p_link_id: string;
           p_days?: number;
+          p_tz?: string;
         };
         Returns: {
           day: string;
           sessions: number;
           new_viewers: number;
+        }[];
+      };
+      get_link_engagement: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+        };
+        Returns: {
+          total_dwell_ms: number;
+          dwell_sessions: number;
+          avg_dwell_ms: number;
+        }[];
+      };
+      get_link_country_breakdown: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+          p_limit?: number;
+        };
+        Returns: {
+          country: string | null;
+          viewers: number;
+        }[];
+      };
+      compact_page_view_events: {
+        Args: {
+          p_older_than_days?: number;
+          p_limit?: number;
+        };
+        Returns: {
+          compacted_rows: number;
+          rollup_rows: number;
         }[];
       };
       get_viewer_link_bundle: {
@@ -1110,6 +1195,8 @@ export type Database = {
           total_dwell_ms: number;
           downloads: number;
           agreed: boolean;
+          country: string | null;
+          last_user_agent: string | null;
         }[];
       };
       get_owner_overview: {
@@ -1183,6 +1270,7 @@ export type Database = {
         Args: {
           p_workspace_id: string;
           p_limit?: number;
+          p_days?: number | null;
         };
         Returns: {
           file_id: string;

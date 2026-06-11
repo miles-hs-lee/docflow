@@ -85,6 +85,8 @@ export function deniedMessage(reason: DeniedReason) {
       return '시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
     case 'agreement_required':
       return '문서를 열람하려면 동의가 필요합니다. 약관을 확인하고 이름 입력 후 동의해주세요.';
+    case 'invalid_email':
+      return '이메일 형식이 올바르지 않습니다. 다시 확인해주세요.';
     case 'domain_not_allowed':
     case 'wrong_password':
     case 'email_required':

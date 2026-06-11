@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Card,
   CardBody,
@@ -28,12 +29,15 @@ import { requireWorkspace } from '@/lib/auth';
 import {
   getDeniedBreakdown,
   getLink,
+  getLinkEngagement,
   getMetricsForLink,
   listFilesForCollection,
+  listLinkCountryBreakdown,
   listLinkDailyViews,
   listLinkVisitors,
   listPerPageStats
 } from '@/lib/data';
+import { formatDuration } from '@/lib/format';
 import type { PerPageStat } from '@/lib/types';
 
 type LinkDetailPageProps = {
@@ -50,7 +54,7 @@ type LinkEventRow = {
   session_id: string | null;
 };
 
-type PageSection = { key: string; name: string; stats: PerPageStat[] };
+type PageSection = { key: string; name: string; pageCount: number | null; stats: PerPageStat[] };
 
 const EVENTS_PAGE = 100;
 
@@ -79,23 +83,39 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
     eventsQuery = eventsQuery.lt('id', beforeId);
   }
 
-  const [fileResult, collectionResult, deniedBreakdown, eventsResult, metrics, dailyViews, collectionFiles, visitors] =
-    await Promise.all([
-      link.file_id
-        ? supabase.from('files').select('id, original_name').eq('id', link.file_id).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      link.collection_id
-        ? supabase.from('collections').select('id, name').eq('id', link.collection_id).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      getDeniedBreakdown(supabase, link.id),
-      eventsQuery,
-      getMetricsForLink(supabase, link),
-      listLinkDailyViews({ ownerId: link.owner_id, linkId: link.id, days: 30 }),
-      link.collection_id ? listFilesForCollection(supabase, link.collection_id) : Promise.resolve([]),
-      listLinkVisitors({ ownerId: link.owner_id, linkId: link.id })
-    ]);
+  const [
+    fileResult,
+    collectionResult,
+    deniedBreakdown,
+    eventsResult,
+    metrics,
+    dailyViews,
+    collectionFiles,
+    visitors,
+    engagement,
+    countries
+  ] = await Promise.all([
+    link.file_id
+      ? supabase.from('files').select('id, original_name, page_count').eq('id', link.file_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    link.collection_id
+      ? supabase.from('collections').select('id, name').eq('id', link.collection_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    getDeniedBreakdown(supabase, link.id),
+    eventsQuery,
+    getMetricsForLink(supabase, link),
+    listLinkDailyViews({ ownerId: link.owner_id, linkId: link.id, days: 30 }),
+    link.collection_id ? listFilesForCollection(supabase, link.collection_id) : Promise.resolve([]),
+    listLinkVisitors({ ownerId: link.owner_id, linkId: link.id }),
+    getLinkEngagement({ ownerId: link.owner_id, linkId: link.id }),
+    listLinkCountryBreakdown({ ownerId: link.owner_id, linkId: link.id })
+  ]);
 
-  const fileName = ((fileResult.data as { original_name?: string } | null)?.original_name) || null;
+  const linkedFile = fileResult.data as { original_name?: string; page_count?: number | null } | null;
+  const fileName = linkedFile?.original_name || null;
+  // File links only — a data room spans files, so a single page-count
+  // denominator would mislead (VisitorList then shows raw pages instead).
+  const filePageCount = link.file_id ? (linkedFile?.page_count ?? null) : null;
   const collectionName = ((collectionResult.data as { name?: string } | null)?.name) || null;
 
   const rawEvents = (eventsResult.data ?? []) as LinkEventRow[];
@@ -112,6 +132,7 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
       {
         key: link.file_id,
         name: fileName ?? '문서',
+        pageCount: filePageCount,
         stats: await listPerPageStats({ ownerId: link.owner_id, fileId: link.file_id, linkId: link.id })
       }
     ];
@@ -120,6 +141,7 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
       collectionFiles.map(async (file) => ({
         key: file.id,
         name: file.original_name,
+        pageCount: file.page_count,
         stats: await listPerPageStats({ ownerId: link.owner_id, fileId: file.id, linkId: link.id })
       }))
     );
@@ -140,12 +162,20 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
           }
           title={link.label}
           actions={
-            <Button asChild variant="secondary" size="sm">
-              <Link href={backPath}>
-                <ChevronLeftIcon size={14} aria-hidden />
-                링크 목록
-              </Link>
-            </Button>
+            <Stack direction="row" gap={2}>
+              <Button asChild variant="secondary" size="sm">
+                {/* Signed 15-min preview: gates bypassed, nothing counted. */}
+                <a href={`/dashboard/links/${link.id}/preview`} target="_blank" rel="noreferrer">
+                  미리보기
+                </a>
+              </Button>
+              <Button asChild variant="secondary" size="sm">
+                <Link href={backPath}>
+                  <ChevronLeftIcon size={14} aria-hidden />
+                  링크 목록
+                </Link>
+              </Button>
+            </Stack>
           }
         />
 
@@ -157,6 +187,11 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
             <StatGroup cols={4} unwrapped>
               <Stat label="조회수" value={metrics?.views ?? link.open_count} helper="총 열람" />
               <Stat label="유니크" value={metrics?.unique_viewers ?? 0} helper="세션 기준" />
+              <Stat
+                label="평균 체류"
+                value={formatDuration(engagement.avg_dwell_ms)}
+                helper={engagement.dwell_sessions > 0 ? `${engagement.dwell_sessions}세션 기준` : '신호 없음'}
+              />
               <Stat label="다운로드" value={metrics?.downloads ?? link.download_count} />
               <Stat
                 label="거부"
@@ -171,11 +206,51 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
 
         <Card>
           <CardHeader>
+            <CardTitle>적용 중인 정책</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="muted">
+              이 링크에 지금 적용된 접근 정책입니다. 변경은 {collectionName ? '데이터룸' : '파일'} 페이지의 링크
+              수정에서 할 수 있고, 정책을 바꾸면 발급된 접근 권한(쿠키)이 즉시 무효화됩니다.
+            </p>
+            <Stack direction="row" gap={2} className="policy-badge-row">
+              <Badge variant={link.is_active ? 'success' : 'warning'} tone="subtle">
+                {link.is_active ? '활성' : '비활성'}
+              </Badge>
+              {link.expires_at ? (
+                <Badge variant="neutral" tone="subtle">
+                  만료 <LocalDate value={link.expires_at} />
+                </Badge>
+              ) : null}
+              {link.one_time ? (
+                <Badge variant="warning" tone="subtle">1회성</Badge>
+              ) : link.max_views ? (
+                <Badge variant="neutral" tone="subtle">
+                  조회 제한 {link.view_count}/{link.max_views}
+                </Badge>
+              ) : null}
+              {link.require_email ? <Badge variant="info" tone="subtle">이메일 요구</Badge> : null}
+              {link.allowed_domains.length > 0 ? (
+                <Badge variant="info" tone="subtle">도메인: {link.allowed_domains.join(', ')}</Badge>
+              ) : null}
+              {link.password_hash ? <Badge variant="info" tone="subtle">비밀번호</Badge> : null}
+              {link.require_agreement ? <Badge variant="info" tone="subtle">NDA 동의</Badge> : null}
+              <Badge variant={link.allow_download ? 'success' : 'neutral'} tone="subtle">
+                {link.allow_download ? '다운로드 허용' : '다운로드 차단'}
+              </Badge>
+              {link.watermark ? <Badge variant="neutral" tone="subtle">워터마크</Badge> : null}
+              {link.viewer_group_id ? <Badge variant="secondary" tone="subtle">뷰어 그룹 제한</Badge> : null}
+            </Stack>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>방문자</CardTitle>
           </CardHeader>
           <CardBody>
             <p className="muted">이 링크를 열람한 방문자별 활동입니다. 이메일을 수집한 경우 같은 사람의 여러 방문이 한 행으로 합쳐집니다.</p>
-            <VisitorList visitors={visitors} />
+            <VisitorList visitors={visitors} pageCount={filePageCount} />
           </CardBody>
         </Card>
 
@@ -202,15 +277,42 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
                 {sectionsWithData.map((section) => (
                   <div key={section.key}>
                     <strong className="muted small">{section.name}</strong>
-                    <PageHeatmap stats={section.stats} />
+                    <PageHeatmap stats={section.stats} pageCount={section.pageCount} />
                   </div>
                 ))}
               </Stack>
             ) : (
-              <PageHeatmap stats={sectionsWithData[0].stats} />
+              <PageHeatmap stats={sectionsWithData[0].stats} pageCount={sectionsWithData[0].pageCount} />
             )}
           </CardBody>
         </Card>
+
+        {countries.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>국가별 열람</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <p className="muted">유니크 방문자(세션)의 접속 국가입니다. 원본 IP는 저장하지 않습니다.</p>
+              <Table density="compact">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>국가</TableHead>
+                    <TableHead nowrap>열람자</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {countries.map((item) => (
+                    <TableRow key={item.country ?? 'unknown'}>
+                      <TableCell>{item.country ?? '알 수 없음'}</TableCell>
+                      <TableCell nowrap>{item.viewers}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardBody>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>

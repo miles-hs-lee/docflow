@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deniedMessage, evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { claimView, getViewerLinkByToken, recordLinkEvent, signedPdfObjectUrl } from '@/lib/data';
+import { verifyLinkPreviewToken } from '@/lib/preview-token';
 import { checkRateLimit } from '@/lib/rate-limit';
 import type { DeniedReason } from '@/lib/types';
+import { isLikelyBotUserAgent } from '@/lib/ua';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
 type RouteContext = {
@@ -71,6 +73,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
   const requestedFileId = request.nextUrl.searchParams.get('fileId');
 
+  // Same bot gate as /document: on an ungated allow_download link the viewer
+  // HTML embeds this URL, so a crawler following it would pull the full PDF,
+  // burn a claim_view slot (killing one_time links), and pollute download
+  // analytics. Spoofing a bot UA only denies the spoofer — never a bypass.
+  if (isLikelyBotUserAgent(request.headers.get('user-agent'))) {
+    return buildDeniedResponse('access_not_granted', 403);
+  }
+
   // Rate limit full-PDF downloads (shares the document-route budget). A
   // client rotating/omitting the session cookie re-claims per request, so
   // the hashed IP is the authoritative cap here.
@@ -112,52 +122,63 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const rawGrant = request.cookies.get(getGrantCookieName(bundle.id))?.value;
   const grant = decodeGrantCookie(rawGrant, bundle.id);
 
-  const baseDenied = evaluateBasePolicy({ link: bundle, grant });
-  if (baseDenied) {
-    await safeLogDenied({
-      reason: baseDenied,
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
+  // Owner preview: bypass the gates and never claim/log, but KEEP the
+  // allow_download check below — preview should show exactly what a real
+  // viewer gets, and a blocked-download link must stay blocked in preview.
+  const isOwnerPreview = verifyLinkPreviewToken(request.nextUrl.searchParams.get('preview'), bundle.id);
 
-    return buildDeniedResponse(baseDenied);
-  }
+  if (!isOwnerPreview) {
+    const baseDenied = evaluateBasePolicy({ link: bundle, grant });
+    if (baseDenied) {
+      await safeLogDenied({
+        reason: baseDenied,
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
 
-  const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
-  if (grantDenied) {
-    await safeLogDenied({
-      reason: grantDenied,
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
+      return buildDeniedResponse(baseDenied);
+    }
 
-    return buildDeniedResponse(grantDenied);
+    const grantDenied = evaluateGrantPolicy({ link: bundle, grant });
+    if (grantDenied) {
+      await safeLogDenied({
+        reason: grantDenied,
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+
+      return buildDeniedResponse(grantDenied);
+    }
   }
 
   if (!bundle.allow_download) {
-    await safeLogDenied({
-      reason: 'access_not_granted',
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
+    // Parity in preview too (a blocked download stays blocked), but only a
+    // real viewer's attempt is worth a denied event.
+    if (!isOwnerPreview) {
+      await safeLogDenied({
+        reason: 'access_not_granted',
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+    }
 
     return buildDeniedResponse('access_not_granted');
   }
@@ -219,52 +240,55 @@ export async function GET(request: NextRequest, context: RouteContext) {
   // being counted. claim_view is session-deduped, so a viewer who
   // already loaded the doc and then downloads it in the same session is
   // not double-counted. Claim after confirming the bytes exist upstream
-  // so a missing storage object doesn't burn a slot.
-  let claim;
-  try {
-    claim = await claimView({
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
-  } catch {
-    upstream.body?.cancel().catch(() => {});
-    return buildDeniedResponse('file_missing', 500);
-  }
-  if (!claim.allowed) {
-    upstream.body?.cancel().catch(() => {});
-    const reason = (claim.reason as DeniedReason) ?? 'file_missing';
-    await safeLogDenied({
-      reason,
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
-    return buildDeniedResponse(reason);
-  }
+  // so a missing storage object doesn't burn a slot. Owner previews
+  // never claim and never record a download event.
+  if (!isOwnerPreview) {
+    let claim;
+    try {
+      claim = await claimView({
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+    } catch {
+      upstream.body?.cancel().catch(() => {});
+      return buildDeniedResponse('file_missing', 500);
+    }
+    if (!claim.allowed) {
+      upstream.body?.cancel().catch(() => {});
+      const reason = (claim.reason as DeniedReason) ?? 'file_missing';
+      await safeLogDenied({
+        reason,
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+      return buildDeniedResponse(reason);
+    }
 
-  try {
-    await recordLinkEvent({
-      linkId: bundle.id,
-      fileId: targetFile.id,
-      ownerId: bundle.owner_id,
-      workspaceId: bundle.workspace_id,
-      eventType: 'download',
-      sessionId,
-      viewerEmail: grant?.email,
-      ipHash,
-      userAgent
-    });
-  } catch {
-    // Keep download working even if analytics logging fails.
+    try {
+      await recordLinkEvent({
+        linkId: bundle.id,
+        fileId: targetFile.id,
+        ownerId: bundle.owner_id,
+        workspaceId: bundle.workspace_id,
+        eventType: 'download',
+        sessionId,
+        viewerEmail: grant?.email,
+        ipHash,
+        userAgent
+      });
+    } catch {
+      // Keep download working even if analytics logging fails.
+    }
   }
 
   const safeName = targetFile.original_name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'document.pdf';

@@ -59,9 +59,10 @@ export default async function OverviewPage() {
             <CardTitle>인기 문서</CardTitle>
           </CardHeader>
           <CardBody>
+            <p className="muted">최근 30일 동안 가장 많이 열람된 문서입니다.</p>
             {topDocs.length === 0 ? (
               <EmptyState
-                title="아직 열람된 문서가 없습니다"
+                title="최근 30일간 열람된 문서가 없습니다"
                 description="문서를 공유하고 열람되면 가장 많이 본 문서가 여기 표시됩니다."
               />
             ) : (

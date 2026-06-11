@@ -16,13 +16,14 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 - **콘텐츠 업로드**: PDF (최대 50MB), XHR 진행률 표시
 - **링크 발급**: 파일 단위 또는 **데이터룸**(여러 문서 묶음) 단위
 - **데이터룸**: 폴더 계층으로 정리, **드래그(또는 ▲▼)로 파일 순서 변경**, **뷰어 그룹별 폴더 권한**(그룹마다 보이는 폴더를 다르게 개방), 룸 단위 통계 롤업
-- **링크 정책** (링크별): 활성/비활성, 만료일, 최대 조회수, 1회성, 이메일 요구, 허용 도메인, 비밀번호, 다운로드 허용/차단, 워터마크, **NDA/동의 게이트**(클릭랩 — 서명 이름·시각을 감사 기록)
+- **링크 정책** (링크별): 활성/비활성, 만료일, 최대 조회수, 1회성, 이메일 요구(**서버측 형식 검증**), 허용 도메인, 비밀번호(**4자 이상**), 다운로드 허용/차단, 워터마크, **NDA/동의 게이트**(클릭랩 — 서명 이름·시각을 감사 기록). 링크 상세에 **적용 중인 정책 요약** 표시
+- **오너 미리보기**: 링크 상세의 `미리보기` — 15분 서명 토큰으로 뷰어 화면을 그대로 확인하되 **게이트(이메일/비밀번호/NDA) 우회 + 조회수/유니크/체류/이벤트 무집계 + max_views·1회성 슬롯 미소진** (비활성·만료 링크도 미리보기 가능)
 - **링크 라이프사이클**: 수정 / 소프트 삭제 / 휴지통 복구 / 영구 삭제
 - **파일 요청**: 공개 요청 링크(`/r`)로 외부에서 파일을 **수신**(공유의 역방향), 이메일 요구 · 만료 · 최대 업로드 수, 도착 시 알림
 - **커스텀 브랜딩(화이트라벨)**: 로고 · 브랜드 색상 · 회사명 · **커버 이미지**를 계정 전역 + **데이터룸별**로 설정(필드 단위 병합) → 공개 화면에서 DocFlow 표기 숨김
 - **데이터룸 Q&A**: 열람자가 남긴 질문을 룸 페이지에서 확인 · 답변 · 삭제 (방문자는 본인 스레드만 비공개로 열람)
 - **연락처**: 이메일을 제출한 모든 방문자를 링크 전반에서 롤업
-- **분석**: 링크별 view / unique(세션 기준) / download / denied, denied 사유 집계, **페이지별 dwell heatmap**, 일별 추세, 방문자별 롤업, 이벤트 로그
+- **분석**: 링크별 view / unique(세션 기준) / **평균 체류 시간** / download / denied, denied 사유 집계, **페이지별 dwell heatmap + 완독률**(첫 열람자가 보고한 `page_count` 기준, 미열람 페이지는 0행으로 표시), 일별 추세(타임존 설정 가능), 방문자별 롤업(**완독률·디바이스·국가** 컬럼), **국가별 열람**(플랫폼 geo 헤더의 2자리 코드만 저장 — 원본 IP 미저장), 이벤트 로그. **봇/링크 프리뷰 크롤러는 조회수·거부 집계에서 제외**, 열람 수는 세션당 30분 윈도우로 dedup
 - **자동화**: MCP API 키 발급/비활성화, 이벤트 웹훅 구독 + HMAC 서명, **Microsoft Teams 알림**(Adaptive Card) — 구독 이벤트에 `file_uploaded` · `question_asked` 포함
 - **계정 관리**: 비밀번호 재설정, 자가 계정 삭제 (스토리지 + DB 캐스케이드 정리)
 
@@ -77,10 +78,11 @@ cp .env.example .env.local
 **권장**:
 - `IP_HASH_SALT` — 분석 로그의 IP 해시 전용 salt. 미설정 시 `VIEWER_COOKIE_SECRET`을 fallback으로 사용. 운영환경에서는 분리해서 회전 가능하게 설정.
 - `AUTOMATION_CRON_SECRET` — webhook 디스패처 보호 (미설정 시 자동화 전달만 비활성화, 본 서비스는 정상 동작)
+- `ANALYTICS_TIMEZONE` — 일별 열람 추세의 날짜 버킷 기준 IANA 타임존 (예: `Asia/Seoul`). 미설정/잘못된 값이면 UTC.
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 034까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC·**팀/워크스페이스(RBAC)** 기능에 018~034를 사용하므로 빠짐없이 적용해야 합니다. 022~034는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다. **032~034는 워크스페이스 마이그레이션으로, 기존 사용자마다 개인 워크스페이스를 백필하므로 한 번만 안전하게 적용됩니다.**)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 040까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC·**팀/워크스페이스(RBAC)** 기능에 018~034를 사용하므로 빠짐없이 적용해야 합니다. 022~034는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다. **032~034는 워크스페이스 마이그레이션으로, 기존 사용자마다 개인 워크스페이스를 백필하므로 한 번만 안전하게 적용됩니다.**)
 
 | 번호 | 내용 |
 |---|---|
@@ -118,6 +120,12 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 034까지
 | 032 | **팀/워크스페이스 Phase A**(추가 전용): `workspaces`·`workspace_members`(역할 enum owner/admin/member) + `is_workspace_member`/`has_workspace_role` SECURITY DEFINER 헬퍼. 15개 테넌트 테이블에 `workspace_id`(nullable·FK·인덱스) 추가 + **기존 사용자마다 개인 워크스페이스 생성·owner 멤버십·모든 행 백필**. RLS·앱 불변 → 무중단 |
 | 033 | **팀/워크스페이스 Phase C**(추가 전용): 15개 테이블에 멤버십 SELECT 정책 추가 → `SELECT = owner_id=auth.uid() OR is_workspace_member(workspace_id)`(읽기를 넓히기만 함, 깨지지 않음). `claim_view`의 view 이벤트에 `workspace_id` 태깅(마지막 미태깅 인서트 경로). owner 쓰기 정책·012 교차소유 체크는 방어층으로 유지(앱은 service-role admin 클라이언트로 씀) |
 | 034 | **팀/워크스페이스 Phase D**: `workspace_invitations`(토큰 초대 링크 + admin RLS) + 워크스페이스 단위 분석 RPC `get_workspace_overview`/`get_workspace_top_documents`/`get_workspace_contacts`(020의 워크스페이스판) |
+| 035 | 워크스페이스 하드닝: 15개 테넌트 테이블 `workspace_id` **NOT NULL** + owner 정책 폐기 → `ws_read_*`/`ws_insert_*` 등 워크스페이스 정책으로 교체, reorder RPC를 workspace 스코프로, 원자적 `accept_workspace_invitation` |
+| 036 | 하드닝 후속: `claim_file_request_upload`의 workspace 태깅(035 NOT NULL로 인한 업로드 중단 수정), `accept_workspace_invitation` grant 잠금, service-role 전용 테이블(link_events 등)의 authenticated 쓰기 정책 제거, cascade 삭제 RPC workspace 스코프 |
+| 037 | 리뷰 후속: 원자적 개인 워크스페이스 생성(`ensure_personal_workspace`, advisory lock), 멤버 쓰기 정책(`ws_insert/update/delete_*`) 전면 제거(서비스롤만 쓰기) |
+| 038 | **P0 회귀 수정**: 033이 `claim_view`를 재정의하며 007의 **세션 dedup**과 **service_role 전용 grant**를 되돌렸던 것을 복구(033의 workspace 태깅은 유지). dedup/ingest 검사용 partial index `(link_id, session_id) where event_type='view'` 추가. **분석 정확도+정책(max_views/one_time)+보안이 걸린 수정 — 코드 배포 전 필수 적용** |
+| 039 | 분석 보강 2: `files.page_count`(첫 열람자가 보고 → 완독률), `link_events.country`(geo 헤더 2자리, `claim_view`에 `p_country`), `get_link_visitors` 수정(데이터룸 페이지 수를 `(file_id, page_number)`로 집계 + country/last_user_agent 반환), `get_link_daily_views` 단일 스캔 재작성 + `p_tz`, `get_workspace_top_documents`에 `p_days`(기본 30일), 신규 `get_link_engagement`(평균 체류)/`get_link_country_breakdown` |
+| 040 | page_view **컴팩션**: 90일 지난 page_view 행을 세션 grain rollup(`page_view_rollups`)으로 압축·삭제하는 `compact_page_view_events`(배치 제한, dispatch cron에서 호출). 페이지 신호를 읽는 RPC(`get_per_page_stats`/`get_link_visitors`/`get_link_engagement`/`get_workspace_top_documents`/`get_workspace_contacts`)를 raw ∪ rollup으로 재정의 — distinct 세션 지표는 세션 grain 덕에 **정확도 손실 없음**. 감사 이벤트(view/download/denied/agreement)는 컴팩션 대상 아님 |
 
 ### 4) Supabase Auth
 
@@ -163,7 +171,8 @@ app/
     collections                  # 데이터룸 목록 + 빈 룸 생성
     collections/[collectionId]   # 룸: 파일/폴더 구성 · 순서변경 · 그룹 · 브랜딩 · Q&A · 링크
     collections/[id]/(logo|cover)# 룸 브랜딩 이미지 업로드 라우트
-    links/[linkId]               # 링크 분석 + 페이지 heatmap
+    links/[linkId]               # 링크 분석 + 정책 요약 + 페이지 heatmap
+    links/[linkId]/preview       # 오너 미리보기 (서명 토큰 발급 → /v 리다이렉트)
     contacts                     # 연락처 (이메일 제출 방문자 롤업)
     requests / requests/[id]     # 파일 요청 목록 + 상세(수신 파일)
     automations                  # MCP 키 + webhook/Teams 구독
@@ -242,7 +251,7 @@ Authorization: Bearer <API_KEY>
 
 **테이블**:
 - `workspaces`, `workspace_members`(역할 owner/admin/member), `workspace_invitations` (팀/워크스페이스 — RBAC 테넌시 루트)
-- `files`, `share_links`, `link_events`
+- `files`, `share_links`, `link_events`, `page_view_rollups` (90일 지난 page_view의 세션 grain 압축본)
 - `collections`, `collection_files`, `folders` (데이터룸 폴더 트리)
 - `viewer_groups`, `viewer_group_folders` (그룹별 폴더 권한)
 - `file_requests`, `file_request_uploads` (파일 요청 — inbound)
@@ -261,7 +270,9 @@ Authorization: Bearer <API_KEY>
 - `get_viewer_link_bundle` — 토큰 → 링크+파일/컬렉션(+그룹 폴더 closure) 한 번에
 - `link_can_view_file` / `viewer_group_folder_closure` — 그룹 권한 검증 + 공유 closure
 - `reorder_collection_files` — 데이터룸 파일 순서 일괄 갱신 (UPDATE 전용·원자적)
-- `get_per_page_stats` / `get_link_unique_views` / `get_collection_unique_views` — DB 쪽 집계
+- `get_per_page_stats` / `get_link_unique_views` / `get_collection_unique_views` — DB 쪽 집계 (페이지 신호는 raw ∪ rollup)
+- `get_link_engagement` / `get_link_country_breakdown` / `get_link_visitors` / `get_link_daily_views` — 링크 상세 분석 (평균 체류·국가·방문자·일별 추세)
+- `compact_page_view_events` — page_view → rollup 컴팩션 (dispatch cron, 배치 제한)
 - `get_owner_overview` / `get_owner_top_documents` / `get_owner_contacts` — 계정 단위 집계
 - `get_workspace_overview` / `get_workspace_top_documents` / `get_workspace_contacts` — 워크스페이스 단위 집계
 - `is_workspace_member` / `has_workspace_role` — 워크스페이스 멤버십·역할 검사 (RLS 정책 + 앱 컨텍스트에서 사용)
@@ -284,8 +295,10 @@ Authorization: Bearer <API_KEY>
 - **공유 토큰**: 32-byte 랜덤 (base64url)
 - **PDF 원본**: private bucket, 서명된 URL을 짧은 TTL로 발급해 viewer 라우트가 fetch + stream
 - **Grant cookie / Recovery cookie**: HMAC-SHA256 서명, `policy_version`/`user.id` fingerprint로 정책 변경 시 자동 무효화
-- **IP**: HMAC(`IP_HASH_SALT`) 해시로만 저장
+- **미리보기 토큰**: 링크 스코프 HMAC 서명 + 15분 만료, 대시보드 인증 라우트에서만 발급. grant 쿠키와 서명 도메인 분리("preview." prefix)로 상호 재사용 불가
+- **IP**: HMAC(`IP_HASH_SALT`) 해시로만 저장. 위치는 플랫폼 geo 헤더(`x-vercel-ip-country`)의 **국가 코드 2자리만** view 이벤트에 기록 — 원본 IP로부터 직접 유도하지 않음
 - **이메일**: 정책이 요구할 때만 viewer로부터 수집
+- **봇/크롤러**: 링크 프리뷰·메일 스캐너 UA는 문서 바이트 차단 + 분석(조회수/거부) 제외. UA 위장은 위장한 쪽만 손해(정책 집행은 이 판별을 신뢰하지 않음)
 - **다이내믹 watermark**: viewer 화면에 이메일/시간/페이지 번호 타일링 (스크린샷 추적용)
 
 ---
@@ -294,7 +307,9 @@ Authorization: Bearer <API_KEY>
 
 - `/v/[token]` 초기 표시: PDF.js가 trailer만 Range 요청으로 받고 페이지별 progressive 로딩
 - viewer 라우트는 supabase storage `download()` 대신 사이닝된 URL `fetch()`로 streaming — Node 메모리에 전체 PDF를 적재하지 않음
-- 페이지 dwell 이벤트는 8개 단위 또는 8초 간격으로 batched POST
+- 페이지 dwell 이벤트는 8개 단위 또는 8초 간격으로 batched POST — **가장 잘 보이는 페이지 1곳에만** 시간을 적립(activePage 전환 시점 기록, 슬라이드 더블카운트 없음), 세그먼트당 10분 캡
+- page_view ingest의 "view 클레임 여부" 검사는 Redis claim 마커를 재사용(히트 시 Postgres 왕복 없음), 일별 추세 RPC는 단일 range scan
+- 90일 지난 page_view 행은 cron이 세션 grain rollup으로 압축(테이블 성장 억제, distinct 지표 정확도 유지)
 - 대시보드 파일 목록은 서버 페이지네이션 + ILIKE 검색 (URL state)
 - 미들웨어는 `/dashboard`, `/auth`, `/v`, `/r`, 인증 페이지에만 매칭 — 랜딩과 정적 자산은 우회
 - 랜딩 페이지는 로그인 상태 분기(대시보드 CTA·아바타)를 위해 per-request 렌더 — `getOwner` 세션 조회 1회(미들웨어는 여전히 우회)

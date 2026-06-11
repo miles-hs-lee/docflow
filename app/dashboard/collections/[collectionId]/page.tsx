@@ -328,7 +328,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
               <ExpiryDateField name="expiresAt" />
               <Input type="number" name="maxViews" min={1} label="최대 조회수" placeholder="미설정" />
               <Input name="allowedDomains" label="허용 도메인" placeholder="company.com,partner.org" />
-              <Input name="password" type="password" label="비밀번호" placeholder="필요한 경우만 입력" />
+              <Input name="password" type="password" minLength={4} label="비밀번호" placeholder="필요 시 4자 이상" />
               <Textarea
                 name="agreementText"
                 label="NDA/동의 문구 (선택)"
@@ -432,7 +432,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
                           <ExpiryDateField name="expiresAt" defaultValue={link.expires_at} />
                           <Input type="number" min={1} name="maxViews" defaultValue={link.max_views ?? undefined} label="최대 조회수" />
                           <Input name="allowedDomains" defaultValue={link.allowed_domains.join(',')} label="허용 도메인" />
-                          <Input type="password" name="newPassword" label="새 비밀번호" placeholder="변경 시 입력" />
+                          <Input type="password" name="newPassword" minLength={4} label="새 비밀번호" placeholder="변경 시 4자 이상" />
                           <Textarea
                             name="agreementText"
                             defaultValue={link.agreement_text ?? ''}

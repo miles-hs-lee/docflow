@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { parseBearerToken } from '@/lib/agent-auth';
-import { cleanupUnconfirmedRequestUploads, processPendingStorageDeletions } from '@/lib/data';
+import {
+  cleanupUnconfirmedRequestUploads,
+  compactPageViewEvents,
+  processPendingStorageDeletions
+} from '@/lib/data';
 import { publicEnv } from '@/lib/env-public';
 import { formatTeamsMessage } from '@/lib/notify/teams';
 import { signWebhookPayload, timingSafeEqualString } from '@/lib/security';
@@ -354,7 +358,15 @@ async function handler(request: NextRequest) {
     } catch {
       // swallow — retried next tick
     }
-    return NextResponse.json({ ok: true, ...result, storage, orphanUploads });
+    // Compact aged page_view rows into session-grain rollups (migration
+    // 040). Batch-limited per tick; the backlog drains across daily runs.
+    let compaction = { compacted: 0, rolledUp: 0 };
+    try {
+      compaction = await compactPageViewEvents();
+    } catch {
+      // swallow — retried next tick
+    }
+    return NextResponse.json({ ok: true, ...result, storage, orphanUploads, compaction });
   } catch (error) {
     return NextResponse.json(
       {

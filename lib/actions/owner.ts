@@ -21,6 +21,11 @@ import {
 } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Link passwords are shared out-of-band to viewers, so they skew short — but
+// a 1-character "password" is indistinguishable from no gate under casual
+// guessing despite the rate limiter. Floor, not a complexity policy.
+const MIN_LINK_PASSWORD_LENGTH = 4;
+
 function parseBoolean(formData: FormData, key: string) {
   const value = formData.get(key);
   return value === 'on' || value === 'true' || value === '1';
@@ -613,6 +618,9 @@ export async function createShareLinkAction(formData: FormData) {
   const allowedDomains = parseAllowedDomains(((formData.get('allowedDomains') as string | null) || '').trim());
   const requireEmail = parseBoolean(formData, 'requireEmail') || allowedDomains.length > 0;
   const rawPassword = ((formData.get('password') as string | null) || '').trim();
+  if (rawPassword && rawPassword.length < MIN_LINK_PASSWORD_LENGTH) {
+    redirectWithError(`/dashboard/files/${fileId}`, `링크 비밀번호는 ${MIN_LINK_PASSWORD_LENGTH}자 이상이어야 합니다.`);
+  }
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
   const requireAgreement = parseBoolean(formData, 'requireAgreement');
   const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
@@ -673,6 +681,12 @@ export async function createCollectionShareLinkAction(formData: FormData) {
   const allowedDomains = parseAllowedDomains(((formData.get('allowedDomains') as string | null) || '').trim());
   const requireEmail = parseBoolean(formData, 'requireEmail') || allowedDomains.length > 0;
   const rawPassword = ((formData.get('password') as string | null) || '').trim();
+  if (rawPassword && rawPassword.length < MIN_LINK_PASSWORD_LENGTH) {
+    redirectWithError(
+      `/dashboard/collections/${collectionId}`,
+      `링크 비밀번호는 ${MIN_LINK_PASSWORD_LENGTH}자 이상이어야 합니다.`
+    );
+  }
   const passwordHash = rawPassword ? await hashPassword(rawPassword) : null;
   const requireAgreement = parseBoolean(formData, 'requireAgreement');
   const agreementText = ((formData.get('agreementText') as string | null) || '').trim().slice(0, 5000) || null;
@@ -748,6 +762,10 @@ export async function updateShareLinkAction(formData: FormData) {
 
   const newPassword = ((formData.get('newPassword') as string | null) || '').trim();
   const clearPassword = parseBoolean(formData, 'clearPassword');
+
+  if (!clearPassword && newPassword && newPassword.length < MIN_LINK_PASSWORD_LENGTH) {
+    redirectWithError(redirectPath, `링크 비밀번호는 ${MIN_LINK_PASSWORD_LENGTH}자 이상이어야 합니다.`);
+  }
 
   let passwordHash = existingLink.password_hash;
   if (clearPassword) {

@@ -1,31 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { hasViewForSession, recordPageViewBatch } from '@/lib/data';
+import { hasViewForSession, maybeSetFilePageCount, recordPageViewBatch } from '@/lib/data';
 import { evaluateBasePolicy, evaluateGrantPolicy } from '@/lib/policy';
+import { verifyLinkPreviewToken } from '@/lib/preview-token';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { hashIp, normalizeViewerSessionId } from '@/lib/security';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ShareLinkRow } from '@/lib/types';
+import { isLikelyBotUserAgent } from '@/lib/ua';
 import { decodeGrantCookie, getGrantCookieName, VIEWER_SESSION_COOKIE } from '@/lib/viewer-cookie';
 
 type RouteContext = {
   params: Promise<{ token: string }>;
 };
 
+// Per-segment dwell is capped at 10 minutes (matches the viewer's
+// SEGMENT_MAX_DWELL_MS): an idle tab left open must not credit an hour of
+// "reading" to one page. Pre-cap viewer builds may still send up to the old
+// 60-minute ceiling; clamp rather than reject so their batches aren't lost.
+const DWELL_SEGMENT_CAP_MS = 10 * 60 * 1000;
+const DWELL_ACCEPT_MAX_MS = 60 * 60 * 1000;
+
+// numPages: the viewer reports the document's total page count alongside
+// dwell batches; the server keeps the first non-null value per file
+// (maybeSetFilePageCount) to power completion metrics.
 const SinglePageEventSchema = z.object({
   fileId: z.string().uuid().optional(),
+  numPages: z.number().int().min(1).max(10_000).optional(),
   pageNumber: z.number().int().min(1).max(10_000),
-  dwellMs: z.number().int().min(0).max(60 * 60 * 1000)
+  dwellMs: z.number().int().min(0).max(DWELL_ACCEPT_MAX_MS)
 });
 
 const BatchPageEventsSchema = z.object({
   fileId: z.string().uuid().optional(),
+  numPages: z.number().int().min(1).max(10_000).optional(),
   events: z
     .array(
       z.object({
         pageNumber: z.number().int().min(1).max(10_000),
-        dwellMs: z.number().int().min(0).max(60 * 60 * 1000)
+        dwellMs: z.number().int().min(0).max(DWELL_ACCEPT_MAX_MS)
       })
     )
     .min(1)
@@ -34,6 +48,13 @@ const BatchPageEventsSchema = z.object({
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { token } = await context.params;
+
+  // Crawlers don't run the viewer JS, so anything bot-flagged POSTing here
+  // is synthetic. Accept-and-drop (rather than 403) so a misbehaving client
+  // doesn't retry-loop.
+  if (isLikelyBotUserAgent(request.headers.get('user-agent'))) {
+    return NextResponse.json({ ok: true, accepted: 0 });
+  }
 
   // Rate limit early — page_view ingest is the cheapest endpoint to spam.
   // Key on token + hashed IP only (NOT the session cookie, which is
@@ -59,9 +80,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // route version bump and so a single-event sender still works.
   const batch = BatchPageEventsSchema.safeParse(body);
   let requestFileId: string | undefined;
+  let reportedNumPages: number | undefined;
   let events: { pageNumber: number; dwellMs: number }[];
   if (batch.success) {
     requestFileId = batch.data.fileId;
+    reportedNumPages = batch.data.numPages;
     events = batch.data.events;
   } else {
     const single = SinglePageEventSchema.safeParse(body);
@@ -69,8 +92,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
     }
     requestFileId = single.data.fileId;
+    reportedNumPages = single.data.numPages;
     events = [{ pageNumber: single.data.pageNumber, dwellMs: single.data.dwellMs }];
   }
+  events = events.map((event) => ({
+    pageNumber: event.pageNumber,
+    dwellMs: Math.min(event.dwellMs, DWELL_SEGMENT_CAP_MS)
+  }));
 
   // page_view events are per-scroll high-volume. Skip the heavy
   // getViewerLinkByToken (which loads file/collection/files mappings)
@@ -82,6 +110,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const linkRow = Array.isArray(linkRows) ? linkRows[0] : null;
   if (linkError || !linkRow) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
+  // Owner preview: accept-and-drop. Without this, an owner whose session
+  // once legitimately claimed a view would have their preview scrolling
+  // ingested as real page dwell (the claim check below would pass).
+  if (verifyLinkPreviewToken(request.nextUrl.searchParams.get('preview'), linkRow.id)) {
+    return NextResponse.json({ ok: true, accepted: 0 });
   }
 
   // Build a partial ShareLinkRow good enough for evaluateBasePolicy /
@@ -138,6 +173,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // owner's per-page analytics without ever opening the document.
   if (!(await hasViewForSession(link.id, sessionId))) {
     return NextResponse.json({ error: 'view_not_claimed' }, { status: 409 });
+  }
+
+  // First viewer to report the document's page count fills files.page_count
+  // (only while NULL — see maybeSetFilePageCount). Gated behind the
+  // view-claim check above, so a token holder who never opened the document
+  // can't write it.
+  if (reportedNumPages) {
+    await maybeSetFilePageCount(targetFileId, reportedNumPages);
   }
 
   // One multi-row INSERT for the whole batch instead of N round trips.

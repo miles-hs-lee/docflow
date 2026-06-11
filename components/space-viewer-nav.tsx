@@ -5,13 +5,17 @@ type SpaceViewerNavProps = {
   folders: FolderRow[];
   files: SpaceFile[];
   activeFileId: string;
+  // Extra query string (no leading '?') appended to every file link — carries
+  // the owner-preview token across file switches so preview mode survives
+  // data-room navigation.
+  extraQuery?: string | null;
 };
 
 // Viewer-side folder tree for a space (collection) link. Collapsible folders
 // (open by default) with file links; root files render at the top level.
 // File links keep the existing ?fileId= switch so the per-file fetch / claim /
 // page-event flow is unchanged.
-export function SpaceViewerNav({ token, folders, files, activeFileId }: SpaceViewerNavProps) {
+export function SpaceViewerNav({ token, folders, files, activeFileId, extraQuery }: SpaceViewerNavProps) {
   const folderIds = new Set(folders.map((folder) => folder.id));
   // A file/folder whose parent reference points at a folder not in this set
   // (orphaned / cross-collection) falls back to the root, so it is never
@@ -25,7 +29,7 @@ export function SpaceViewerNav({ token, folders, files, activeFileId }: SpaceVie
   const fileLink = (file: SpaceFile) => (
     <a
       key={file.id}
-      href={`/v/${token}?fileId=${encodeURIComponent(file.id)}`}
+      href={`/v/${token}?fileId=${encodeURIComponent(file.id)}${extraQuery ? `&${extraQuery}` : ''}`}
       className={`viewer-file-link${file.id === activeFileId ? ' active' : ''}`}
     >
       {file.original_name}
