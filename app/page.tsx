@@ -167,18 +167,18 @@ export default async function HomePage() {
           <div className="landing-feature-grid">
             <Card className="landing-feature" variant="padded">
               <FileIcon type="pdf" size={36} />
-              <h3>링크 정책 · NDA</h3>
-              <p>만료, 비밀번호, 이메일·도메인 제한, 최대 조회수, 다운로드 차단에 더해 열람 전 NDA 동의까지 링크마다 적용합니다.</p>
+              <h3>링크 정책 · NDA · 미리보기</h3>
+              <p>만료, 비밀번호, 이메일·도메인 제한, 최대 조회수, 다운로드 차단, 열람 전 NDA 동의까지 링크마다 적용합니다. 보내기 전 ‘미리보기’로 받는 사람의 화면을 통계에 잡히지 않게 확인합니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <FileIcon type="folder" size={36} />
               <h3>데이터룸</h3>
-              <p>여러 문서를 폴더로 정리해 한 링크로 전달하고, 상대 그룹마다 볼 수 있는 폴더를 다르게 열며, 열람자는 그 자리에서 질문을 남깁니다.</p>
+              <p>폴더와 실사 인덱스 번호(1, 1.1…)로 문서를 정리해 한 링크로 전달하고, 그룹마다 보이는 폴더를 다르게 열고, 방문자×문서 매트릭스와 NDA 서명 기록으로 진행 상황을 읽습니다. 딜이 끝나면 모든 링크를 한 번에 잠급니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <Badge variant="info" tone="subtle">실시간</Badge>
               <h3>열람 신호와 통계</h3>
-              <p>열람, 다운로드, 거부 사유, 페이지별 머문 시간까지 모든 이벤트를 링크 · 파일 · 방문자 축으로 집계합니다.</p>
+              <p>완독률, 페이지별 머문 시간, 평균 체류, 접속 국가·디바이스까지 — 누가 어디서 멈췄는지 방문자 단위로 집계하고, 봇·링크 미리보기 크롤러는 자동으로 걸러냅니다.</p>
             </Card>
             <Card className="landing-feature" variant="padded">
               <FileIcon type="pdf" size={36} />
@@ -187,13 +187,13 @@ export default async function HomePage() {
             </Card>
             <Card className="landing-feature" variant="padded">
               <Badge variant="primary" tone="subtle">화이트라벨</Badge>
-              <h3>커스텀 브랜딩</h3>
-              <p>로고 · 브랜드 색상 · 회사명 · 커버 이미지로 공유 화면을 우리 브랜드로 채우고 DocFlow 표기를 숨깁니다.</p>
+              <h3>커스텀 브랜딩 · 팀</h3>
+              <p>로고 · 브랜드 색상 · 커버 이미지로 공유 화면을 우리 브랜드로 채우고, 워크스페이스에 팀원을 초대해 콘텐츠 · 링크 · 통계를 함께 운영합니다.</p>
             </Card>
             <Card className="landing-feature landing-feature-nova" variant="padded">
               <NovaLogo size={32} aria-hidden />
-              <h3>MCP 자동화</h3>
-              <p>업로드, 링크 발급, 통계 조회, 질문 알림을 MCP API 키 한 줄로 AI Agent · Slack · Teams 워크플로우에 연결합니다.</p>
+              <h3>API · MCP 자동화</h3>
+              <p>REST API(OpenAPI)와 MCP 35개 도구로 업로드부터 링크 정책, 방문자 분석까지 전부 코드·AI Agent로 다루고, 웹훅 · Teams 알림으로 후속 액션을 자동화합니다.</p>
             </Card>
           </div>
         </section>

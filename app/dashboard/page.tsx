@@ -17,6 +17,7 @@ import {
 } from '@polaris/ui';
 import Link from 'next/link';
 
+import { GettingStarted } from '@/components/getting-started';
 import { LocalDate } from '@/components/local-date';
 import { requireWorkspace } from '@/lib/auth';
 import { getWorkspaceOverview, listRecentEvents, listWorkspaceTopDocuments } from '@/lib/data';
@@ -24,16 +25,30 @@ import { EVENT_META } from '@/lib/event-labels';
 
 export default async function OverviewPage() {
   const { supabase, workspace } = await requireWorkspace();
-  const [overview, topDocs, recent] = await Promise.all([
+  const [overview, topDocs, recent, filesCount, linksCount] = await Promise.all([
     getWorkspaceOverview(workspace.id),
     listWorkspaceTopDocuments(workspace.id, 5),
-    listRecentEvents(supabase, workspace.id, 12)
+    listRecentEvents(supabase, workspace.id, 12),
+    // Head-only counts power the first-run checklist; ~free under RLS.
+    supabase
+      .from('files')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspace.id)
+      .then((res) => res.count ?? 0),
+    supabase
+      .from('share_links')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspace.id)
+      .is('deleted_at', null)
+      .then((res) => res.count ?? 0)
   ]);
 
   return (
     <Stack asChild gap={5}>
       <section>
         <PageHeader title="대시보드" description="계정 전체의 문서 열람 현황을 한눈에 봅니다." />
+
+        <GettingStarted filesCount={filesCount} linksCount={linksCount} opens={overview.opens} />
 
         <Card>
           <CardHeader>

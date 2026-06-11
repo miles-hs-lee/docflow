@@ -1129,6 +1129,135 @@ export async function getCollectionUniqueViews(ownerId: string, collectionId: st
   return typeof data === 'number' ? data : Number(data ?? 0);
 }
 
+// ── Data-room insights (migration 041): room-level engagement built from
+// link_events ∪ rollups. All degrade to empty on error (pre-041 envs).
+
+export type CollectionFileEngagement = {
+  file_id: string;
+  viewers: number;
+  total_dwell_ms: number;
+  downloads: number;
+  last_activity: string | null;
+};
+
+export async function listCollectionFileEngagement(
+  ownerId: string,
+  collectionId: string
+): Promise<CollectionFileEngagement[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_collection_file_engagement', {
+    p_owner_id: ownerId,
+    p_collection_id: collectionId
+  });
+  if (error || !data) {
+    if (error) console.error('[listCollectionFileEngagement] degraded to empty', error);
+    return [];
+  }
+  return (
+    data as Array<{
+      file_id: string;
+      viewers: number | string;
+      total_dwell_ms: number | string;
+      downloads: number | string;
+      last_activity: string | null;
+    }>
+  ).map((row) => ({
+    file_id: row.file_id,
+    viewers: Number(row.viewers),
+    total_dwell_ms: Number(row.total_dwell_ms),
+    downloads: Number(row.downloads),
+    last_activity: row.last_activity
+  }));
+}
+
+export type CollectionVisitorCell = {
+  visitor_key: string;
+  viewer_email: string | null;
+  file_id: string;
+  total_dwell_ms: number;
+  pages_viewed: number;
+  last_seen: string;
+};
+
+export async function listCollectionVisitorMatrix(
+  ownerId: string,
+  collectionId: string,
+  visitorLimit = 30
+): Promise<CollectionVisitorCell[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_collection_visitor_matrix', {
+    p_owner_id: ownerId,
+    p_collection_id: collectionId,
+    p_visitor_limit: visitorLimit
+  });
+  if (error || !data) {
+    if (error) console.error('[listCollectionVisitorMatrix] degraded to empty', error);
+    return [];
+  }
+  return (
+    data as Array<{
+      visitor_key: string;
+      viewer_email: string | null;
+      file_id: string;
+      total_dwell_ms: number | string;
+      pages_viewed: number | string;
+      last_seen: string;
+    }>
+  ).map((row) => ({
+    visitor_key: row.visitor_key,
+    viewer_email: row.viewer_email,
+    file_id: row.file_id,
+    total_dwell_ms: Number(row.total_dwell_ms),
+    pages_viewed: Number(row.pages_viewed),
+    last_seen: row.last_seen
+  }));
+}
+
+// NDA assent log across the room's links — agreement events are never
+// compacted, so a plain query over the link ids is exact and audit-grade.
+export type CollectionAgreementRow = {
+  id: number;
+  link_id: string | null;
+  agreement_name: string | null;
+  viewer_email: string | null;
+  created_at: string;
+};
+
+export async function listCollectionAgreements(
+  linkIds: string[],
+  limit = 100
+): Promise<CollectionAgreementRow[]> {
+  if (linkIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('link_events')
+    .select('id, link_id, agreement_name, viewer_email, created_at')
+    .in('link_id', linkIds)
+    .eq('event_type', 'agreement')
+    .order('id', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as CollectionAgreementRow[];
+}
+
+// Room-scoped recent activity (page_view excluded — same as the overview feed).
+export async function listCollectionRecentEvents(
+  linkIds: string[],
+  limit = 12
+): Promise<Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>> {
+  if (linkIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('link_events')
+    .select('id, event_type, reason, viewer_email, created_at')
+    .in('link_id', linkIds)
+    .in('event_type', OWNER_FEED_EVENT_TYPES)
+    .order('id', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>;
+}
+
 // Per-link distinct unique for every link of a room in one round trip
 // (migration 021) — kills the N+1 of calling get_link_unique_views per link.
 export async function listCollectionLinkUniques(ownerId: string, collectionId: string): Promise<Map<string, number>> {

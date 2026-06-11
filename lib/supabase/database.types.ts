@@ -1140,6 +1140,34 @@ export type Database = {
           rollup_rows: number;
         }[];
       };
+      get_collection_file_engagement: {
+        Args: {
+          p_owner_id: string;
+          p_collection_id: string;
+        };
+        Returns: {
+          file_id: string;
+          viewers: number;
+          total_dwell_ms: number;
+          downloads: number;
+          last_activity: string | null;
+        }[];
+      };
+      get_collection_visitor_matrix: {
+        Args: {
+          p_owner_id: string;
+          p_collection_id: string;
+          p_visitor_limit?: number;
+        };
+        Returns: {
+          visitor_key: string;
+          viewer_email: string | null;
+          file_id: string;
+          total_dwell_ms: number;
+          pages_viewed: number;
+          last_seen: string;
+        }[];
+      };
       get_viewer_link_bundle: {
         Args: {
           p_token: string;

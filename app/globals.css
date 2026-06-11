@@ -1469,6 +1469,92 @@ svg {
   gap: 2px;
 }
 
+/* DD index numbers (1, 1.1 …) — quiet, fixed-width-ish prefix. */
+.viewer-dd-number {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 45%, transparent);
+  min-width: 1.6em;
+}
+
+/* In-room document filter (plain input — viewer pages ship no client provider). */
+.viewer-tree-search {
+  width: 100%;
+  margin-bottom: var(--polaris-spacing-2xs);
+  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
+  font-size: 0.82rem;
+  color: var(--polaris-label-inverse);
+  background: color-mix(in srgb, var(--polaris-static-white) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--polaris-static-white) 16%, transparent);
+  border-radius: 6px;
+  outline: none;
+}
+
+.viewer-tree-search::placeholder {
+  color: color-mix(in srgb, var(--polaris-label-inverse) 40%, transparent);
+}
+
+.viewer-tree-search:focus {
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+.viewer-tree-empty {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--polaris-label-inverse) 55%, transparent);
+  padding: var(--polaris-spacing-2xs) var(--polaris-spacing-xs);
+}
+
+/* Room insights: the visitor × document grid can outgrow the card width. */
+.room-matrix-scroll {
+  overflow-x: auto;
+}
+
+/* Dashboard first-run checklist. */
+.getting-started-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--polaris-spacing-sm);
+}
+
+.getting-started-marker {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid var(--polaris-border-default, color-mix(in srgb, currentColor 25%, transparent));
+  color: var(--polaris-label-muted, inherit);
+}
+
+.getting-started-marker.done {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  color: var(--primary);
+}
+
+.getting-started-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.getting-started-done-title {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.getting-started-more {
+  margin-top: var(--polaris-spacing-sm);
+}
+
+.getting-started-more a {
+  text-decoration: underline;
+}
+
 .viewer-folder {
   margin-bottom: 2px;
 }

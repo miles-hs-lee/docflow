@@ -32,6 +32,7 @@ import { ExpiryDateField } from '@/components/expiry-date-field';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
+import { RoomInsights } from '@/components/room-insights';
 import { SpaceStructure } from '@/components/space-structure';
 import { ViewerGroups } from '@/components/viewer-groups';
 import {
@@ -42,6 +43,7 @@ import {
   removeCollectionBrandingCoverAction,
   removeCollectionBrandingLogoAction,
   saveCollectionBrandingAction,
+  setCollectionLinksActiveAction,
   softDeleteLinkAction,
   updateShareLinkAction
 } from '@/lib/actions/owner';
@@ -51,8 +53,12 @@ import {
   getCollection,
   getCollectionBranding,
   getCollectionUniqueViews,
+  listCollectionAgreements,
+  listCollectionFileEngagement,
   listCollectionLinkUniques,
   listCollectionQuestions,
+  listCollectionRecentEvents,
+  listCollectionVisitorMatrix,
   listLinksForCollection,
   listSpaceContents,
   listViewerGroups
@@ -85,11 +91,18 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
 
   // Per-link unique in ONE round trip (migration 021), plus a TRUE room-wide
   // distinct unique — replaces the old N+1 (one RPC per link) and the per-link
-  // unique sum that double-counted cross-link visitors.
-  const [linkUniques, roomUnique] = await Promise.all([
+  // unique sum that double-counted cross-link visitors. Insights (041) load
+  // alongside: file hotness, visitor × file matrix, NDA log, recent activity.
+  const linkIds = links.map((link) => link.id);
+  const [linkUniques, roomUnique, fileEngagement, visitorMatrix, agreements, recentEvents] = await Promise.all([
     listCollectionLinkUniques(collection.owner_id, collection.id),
-    getCollectionUniqueViews(collection.owner_id, collection.id)
+    getCollectionUniqueViews(collection.owner_id, collection.id),
+    listCollectionFileEngagement(collection.owner_id, collection.id),
+    listCollectionVisitorMatrix(collection.owner_id, collection.id),
+    listCollectionAgreements(linkIds),
+    listCollectionRecentEvents(linkIds)
   ]);
+  const activeLinkCount = links.filter((link) => link.is_active).length;
   const metricsMap = new Map(
     links.map((link) => [
       link.id,
@@ -157,6 +170,7 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           </TabsList>
 
           <TabsContent value="overview">
+            <Stack gap={4}>
         <Card>
           <CardHeader>
             <CardTitle>데이터룸 요약</CardTitle>
@@ -175,6 +189,55 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
             </StatGroup>
           </CardBody>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>엔게이지먼트</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <Stack gap={4}>
+              <RoomInsights
+                files={files}
+                links={links}
+                engagement={fileEngagement}
+                matrix={visitorMatrix}
+                agreements={agreements}
+                recentEvents={recentEvents}
+              />
+            </Stack>
+          </CardBody>
+        </Card>
+
+        {links.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>접근 일괄 제어</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <p className="muted">
+                딜 종료·검토 마감 시 이 데이터룸의 링크 {links.length}개(활성 {activeLinkCount}개)를 한 번에
+                잠그거나 다시 엽니다. 차단 즉시 발급된 접근 권한(쿠키)도 무효화됩니다.
+              </p>
+              <Stack direction="row" gap={2}>
+                <form action={setCollectionLinksActiveAction}>
+                  <HiddenInput name="collectionId" value={collection.id} />
+                  <HiddenInput name="active" value="false" />
+                  <Button type="submit" variant="danger" size="sm" disabled={activeLinkCount === 0}>
+                    모든 링크 차단
+                  </Button>
+                </form>
+                <form action={setCollectionLinksActiveAction}>
+                  <HiddenInput name="collectionId" value={collection.id} />
+                  <HiddenInput name="active" value="true" />
+                  <Button type="submit" variant="secondary" size="sm" disabled={activeLinkCount === links.length}>
+                    모든 링크 활성화
+                  </Button>
+                </form>
+              </Stack>
+            </CardBody>
+          </Card>
+        ) : null}
+            </Stack>
           </TabsContent>
 
           <TabsContent value="content">

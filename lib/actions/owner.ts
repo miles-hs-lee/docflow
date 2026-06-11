@@ -812,6 +812,48 @@ export async function updateShareLinkAction(formData: FormData) {
   redirectWithSuccess(redirectPath, '링크 정책이 업데이트되었습니다.');
 }
 
+// Deal-close kill switch: (de)activate EVERY live link of a data room in one
+// action. Deactivation bumps each link's policy_version (existing trigger),
+// so in-flight grant cookies die immediately — viewers mid-read lose access
+// on their next request, which is exactly what "딜 종료" means.
+export async function setCollectionLinksActiveAction(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const admin = createAdminClient();
+
+  const collectionId = ((formData.get('collectionId') as string | null) || '').trim();
+  const active = parseBoolean(formData, 'active');
+  if (!collectionId) {
+    redirectWithError('/dashboard', '데이터룸 정보가 누락되었습니다.');
+  }
+  const redirectPath = `/dashboard/collections/${collectionId}`;
+
+  const { data: ownedCollection } = await admin
+    .from('collections')
+    .select('id')
+    .eq('id', collectionId)
+    .eq('workspace_id', workspace.id)
+    .maybeSingle();
+  if (!ownedCollection) {
+    redirectWithError('/dashboard', '데이터룸 권한이 없습니다.');
+  }
+
+  const { error } = await admin
+    .from('share_links')
+    .update({ is_active: active })
+    .eq('collection_id', collectionId)
+    .eq('workspace_id', workspace.id)
+    .is('deleted_at', null);
+  if (error) {
+    redirectWithError(redirectPath, '링크 일괄 변경에 실패했습니다.');
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithSuccess(
+    redirectPath,
+    active ? '데이터룸의 모든 링크를 활성화했습니다.' : '데이터룸의 모든 링크 접근을 차단했습니다.'
+  );
+}
+
 export async function softDeleteLinkAction(formData: FormData) {
   const { workspace } = await requireWorkspace();
   const admin = createAdminClient();

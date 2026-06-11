@@ -9,6 +9,7 @@ import {
   moveCollectionFolderAction,
   renameFolderAction
 } from '@/lib/actions/owner';
+import { buildDdIndex } from '@/lib/dd-index';
 import type { FolderRow, SpaceFile } from '@/lib/types';
 
 type SpaceStructureProps = {
@@ -21,6 +22,9 @@ type SpaceStructureProps = {
 // rename / delete folder. Each container's files render through the client-side
 // <SpaceFileList>, which adds drag-and-drop reorder + move-to-folder + remove.
 export function SpaceStructure({ collectionId, folders, files }: SpaceStructureProps) {
+  // DD index numbers (1, 1.1 …) — same numbering the viewer tree shows, so
+  // the owner can reference documents the way recipients see them.
+  const ddIndex = buildDdIndex(folders, files);
   const folderIds = new Set(folders.map((folder) => folder.id));
   // Orphaned / cross-collection parent references fall back to the root so a
   // file or subfolder is never silently dropped from the editor.
@@ -35,7 +39,9 @@ export function SpaceStructure({ collectionId, folders, files }: SpaceStructureP
       <div className="space-node space-folder-head">
         <span className="space-node-label">
           <FileIcon type="folder" size={18} />
-          <strong className="space-node-name">{folder.name}</strong>
+          <strong className="space-node-name">
+            <span className="muted small">{ddIndex.folderNumbers.get(folder.id)}</span> {folder.name}
+          </strong>
         </span>
         <div className="space-reorder-buttons">
           <form action={moveCollectionFolderAction}>
