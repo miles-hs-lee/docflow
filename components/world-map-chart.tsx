@@ -1,31 +1,25 @@
 'use client';
 
-import { feature } from 'topojson-client';
-import type { Topology } from 'topojson-specification';
 import { useCallback } from 'react';
 
 import { EChart, echarts } from '@/components/echart';
-import { ISO_A2_TO_NUMERIC } from '@/lib/geo-iso';
+import { ISO_A2_TO_MAP_NAME } from '@/lib/geo-map-names';
 import type { LinkCountryCount } from '@/lib/types';
 
-const MAP_NAME = 'world-110m';
+const MAP_NAME = 'world';
 
-// Register the self-hosted world topology once per session. world-atlas
-// features carry numeric ISO ids; we key regions by that id (stable across
-// locales) and join from our alpha-2 codes via ISO_A2_TO_NUMERIC.
+// Register the self-hosted world geometry once per session. This is the
+// ECharts-prepared world GeoJSON (clipped at the antimeridian) — the raw
+// world-atlas topology smeared Russia/Fiji into horizontal bands under
+// ECharts's plain lat/lon projection. Features are keyed by English name;
+// our alpha-2 codes join via ISO_A2_TO_MAP_NAME.
 let mapReady: Promise<void> | null = null;
 function ensureWorldMap(): Promise<void> {
   if (!mapReady) {
-    mapReady = fetch('/geo/countries-110m.json')
+    mapReady = fetch('/geo/world.json')
       .then((res) => res.json())
-      .then((topology: Topology) => {
-        const collection = feature(topology, topology.objects.countries) as unknown as {
-          features: Array<{ id?: string | number; properties?: Record<string, unknown> }>;
-        };
-        for (const f of collection.features) {
-          f.properties = { ...f.properties, name: String(f.id ?? '') };
-        }
-        echarts.registerMap(MAP_NAME, collection as never);
+      .then((geojson) => {
+        echarts.registerMap(MAP_NAME, geojson as never);
       })
       .catch((error) => {
         mapReady = null;
@@ -51,20 +45,21 @@ type WorldMapChartProps = {
   countries: LinkCountryCount[];
 };
 
-// 국가별 열람 choropleth. Codes the topology doesn't cover (or null country)
-// simply don't paint — the bar list next to the map remains the exact record.
+// 국가별 열람 choropleth. Codes the 110m geometry doesn't cover (micro
+// territories) simply don't paint — the bar list next to the map remains
+// the exact record.
 export function WorldMapChart({ countries }: WorldMapChartProps) {
   const mappable = countries.filter(
     (item): item is LinkCountryCount & { country: string } =>
-      Boolean(item.country && ISO_A2_TO_NUMERIC[item.country])
+      Boolean(item.country && ISO_A2_TO_MAP_NAME[item.country])
   );
 
   const buildOption = useCallback(
     (theme: { primary: string; label: string; muted: string; surface: string }) => {
       const max = Math.max(...mappable.map((item) => item.viewers), 1);
-      const byNumeric = new Map(
+      const byMapName = new Map(
         mappable.map((item) => [
-          ISO_A2_TO_NUMERIC[item.country],
+          ISO_A2_TO_MAP_NAME[item.country],
           { a2: item.country, viewers: item.viewers }
         ])
       );
@@ -73,7 +68,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
           trigger: 'item',
           confine: true,
           formatter: (params: { name: string }) => {
-            const hit = byNumeric.get(params.name);
+            const hit = byMapName.get(params.name);
             if (!hit) return '';
             return `${countryFlag(hit.a2)} ${regionName(hit.a2)} · ${hit.viewers}명`;
           }
@@ -82,6 +77,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
           min: 0,
           max,
           show: false,
+          calculable: false,
           inRange: {
             // Transparent-ish tint of the brand color up to full primary.
             color: [`${theme.primary}26`, theme.primary]
@@ -92,9 +88,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
             type: 'map',
             map: MAP_NAME,
             roam: false,
-            // Antarctica wastes a third of the height; crop to inhabited band.
-            center: [10, 16],
-            zoom: 1.18,
+            zoom: 1.05,
             selectedMode: false,
             itemStyle: {
               areaColor: `${theme.muted}1f`,
@@ -106,7 +100,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
               itemStyle: { areaColor: theme.primary }
             },
             data: mappable.map((item) => ({
-              name: ISO_A2_TO_NUMERIC[item.country],
+              name: ISO_A2_TO_MAP_NAME[item.country],
               value: item.viewers
             }))
           }
