@@ -9,6 +9,7 @@ import {
   TableRow
 } from '@polaris/ui';
 
+import { InlineBar } from '@/components/inline-bar';
 import { LocalDate } from '@/components/local-date';
 import type { CollectionAgreementRow, CollectionFileEngagement, CollectionVisitorCell } from '@/lib/data';
 import { EVENT_META } from '@/lib/event-labels';
@@ -74,6 +75,10 @@ export function RoomInsights({ files, links, engagement, matrix, agreements, rec
   const matrixFiles = files.filter((file) =>
     visibleVisitors.some((visitor) => cellMap.has(`${visitor}:${file.id}`))
   );
+  // Heat scale for matrix cells — intensity is relative to the busiest cell.
+  const maxCellDwell = Math.max(...matrix.map((cell) => cell.total_dwell_ms), 1);
+  const cellIntensity = (dwellMs: number) =>
+    dwellMs <= 0 ? 8 : Math.max(12, Math.round((dwellMs / maxCellDwell) * 55));
 
   return (
     <>
@@ -96,15 +101,20 @@ export function RoomInsights({ files, links, engagement, matrix, agreements, rec
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rankedFiles.map((row) => (
-                <TableRow key={row.file_id}>
-                  <TableCell>{fileName.get(row.file_id)}</TableCell>
-                  <TableCell nowrap>{row.viewers}</TableCell>
-                  <TableCell nowrap>{formatDuration(row.total_dwell_ms)}</TableCell>
-                  <TableCell nowrap>{row.downloads > 0 ? row.downloads : '-'}</TableCell>
-                  <TableCell nowrap>{row.last_activity ? <LocalDate value={row.last_activity} /> : '-'}</TableCell>
-                </TableRow>
-              ))}
+              {rankedFiles.map((row) => {
+                const maxViewers = rankedFiles[0]?.viewers ?? 0;
+                return (
+                  <TableRow key={row.file_id}>
+                    <TableCell>{fileName.get(row.file_id)}</TableCell>
+                    <TableCell nowrap>
+                      <InlineBar value={row.viewers} max={maxViewers} />
+                    </TableCell>
+                    <TableCell nowrap>{formatDuration(row.total_dwell_ms)}</TableCell>
+                    <TableCell nowrap>{row.downloads > 0 ? row.downloads : '-'}</TableCell>
+                    <TableCell nowrap>{row.last_activity ? <LocalDate value={row.last_activity} /> : '-'}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -140,7 +150,14 @@ export function RoomInsights({ files, links, engagement, matrix, agreements, rec
                       return (
                         <TableCell key={visitor} nowrap>
                           {cell ? (
-                            <span title={`${cell.pages_viewed}p 열람 · ${formatDuration(cell.total_dwell_ms)}`}>
+                            <span
+                              className="room-matrix-cell"
+                              style={{
+                                // eslint-disable-next-line -- --primary: app brand accent (globals.css), intensity is computed
+                                background: `color-mix(in srgb, var(--primary) ${cellIntensity(cell.total_dwell_ms)}%, transparent)`
+                              }}
+                              title={`${cell.pages_viewed}p 열람 · ${formatDuration(cell.total_dwell_ms)}`}
+                            >
                               {cellDwell(cell.total_dwell_ms)}
                             </span>
                           ) : (
@@ -154,7 +171,7 @@ export function RoomInsights({ files, links, engagement, matrix, agreements, rec
               </TableBody>
             </Table>
           </div>
-          <p className="muted small">셀은 방문자가 그 문서에 머문 시간입니다 (✓ = 열람만 기록).</p>
+          <p className="muted small">진할수록 그 문서에 오래 머문 것입니다 (✓ = 열람만 기록).</p>
         </div>
       ) : null}
 

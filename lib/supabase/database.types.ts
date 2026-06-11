@@ -1168,6 +1168,56 @@ export type Database = {
           last_seen: string;
         }[];
       };
+      get_link_gate_funnel: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+        };
+        Returns: {
+          visits: number;
+          email_submits: number;
+          agreements: number;
+          viewers: number;
+          downloaders: number;
+        }[];
+      };
+      get_collection_gate_funnel: {
+        Args: {
+          p_owner_id: string;
+          p_collection_id: string;
+        };
+        Returns: {
+          visits: number;
+          email_submits: number;
+          agreements: number;
+          viewers: number;
+          downloaders: number;
+        }[];
+      };
+      get_workspace_daily_views: {
+        Args: {
+          p_workspace_id: string;
+          p_days?: number;
+          p_tz?: string;
+        };
+        Returns: {
+          day: string;
+          sessions: number;
+          new_viewers: number;
+        }[];
+      };
+      get_link_punchcard: {
+        Args: {
+          p_owner_id: string;
+          p_link_id: string;
+          p_tz?: string;
+        };
+        Returns: {
+          dow: number;
+          hour: number;
+          hits: number;
+        }[];
+      };
       get_viewer_link_bundle: {
         Args: {
           p_token: string;

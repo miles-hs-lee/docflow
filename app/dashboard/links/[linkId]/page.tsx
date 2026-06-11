@@ -22,14 +22,20 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { DailyViewsChart } from '@/components/daily-views-chart';
+import { GateFunnelChart } from '@/components/gate-funnel';
+import { CountryBars, DeviceDonut } from '@/components/geo-device-charts';
 import { LocalDate } from '@/components/local-date';
 import { PageHeatmap } from '@/components/page-heatmap';
+import { Punchcard } from '@/components/punchcard';
+import { ReachCurve } from '@/components/reach-curve';
 import { VisitorList } from '@/components/visitor-list';
 import { requireWorkspace } from '@/lib/auth';
 import {
   getDeniedBreakdown,
   getLink,
   getLinkEngagement,
+  getLinkGateFunnel,
+  getLinkPunchcard,
   getMetricsForLink,
   listFilesForCollection,
   listLinkCountryBreakdown,
@@ -109,6 +115,10 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
     listLinkVisitors({ ownerId: link.owner_id, linkId: link.id }),
     getLinkEngagement({ ownerId: link.owner_id, linkId: link.id }),
     listLinkCountryBreakdown({ ownerId: link.owner_id, linkId: link.id })
+  ]);
+  const [funnel, punchcard] = await Promise.all([
+    getLinkGateFunnel(link.owner_id, link.id),
+    getLinkPunchcard(link.owner_id, link.id)
   ]);
 
   const linkedFile = fileResult.data as { original_name?: string; page_count?: number | null } | null;
@@ -259,10 +269,42 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
             <CardTitle>최근 30일 열람 추세</CardTitle>
           </CardHeader>
           <CardBody>
-            <p className="muted">막대 높이는 그 날 활동한 세션 수입니다(열람·페이지 신호 기준).</p>
+            <p className="muted">막대 높이는 그 날 활동한 세션 수입니다 — 진한 부분이 신규, 옅은 부분이 재방문(재열람 = 검토 심화 신호)입니다.</p>
             <DailyViewsChart data={dailyViews} />
           </CardBody>
         </Card>
+
+        {funnel && funnel.visits > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>접근 퍼널</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <p className="muted">
+                방문 세션이 각 게이트를 얼마나 통과해 열람·다운로드까지 도달했는지입니다. 게이트 단계에서 폭이
+                크게 줄면 정책이 이탈을 만들고 있다는 신호입니다.
+              </p>
+              <GateFunnelChart
+                funnel={funnel}
+                requireEmail={link.require_email || link.allowed_domains.length > 0}
+                requireAgreement={link.require_agreement}
+                allowDownload={link.allow_download}
+              />
+            </CardBody>
+          </Card>
+        ) : null}
+
+        {punchcard.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>열람 시간대</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <p className="muted">상대가 실제로 읽는 요일·시간입니다. 팔로업 메시지를 보낼 타이밍의 근거가 됩니다.</p>
+              <Punchcard cells={punchcard} />
+            </CardBody>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -277,39 +319,31 @@ export default async function LinkDetailPage({ params, searchParams }: LinkDetai
                 {sectionsWithData.map((section) => (
                   <div key={section.key}>
                     <strong className="muted small">{section.name}</strong>
+                    <ReachCurve stats={section.stats} pageCount={section.pageCount} />
                     <PageHeatmap stats={section.stats} pageCount={section.pageCount} />
                   </div>
                 ))}
               </Stack>
             ) : (
-              <PageHeatmap stats={sectionsWithData[0].stats} pageCount={sectionsWithData[0].pageCount} />
+              <>
+                <ReachCurve stats={sectionsWithData[0].stats} pageCount={sectionsWithData[0].pageCount} />
+                <PageHeatmap stats={sectionsWithData[0].stats} pageCount={sectionsWithData[0].pageCount} />
+              </>
             )}
           </CardBody>
         </Card>
 
-        {countries.length > 0 ? (
+        {countries.length > 0 || visitors.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>국가별 열람</CardTitle>
+              <CardTitle>국가 · 디바이스</CardTitle>
             </CardHeader>
             <CardBody>
-              <p className="muted">유니크 방문자(세션)의 접속 국가입니다. 원본 IP는 저장하지 않습니다.</p>
-              <Table density="compact">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>국가</TableHead>
-                    <TableHead nowrap>열람자</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {countries.map((item) => (
-                    <TableRow key={item.country ?? 'unknown'}>
-                      <TableCell>{item.country ?? '알 수 없음'}</TableCell>
-                      <TableCell nowrap>{item.viewers}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <p className="muted">유니크 방문자(세션)의 접속 국가와 사용 기기입니다. 원본 IP는 저장하지 않습니다.</p>
+              <div className="geo-device-grid">
+                <CountryBars countries={countries} />
+                <DeviceDonut visitors={visitors} />
+              </div>
             </CardBody>
           </Card>
         ) : null}

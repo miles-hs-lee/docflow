@@ -1258,6 +1258,101 @@ export async function listCollectionRecentEvents(
   return data as Array<{ id: number; event_type: string; reason: string | null; viewer_email: string | null; created_at: string }>;
 }
 
+// ── Chart aggregations (migration 042). All degrade to null/empty on error
+// so pre-042 environments render without the chart instead of crashing.
+
+export type GateFunnel = {
+  visits: number;
+  email_submits: number;
+  agreements: number;
+  viewers: number;
+  downloaders: number;
+};
+
+function mapGateFunnel(data: unknown): GateFunnel | null {
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | Partial<Record<keyof GateFunnel, number | string>>
+    | undefined;
+  if (!row) return null;
+  return {
+    visits: Number(row.visits ?? 0),
+    email_submits: Number(row.email_submits ?? 0),
+    agreements: Number(row.agreements ?? 0),
+    viewers: Number(row.viewers ?? 0),
+    downloaders: Number(row.downloaders ?? 0)
+  };
+}
+
+export async function getLinkGateFunnel(ownerId: string, linkId: string): Promise<GateFunnel | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_gate_funnel', {
+    p_owner_id: ownerId,
+    p_link_id: linkId
+  });
+  if (error || !data) {
+    if (error) console.error('[getLinkGateFunnel] degraded to null', error);
+    return null;
+  }
+  return mapGateFunnel(data);
+}
+
+export async function getCollectionGateFunnel(ownerId: string, collectionId: string): Promise<GateFunnel | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_collection_gate_funnel', {
+    p_owner_id: ownerId,
+    p_collection_id: collectionId
+  });
+  if (error || !data) {
+    if (error) console.error('[getCollectionGateFunnel] degraded to null', error);
+    return null;
+  }
+  return mapGateFunnel(data);
+}
+
+// Workspace-wide daily series for the overview sparkline (migration 042).
+export async function listWorkspaceDailyViews(workspaceId: string, days = 14): Promise<LinkDailyView[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_workspace_daily_views', {
+    p_workspace_id: workspaceId,
+    p_days: days,
+    p_tz: ANALYTICS_TIMEZONE
+  });
+  if (error || !data) {
+    if (error) console.error('[listWorkspaceDailyViews] degraded to empty', error);
+    return [];
+  }
+  return (data as Array<{ day: string; sessions: number | string; new_viewers: number | string }>).map((row) => ({
+    day: row.day,
+    sessions: Number(row.sessions),
+    new_viewers: Number(row.new_viewers)
+  }));
+}
+
+export type PunchcardCell = {
+  dow: number;
+  hour: number;
+  hits: number;
+};
+
+// Day-of-week × hour engagement, last 90 days (migration 042).
+export async function getLinkPunchcard(ownerId: string, linkId: string): Promise<PunchcardCell[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('get_link_punchcard', {
+    p_owner_id: ownerId,
+    p_link_id: linkId,
+    p_tz: ANALYTICS_TIMEZONE
+  });
+  if (error || !data) {
+    if (error) console.error('[getLinkPunchcard] degraded to empty', error);
+    return [];
+  }
+  return (data as Array<{ dow: number; hour: number; hits: number | string }>).map((row) => ({
+    dow: row.dow,
+    hour: row.hour,
+    hits: Number(row.hits)
+  }));
+}
+
 // Per-link distinct unique for every link of a room in one round trip
 // (migration 021) — kills the N+1 of calling get_link_unique_views per link.
 export async function listCollectionLinkUniques(ownerId: string, collectionId: string): Promise<Map<string, number>> {

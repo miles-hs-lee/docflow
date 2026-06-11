@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@polaris/ui';
 import { useMemo, useState } from 'react';
 
 import { buildDdIndex } from '@/lib/dd-index';
@@ -70,7 +71,7 @@ export function SpaceViewerNav({ token, folders, files, activeFileId, extraQuery
   return (
     <nav className="viewer-tree">
       {files.length > 5 ? (
-        <input
+        <Input
           type="search"
           className="viewer-tree-search"
           placeholder="문서 검색"

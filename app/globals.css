@@ -1555,6 +1555,308 @@ svg {
   text-decoration: underline;
 }
 
+/* ── Engagement charts (server-rendered CSS/SVG, theme via --primary) ── */
+
+/* Reach (drop-off) curve above the page heatmap. */
+.reach-curve svg {
+  display: block;
+}
+
+.reach-curve-area {
+  fill: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.reach-curve-line {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+.reach-curve-drop {
+  stroke: var(--polaris-error, #d85a30);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.reach-curve-annotation {
+  font-size: 11px;
+  fill: var(--polaris-error, #d85a30);
+}
+
+.reach-curve-label {
+  font-size: 11px;
+  fill: var(--polaris-label-default, currentColor);
+}
+
+.reach-curve-axis {
+  font-size: 10px;
+  fill: var(--polaris-label-muted, currentColor);
+  opacity: 0.7;
+}
+
+/* Inline bar inside table cells. */
+.inline-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-bar-track {
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  overflow: hidden;
+  flex: none;
+}
+
+.inline-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+/* Country bars + device donut. */
+.geo-device-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--polaris-spacing-xl);
+  align-items: flex-start;
+}
+
+.country-bars {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.country-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.country-bar-name {
+  width: 76px;
+  flex: none;
+}
+
+.country-bar-track {
+  flex: 1;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  overflow: hidden;
+}
+
+.country-bar-fill {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--primary) 65%, transparent);
+  border-radius: 4px;
+}
+
+.country-bar-value {
+  flex: none;
+  min-width: 88px;
+  text-align: right;
+  color: var(--polaris-label-muted, inherit);
+}
+
+.device-donut {
+  display: flex;
+  align-items: center;
+  gap: var(--polaris-spacing-md);
+}
+
+.device-donut-track {
+  stroke: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.device-donut-arc {
+  stroke: var(--primary);
+}
+
+.device-donut-center {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--polaris-label-default, currentColor);
+}
+
+.device-donut-legend {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.device-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.device-donut-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--primary);
+  flex: none;
+}
+
+/* Gate funnel. */
+.gate-funnel {
+  display: grid;
+  gap: 6px;
+}
+
+.gate-funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.gate-funnel-label {
+  width: 86px;
+  flex: none;
+  color: var(--polaris-label-muted, inherit);
+}
+
+.gate-funnel-track {
+  flex: 1;
+  height: 18px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  overflow: hidden;
+}
+
+.gate-funnel-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.gate-funnel-value {
+  flex: none;
+  min-width: 80px;
+  text-align: right;
+}
+
+/* Overview sparkline strip. */
+.overview-sparkline {
+  margin-top: var(--polaris-spacing-md);
+}
+
+.overview-sparkline svg {
+  display: block;
+}
+
+.sparkline-area {
+  fill: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.sparkline-line {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+.sparkline-dot {
+  fill: var(--primary);
+}
+
+/* 요일×시간 punch card. */
+.punchcard-grid {
+  display: grid;
+  gap: 3px;
+}
+
+.punchcard-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.punchcard-dow {
+  width: 22px;
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--polaris-label-muted, inherit);
+}
+
+.punchcard-cell {
+  flex: 1;
+  aspect-ratio: 1;
+  min-width: 0;
+  max-height: 18px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+
+.punchcard-hour {
+  flex: 1;
+  font-size: 0.66rem;
+  color: var(--polaris-label-muted, inherit);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Stacked daily chart (신규/재방문). */
+.daily-chart-stack {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.daily-chart-stack .daily-chart-bar {
+  border-radius: 0;
+}
+
+.daily-chart-stack .daily-chart-bar:first-child {
+  border-radius: var(--polaris-radius-sm) var(--polaris-radius-sm) 0 0;
+}
+
+.daily-chart-bar.returning {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.daily-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: var(--polaris-spacing-2xs);
+}
+
+.daily-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.daily-chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--primary);
+  flex: none;
+}
+
+.daily-chart-swatch.returning {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* Visitor × document matrix heat cells. */
+.room-matrix-cell {
+  display: inline-block;
+  min-width: 38px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .viewer-folder {
   margin-bottom: 2px;
 }

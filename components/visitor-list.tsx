@@ -9,6 +9,7 @@ import {
   TableRow
 } from '@polaris/ui';
 
+import { InlineBar } from '@/components/inline-bar';
 import { LocalDate } from '@/components/local-date';
 import { formatDuration } from '@/lib/format';
 import type { LinkVisitor } from '@/lib/types';
@@ -81,10 +82,11 @@ export function VisitorList({ visitors, pageCount }: VisitorListProps) {
               <TableCell nowrap>{visitor.sessions}</TableCell>
               {completionPct !== null ? (
                 <TableCell nowrap>
-                  {completionPct}%{' '}
-                  <span className="muted small">
-                    ({visitor.pages_viewed}/{pageCount}p)
-                  </span>
+                  <InlineBar
+                    value={completionPct}
+                    max={100}
+                    label={`${completionPct}% (${visitor.pages_viewed}/${pageCount}p)`}
+                  />
                 </TableCell>
               ) : (
                 <TableCell nowrap>{visitor.pages_viewed}</TableCell>

@@ -23,7 +23,7 @@ Polaris Design System 기반의 owner 대시보드와, 토큰만으로 접근하
 - **커스텀 브랜딩(화이트라벨)**: 로고 · 브랜드 색상 · 회사명 · **커버 이미지**를 계정 전역 + **데이터룸별**로 설정(필드 단위 병합) → 공개 화면에서 DocFlow 표기 숨김
 - **데이터룸 Q&A**: 열람자가 남긴 질문을 룸 페이지에서 확인 · 답변 · 삭제 (방문자는 본인 스레드만 비공개로 열람)
 - **연락처**: 이메일을 제출한 모든 방문자를 링크 전반에서 롤업
-- **분석**: 링크별 view / unique(세션 기준) / **평균 체류 시간** / download / denied, denied 사유 집계, **페이지별 dwell heatmap + 완독률**(첫 열람자가 보고한 `page_count` 기준, 미열람 페이지는 0행으로 표시), 일별 추세(타임존 설정 가능), 방문자별 롤업(**완독률·디바이스·국가** 컬럼), **국가별 열람**(플랫폼 geo 헤더의 2자리 코드만 저장 — 원본 IP 미저장), 이벤트 로그. **봇/링크 프리뷰 크롤러는 조회수·거부 집계에서 제외**, 열람 수는 세션당 30분 윈도우로 dedup
+- **분석**: 링크별 view / unique(세션 기준) / **평균 체류 시간** / download / denied, denied 사유 집계, **페이지 도달(드롭오프) 곡선 + dwell heatmap + 완독률**(첫 열람자가 보고한 `page_count` 기준), 일별 추세(**신규/재방문 스택**, 타임존 설정 가능), **접근 게이트 퍼널**(방문→이메일→NDA→열람→다운로드), **열람 시간대 펀치카드**(요일×시간, 90일), 방문자별 롤업(**완독률 바·디바이스·국가**), **국가 비율 바 + 디바이스 도넛**(원본 IP 미저장), 개요 **14일 스파크라인**, 이벤트 로그. 전 차트가 의존성 없는 서버 렌더 CSS/SVG. **봇/링크 프리뷰 크롤러는 조회수·거부 집계에서 제외**, 열람 수는 세션당 30분 윈도우로 dedup
 - **자동화**: MCP API 키 발급/비활성화, 이벤트 웹훅 구독 + HMAC 서명, **Microsoft Teams 알림**(Adaptive Card) — 구독 이벤트에 `file_uploaded` · `question_asked` 포함
 - **계정 관리**: 비밀번호 재설정, 자가 계정 삭제 (스토리지 + DB 캐스케이드 정리)
 
@@ -82,7 +82,7 @@ cp .env.example .env.local
 
 ### 3) Supabase 마이그레이션 실행
 
-Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 041까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC·**팀/워크스페이스(RBAC)** 기능에 018~034를 사용하므로 빠짐없이 적용해야 합니다. 022~034는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다. **032~034는 워크스페이스 마이그레이션으로, 기존 사용자마다 개인 워크스페이스를 백필하므로 한 번만 안전하게 적용됩니다.**)
+Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 042까지 순서대로** 실행합니다. (앱은 데이터룸 폴더·뷰어 그룹·NDA 동의·연락처/대시보드 집계·파일 요청·커스텀 브랜딩(계정+데이터룸별·로고+커버)·데이터룸 Q&A·파일/폴더 순서변경 RPC·**팀/워크스페이스(RBAC)** 기능에 018~034를 사용하므로 빠짐없이 적용해야 합니다. 022~034는 앱이 새 테이블·컬럼·RPC·버킷을 조회하므로 코드 배포보다 먼저 적용해야 합니다. **032~034는 워크스페이스 마이그레이션으로, 기존 사용자마다 개인 워크스페이스를 백필하므로 한 번만 안전하게 적용됩니다.**)
 
 | 번호 | 내용 |
 |---|---|
@@ -127,6 +127,7 @@ Supabase SQL Editor에서 `supabase/migrations/`의 SQL을 **001부터 041까지
 | 039 | 분석 보강 2: `files.page_count`(첫 열람자가 보고 → 완독률), `link_events.country`(geo 헤더 2자리, `claim_view`에 `p_country`), `get_link_visitors` 수정(데이터룸 페이지 수를 `(file_id, page_number)`로 집계 + country/last_user_agent 반환), `get_link_daily_views` 단일 스캔 재작성 + `p_tz`, `get_workspace_top_documents`에 `p_days`(기본 30일), 신규 `get_link_engagement`(평균 체류)/`get_link_country_breakdown` |
 | 040 | page_view **컴팩션**: 90일 지난 page_view 행을 세션 grain rollup(`page_view_rollups`)으로 압축·삭제하는 `compact_page_view_events`(배치 제한, dispatch cron에서 호출). 페이지 신호를 읽는 RPC(`get_per_page_stats`/`get_link_visitors`/`get_link_engagement`/`get_workspace_top_documents`/`get_workspace_contacts`)를 raw ∪ rollup으로 재정의 — distinct 세션 지표는 세션 grain 덕에 **정확도 손실 없음**. 감사 이벤트(view/download/denied/agreement)는 컴팩션 대상 아님 |
 | 041 | **데이터룸 인사이트**: `get_collection_file_engagement`(룸 전체 링크 기준 문서별 열람자·체류·다운로드·최근 활동) + `get_collection_visitor_matrix`(방문자×문서 셀, 최근 방문자 N명) — 040 rollup union 패턴으로 컴팩션 후에도 정확. NDA 로그·최근 활동은 기존 link_events 쿼리 |
+| 042 | **차트 집계**: `get_link_gate_funnel`/`get_collection_gate_funnel`(방문→이메일→NDA→열람→다운로드 distinct 세션 단계), `get_workspace_daily_views`(개요 스파크라인용, p_tz), `get_link_punchcard`(요일×시간, 최근 90일 — 컴팩션 윈도우 내 raw만 사용) + `idx_link_events_workspace_created` |
 
 ### 4) Supabase Auth
 

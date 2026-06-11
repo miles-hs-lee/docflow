@@ -18,17 +18,25 @@ import {
 import Link from 'next/link';
 
 import { GettingStarted } from '@/components/getting-started';
+import { InlineBar } from '@/components/inline-bar';
 import { LocalDate } from '@/components/local-date';
+import { Sparkline } from '@/components/sparkline';
 import { requireWorkspace } from '@/lib/auth';
-import { getWorkspaceOverview, listRecentEvents, listWorkspaceTopDocuments } from '@/lib/data';
+import {
+  getWorkspaceOverview,
+  listRecentEvents,
+  listWorkspaceDailyViews,
+  listWorkspaceTopDocuments
+} from '@/lib/data';
 import { EVENT_META } from '@/lib/event-labels';
 
 export default async function OverviewPage() {
   const { supabase, workspace } = await requireWorkspace();
-  const [overview, topDocs, recent, filesCount, linksCount] = await Promise.all([
+  const [overview, topDocs, recent, dailyViews, filesCount, linksCount] = await Promise.all([
     getWorkspaceOverview(workspace.id),
     listWorkspaceTopDocuments(workspace.id, 5),
     listRecentEvents(supabase, workspace.id, 12),
+    listWorkspaceDailyViews(workspace.id, 14),
     // Head-only counts power the first-run checklist; ~free under RLS.
     supabase
       .from('files')
@@ -66,6 +74,7 @@ export default async function OverviewPage() {
                 {...(overview.denied > 0 ? { delta: '주의', deltaVariant: 'negative' as const } : {})}
               />
             </StatGroup>
+            <Sparkline data={dailyViews} />
           </CardBody>
         </Card>
 
@@ -95,7 +104,9 @@ export default async function OverviewPage() {
                       <TableCell>
                         <Link href={`/dashboard/files/${doc.file_id}`}>{doc.original_name}</Link>
                       </TableCell>
-                      <TableCell nowrap>{doc.viewers}</TableCell>
+                      <TableCell nowrap>
+                        <InlineBar value={doc.viewers} max={topDocs[0]?.viewers ?? 0} />
+                      </TableCell>
                       <TableCell nowrap>{doc.views}</TableCell>
                     </TableRow>
                   ))}

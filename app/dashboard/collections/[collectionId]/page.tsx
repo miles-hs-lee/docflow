@@ -29,6 +29,7 @@ import { notFound } from 'next/navigation';
 import { BrandingEditor } from '@/components/branding-editor';
 import { CollectionFilePicker } from '@/components/collection-file-picker';
 import { ExpiryDateField } from '@/components/expiry-date-field';
+import { GateFunnelChart } from '@/components/gate-funnel';
 import { HiddenInput } from '@/components/hidden-input';
 import { LinkPolicySummary } from '@/components/link-policy-summary';
 import { LocalDate } from '@/components/local-date';
@@ -52,6 +53,7 @@ import { requireWorkspace } from '@/lib/auth';
 import {
   getCollection,
   getCollectionBranding,
+  getCollectionGateFunnel,
   getCollectionUniqueViews,
   listCollectionAgreements,
   listCollectionFileEngagement,
@@ -94,14 +96,16 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
   // unique sum that double-counted cross-link visitors. Insights (041) load
   // alongside: file hotness, visitor × file matrix, NDA log, recent activity.
   const linkIds = links.map((link) => link.id);
-  const [linkUniques, roomUnique, fileEngagement, visitorMatrix, agreements, recentEvents] = await Promise.all([
-    listCollectionLinkUniques(collection.owner_id, collection.id),
-    getCollectionUniqueViews(collection.owner_id, collection.id),
-    listCollectionFileEngagement(collection.owner_id, collection.id),
-    listCollectionVisitorMatrix(collection.owner_id, collection.id),
-    listCollectionAgreements(linkIds),
-    listCollectionRecentEvents(linkIds)
-  ]);
+  const [linkUniques, roomUnique, fileEngagement, visitorMatrix, agreements, recentEvents, roomFunnel] =
+    await Promise.all([
+      listCollectionLinkUniques(collection.owner_id, collection.id),
+      getCollectionUniqueViews(collection.owner_id, collection.id),
+      listCollectionFileEngagement(collection.owner_id, collection.id),
+      listCollectionVisitorMatrix(collection.owner_id, collection.id),
+      listCollectionAgreements(linkIds),
+      listCollectionRecentEvents(linkIds),
+      getCollectionGateFunnel(collection.owner_id, collection.id)
+    ]);
   const activeLinkCount = links.filter((link) => link.is_active).length;
   const metricsMap = new Map(
     links.map((link) => [
@@ -196,6 +200,17 @@ export default async function CollectionLinksPage({ params }: CollectionLinksPag
           </CardHeader>
           <CardBody>
             <Stack gap={4}>
+              {roomFunnel && roomFunnel.visits > 0 ? (
+                <div>
+                  <strong className="muted small">접근 퍼널 (룸 전체 링크)</strong>
+                  <GateFunnelChart
+                    funnel={roomFunnel}
+                    requireEmail={links.some((link) => link.require_email || link.allowed_domains.length > 0)}
+                    requireAgreement={links.some((link) => link.require_agreement)}
+                    allowDownload={links.some((link) => link.allow_download)}
+                  />
+                </div>
+              ) : null}
               <RoomInsights
                 files={files}
                 links={links}
